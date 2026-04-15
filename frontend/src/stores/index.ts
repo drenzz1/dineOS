@@ -1,1 +1,1 @@
-export default {};
+export { useUiStore } from "./uiStore";
