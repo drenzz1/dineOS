@@ -74,6 +74,7 @@ Each entry records:
 | 2026-04-16 | Claude Code | Update CLAUDE.md to log after each task completion | "Update CLAUDE.md so Claude appends the log right after each task instead of waiting for session end." | Good | ~5 minutes | Triggering log writes after task completion is more reliable than relying on session-end detection. |
 | 2026-04-16 | Claude Code | Remove empty leftover file ai-log.md.txt | "Why do I need this file ai-log.md.txt?" | Good | ~2 minutes | Keeping the docs folder clean avoids confusion about which file is the source of truth. |
 | 2026-04-16 | Claude Code | Migrate .cursorrules into frontend/CLAUDE.md | "Does Claude follow rules inside cursorrules under frontend directory?" | Good | ~10 minutes | Claude Code reads CLAUDE.md not .cursorrules — migrating rules ensures they are actually applied. |
+| 2026-04-16 | Claude Code | Strengthen CLAUDE.md to enforce mandatory logging | "We should be sure that you never miss!" | Good | ~5 minutes | Making rules explicit and non-negotiable in CLAUDE.md reduces the chance of Claude skipping the logging step. |
 
 ---
 
