@@ -71,6 +71,7 @@ Each entry records:
 | 2026-03-24 | ChatGPT | Generate MVP feature descriptions | "Create an MVP scope for a restaurant operations platform with order tracking and kitchen status." | Needed minor edits | ~30 minutes | Clear prompts with context about the product idea produce better structured results. |
 | 2026-03-25 | ChatGPT | Generate RICE scoring explanation | "Explain RICE scoring and calculate it for given features." | Good | ~20 minutes | Providing structured data helps AI produce more accurate calculations. |
 | 2026-04-16 | Claude Code | Create AI Development Log and CLAUDE.md instruction file | "Add a md file for the AI Development Log and create a CLAUDE.md so Claude logs each session automatically." | Good | ~25 minutes | Using CLAUDE.md to automate recurring documentation tasks saves consistent manual effort across sessions. |
+| 2026-04-16 | Claude Code | Update CLAUDE.md to log after each task completion | "Update CLAUDE.md so Claude appends the log right after each task instead of waiting for session end." | Good | ~5 minutes | Triggering log writes after task completion is more reliable than relying on session-end detection. |
 
 ---
 
