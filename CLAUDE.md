@@ -20,7 +20,7 @@ For each session, add a row with:
 
 ### When to append
 
-- Append the entry **at the end of the session**, once the main task is complete and you have enough context to fill in all fields accurately.
+- Append the entry **immediately after each task is completed**, once you have enough context to fill in all fields accurately.
 - If multiple distinct tasks are completed in one session, add one row per major task.
 
 ### File location
