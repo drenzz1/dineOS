@@ -79,6 +79,7 @@ Each entry records:
 
 | 2026-04-16 | Dreni | Claude Code | Create 7 epic issues + 14 individual task issues for Milestone 2 Frontend MVP | "Create cards and issues for M2 milestone for 3 people to complete" | Good | ~60 minutes | Breaking deliverables into per-person assigned issues with checklists and branch names makes sprint planning much faster; including domain types and file paths directly in issue bodies reduces ambiguity for developers. |
 | 2026-04-16 | Dreni | Claude Code | Review CLAUDE.md and correct all GitHub issues for domain language, schema paths, Next.js version, and M2.9/M2.10 mistakes | "We have claude.md file inside the directory so you can check there how we handle audit so change cards if you made any mistake" | Needed edits | ~20 minutes | Claude initially generated issues without reading the existing project conventions — always verify CLAUDE.md before writing detailed technical tickets. Key fixes: Next.js 14→15, role names, schema paths, .cursorrules already existed. |
+| 2026-04-16 | Dreni | Claude Code | Fix issue title inconsistencies, close stale issues, add labels to US stories, create GitHub Milestone, assign all M2 issues, create completed M2.1/M2.2/M2.5 epics | "the items are on project board just fix the other stuff that you see" | Good | ~15 minutes | Cleaning up stale issues with a closing comment and linking to replacements keeps the board unambiguous; creating a formal GitHub Milestone with a due date gives instant % completion tracking. |
 ---
 
 ## Reflection
