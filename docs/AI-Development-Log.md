@@ -72,6 +72,8 @@ Each entry records:
 | 2026-03-25 | ChatGPT | Generate RICE scoring explanation | "Explain RICE scoring and calculate it for given features." | Good | ~20 minutes | Providing structured data helps AI produce more accurate calculations. |
 | 2026-04-16 | Claude Code | Create AI Development Log and CLAUDE.md instruction file | "Add a md file for the AI Development Log and create a CLAUDE.md so Claude logs each session automatically." | Good | ~25 minutes | Using CLAUDE.md to automate recurring documentation tasks saves consistent manual effort across sessions. |
 | 2026-04-16 | Claude Code | Update CLAUDE.md to log after each task completion | "Update CLAUDE.md so Claude appends the log right after each task instead of waiting for session end." | Good | ~5 minutes | Triggering log writes after task completion is more reliable than relying on session-end detection. |
+| 2026-04-16 | Claude Code | Remove empty leftover file ai-log.md.txt | "Why do I need this file ai-log.md.txt?" | Good | ~2 minutes | Keeping the docs folder clean avoids confusion about which file is the source of truth. |
+| 2026-04-16 | Claude Code | Migrate .cursorrules into frontend/CLAUDE.md | "Does Claude follow rules inside cursorrules under frontend directory?" | Good | ~10 minutes | Claude Code reads CLAUDE.md not .cursorrules — migrating rules ensures they are actually applied. |
 
 ---
 
