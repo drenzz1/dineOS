@@ -1,70 +1,9 @@
-# AI-Assisted Logging System
-
-## Description
-
-Design and implement an AI-assisted logging system that captures, organizes, and analyzes application events in real time. The goal is to provide clear visibility into system behavior, errors, and performance while enabling intelligent insights from logs.
-
-## Objectives
-
-- Centralize application logs from different services.
-- Structure logs in a consistent format.
-- Use AI to detect anomalies, patterns, and potential issues.
-- Improve debugging, monitoring, and operational awareness.
-
-## Scope
-
-- Implement structured logging for backend services.
-- Store logs in a centralized logging system (e.g., ELK, Loki, or Cloud logging).
-- Integrate AI models to:
-  - Identify unusual activity or errors
-  - Summarize log events
-  - Provide recommendations for troubleshooting
-- Build dashboards or alerts based on important log events.
-
-## Key Features
-
-- Structured log format (JSON)
-- Log aggregation and storage
-- AI-based log analysis
-- Error detection and anomaly alerts
-- Searchable log history
-- Automated summaries of system activity
-
-## Expected Outcome
-
-A scalable logging infrastructure that not only records system activity but also uses AI to interpret logs, highlight issues, and assist developers in diagnosing and resolving problems faster.
-
-## Deliverables
-
-- Logging framework implementation
-- AI log analysis integration
-- Monitoring dashboards
-- Documentation for log structure and usage
-
----
-
-## AI Development Log
+# AI Development Log
 
 This document tracks the use of AI tools during the development of this project.
 The goal is to document how AI assisted the development process, evaluate the quality of AI outputs, and reflect on lessons learned while using AI effectively.
 
-Each entry records:
-
-- The AI tool used
-- The prompt or input provided
-- The quality of the output
-- Estimated time saved
-- Lessons learned from the interaction
-
-### Entry Template
-
-| Date | Name | Tool Used | Purpose | Prompt / Input | Output Quality | Time Saved | Lessons Learned |
-|------|------|-----------|---------|----------------|----------------|------------|-----------------|
-| YYYY-MM-DD | Dreni / Endriti / Hera | Tool name | What task AI helped with | Prompt used | Good / Needed edits / Failed | Estimated time saved | What worked or didn't |
-
----
-
-### Development Log
+## Development Log
 
 | Date | Name | Tool Used | Purpose | Prompt / Input | Output Quality | Time Saved | Lessons Learned |
 |------|------|-----------|---------|----------------|----------------|------------|-----------------|
@@ -76,22 +15,8 @@ Each entry records:
 | 2026-04-16 | Dreni | Claude Code | Migrate .cursorrules into frontend/CLAUDE.md | "Does Claude follow rules inside cursorrules under frontend directory?" | Good | ~10 minutes | Claude Code reads CLAUDE.md not .cursorrules — migrating rules ensures they are actually applied. |
 | 2026-04-16 | Dreni | Claude Code | Strengthen CLAUDE.md to enforce mandatory logging | "We should be sure that you never miss!" | Good | ~5 minutes | Making rules explicit and non-negotiable in CLAUDE.md reduces the chance of Claude skipping the logging step. |
 | 2026-04-16 | Dreni | Claude Code | Add Name column to Development Log for team tracking | "We are a group of 3, update the md file to show logs with a name tag." | Good | ~5 minutes | Adding a name column makes it easy to track individual contributions across a team. |
-
 | 2026-04-16 | Dreni | Claude Code | Create 7 epic issues + 14 individual task issues for Milestone 2 Frontend MVP | "Create cards and issues for M2 milestone for 3 people to complete" | Good | ~60 minutes | Breaking deliverables into per-person assigned issues with checklists and branch names makes sprint planning much faster; including domain types and file paths directly in issue bodies reduces ambiguity for developers. |
 | 2026-04-16 | Dreni | Claude Code | Review CLAUDE.md and correct all GitHub issues for domain language, schema paths, Next.js version, and M2.9/M2.10 mistakes | "We have claude.md file inside the directory so you can check there how we handle audit so change cards if you made any mistake" | Needed edits | ~20 minutes | Claude initially generated issues without reading the existing project conventions — always verify CLAUDE.md before writing detailed technical tickets. Key fixes: Next.js 14→15, role names, schema paths, .cursorrules already existed. |
 | 2026-04-16 | Dreni | Claude Code | Fix issue title inconsistencies, close stale issues, add labels to US stories, create GitHub Milestone, assign all M2 issues, create completed M2.1/M2.2/M2.5 epics | "the items are on project board just fix the other stuff that you see" | Good | ~15 minutes | Cleaning up stale issues with a closing comment and linking to replacements keeps the board unambiguous; creating a formal GitHub Milestone with a due date gives instant % completion tracking. |
 | 2026-04-16 | Dreni | Claude Code | Create 8 US page implementation tasks, assign US-01–US-10 to team members and milestone, document all blocked-by dependencies | "ok do that" | Good | ~25 minutes | Missing implementation tasks are the most common backlog gap — infrastructure tasks (routing, forms, tests) are not the same as feature tasks (building actual pages); always map user stories to concrete assignees before sprint starts. |
----
-
-## Reflection
-
-AI significantly accelerated the process of generating structured documentation, feature descriptions, and prioritization frameworks. However, AI-generated outputs often required review and refinement to ensure they matched the project's context and requirements.
-
-The most effective prompts included:
-
-- Clear context about the project
-- Structured inputs (lists, tables, or data)
-- Explicit instructions about format (Markdown, tables, etc.)
-
-Less effective prompts were vague or lacked project-specific context, which resulted in more generic outputs.
-
+| 2026-04-16 | Dreni | Claude Code | Fix AI Development Log file structure | "In docs there is a file, can you fix the structure because I think is broken." | Good | ~5 minutes | Keeping the log file focused only on log entries avoids mixing project specs with session records. |
