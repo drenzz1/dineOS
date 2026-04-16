@@ -1,28 +1,39 @@
 # Claude Instructions for dineOS
 
-## AI Development Log Requirement
+## AI Development Log — MANDATORY RULE
 
-At the start of **every conversation** about this project, append a new entry to `docs/AI-Development-Log.md` under the **Development Log** table.
+**This is a non-negotiable requirement. Never skip it.**
+
+### Step 1 — Identify the team member
+
+At the start of every conversation, ask: **"Who is working on this? (Dreni / Endriti / Hera)"**
+Use the answer as the **Name** field in every log entry for that session.
+
+### Step 2 — Log every task
+
+After completing **every task** in this project, you MUST append a new row to the Development Log table in `docs/AI-Development-Log.md`.
 
 ### What to log
-
-For each session, add a row with:
 
 | Field | What to fill in |
 |-------|-----------------|
 | **Date** | Today's date in `YYYY-MM-DD` format |
+| **Name** | The team member who is working (Dreni / Endriti / Hera) |
 | **Tool Used** | `Claude Code` |
-| **Purpose** | Brief description of what the user asked for in this session |
-| **Prompt / Input** | Short summary of the user's first prompt or main request |
-| **Output Quality** | To be filled after the session (default: `Good`) |
+| **Purpose** | Brief description of the task completed |
+| **Prompt / Input** | Short summary of the user's request |
+| **Output Quality** | `Good` / `Needed edits` / `Failed` |
 | **Time Saved** | Estimated time saved (make a reasonable estimate) |
 | **Lessons Learned** | Key insight or note from this interaction |
 
-### When to append
+### Rules
 
-- Append the entry **immediately after each task is completed**, once you have enough context to fill in all fields accurately.
-- If multiple distinct tasks are completed in one session, add one row per major task.
+- **One row per task** — if multiple tasks are completed in a session, log each one separately.
+- **Log immediately after the task is done** — do not wait, do not batch.
+- **Never end a response that completes a task without logging it first.**
+- Append inside the Development Log table, after the last existing row.
+- After appending, commit and push the change to the current branch.
 
 ### File location
 
-`docs/AI-Development-Log.md` — append inside the Development Log table, after the last existing row.
+`docs/AI-Development-Log.md`
