@@ -4,6 +4,13 @@
 
 **This is a non-negotiable requirement. Never skip it.**
 
+### Step 1 — Identify the team member
+
+At the start of every conversation, ask: **"Who is working on this? (Dreni / Endriti / Hera)"**
+Use the answer as the **Name** field in every log entry for that session.
+
+### Step 2 — Log every task
+
 After completing **every task** in this project, you MUST append a new row to the Development Log table in `docs/AI-Development-Log.md`.
 
 ### What to log
@@ -11,6 +18,7 @@ After completing **every task** in this project, you MUST append a new row to th
 | Field | What to fill in |
 |-------|-----------------|
 | **Date** | Today's date in `YYYY-MM-DD` format |
+| **Name** | The team member who is working (Dreni / Endriti / Hera) |
 | **Tool Used** | `Claude Code` |
 | **Purpose** | Brief description of the task completed |
 | **Prompt / Input** | Short summary of the user's request |
