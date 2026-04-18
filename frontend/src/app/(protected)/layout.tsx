@@ -1,3 +1,5 @@
+import ProtectedSidebar from "@/components/shared/ProtectedSidebar";
+
 export default function ProtectedLayout({
   children,
 }: {
@@ -5,7 +7,7 @@ export default function ProtectedLayout({
 }) {
   return (
     <div className="flex min-h-full">
-      <aside className="w-64 border-r border-zinc-200 p-4">Sidebar placeholder</aside>
+      <ProtectedSidebar />
       <main className="flex-1 p-6">{children}</main>
     </div>
   );
