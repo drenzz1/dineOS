@@ -1,8 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
+
+const Modal = dynamic(
+  () => import("@/components/ui/Modal").then((m) => m.Modal),
+  { ssr: false }
+);
 import StaffMemberForm from "@/components/staff/StaffMemberForm";
 
 export default function StaffPage() {
