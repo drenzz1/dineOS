@@ -9,7 +9,7 @@
 
 ## What was fixed
 - Added next/dynamic lazy loading for heavy components
-- Replaced <img> tags with next/image
+- Replaced <img> tags with next/imageok, ive don
 - Added next/font for custom fonts
 
 ## What remains
