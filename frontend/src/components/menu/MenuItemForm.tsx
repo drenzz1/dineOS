@@ -13,10 +13,11 @@ import { Button } from "@/components/ui/Button";
 
 interface MenuItemFormProps {
   onClose: () => void;
+  categories?: string[];
   defaultValues?: Partial<MenuItemFormValues> & { id?: string };
 }
 
-export default function MenuItemForm({ onClose, defaultValues }: MenuItemFormProps) {
+export default function MenuItemForm({ onClose, categories, defaultValues }: MenuItemFormProps) {
   const queryClient = useQueryClient();
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -123,7 +124,7 @@ export default function MenuItemForm({ onClose, defaultValues }: MenuItemFormPro
           className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">Select a category</option>
-          {Object.values(MenuCategory).map((cat) => (
+          {(categories ?? Object.values(MenuCategory)).map((cat) => (
             <option key={cat} value={cat}>
               {cat}
             </option>

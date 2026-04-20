@@ -10,7 +10,7 @@ export interface MenuItem {
   id: string;
   name: string;
   price: number;
-  category: MenuCategory;
+  category: string;
   description?: string;
   imageUrl?: string;
 }
