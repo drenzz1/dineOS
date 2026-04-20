@@ -453,7 +453,16 @@ export default function OrderWizard() {
               Back
             </Button>
           ) : (
-            <div />
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                resetStep();
+                router.push("/orders");
+              }}
+            >
+              Cancel
+            </Button>
           )}
 
           {step < 3 ? (
