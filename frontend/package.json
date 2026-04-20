@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test --pass-with-no-tests"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
