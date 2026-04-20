@@ -5,5 +5,6 @@ export interface ShiftSummary {
   title: string;
   body: string;
   priority?: Priority;
+  author: string;
   createdAt: string;
 }

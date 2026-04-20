@@ -10,6 +10,7 @@ export async function saveShiftNote(data: ShiftNoteFormValues): Promise<ShiftSum
     title: data.title,
     body: data.body,
     priority: data.priority,
+    author: "Manager",
     createdAt: new Date().toISOString(),
   };
   mockShiftNotes = [...mockShiftNotes, created];
@@ -19,4 +20,9 @@ export async function saveShiftNote(data: ShiftNoteFormValues): Promise<ShiftSum
 export async function getShiftNotes(): Promise<ShiftSummary[]> {
   await new Promise<void>((resolve) => setTimeout(resolve, 300));
   return mockShiftNotes;
+}
+
+export async function deleteShiftNote(id: string): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 300));
+  mockShiftNotes = mockShiftNotes.filter((n) => n.id !== id);
 }
