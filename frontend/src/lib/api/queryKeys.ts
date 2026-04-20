@@ -7,6 +7,10 @@ export const queryKeys = {
     all: ["menu"] as const,
     list: () => [...queryKeys.menu.all, "list"] as const,
   },
+  menuCategories: {
+    all: ["menuCategories"] as const,
+    list: () => [...queryKeys.menuCategories.all, "list"] as const,
+  },
   orders: {
     all: ["orders"] as const,
     list: () => [...queryKeys.orders.all, "list"] as const,
