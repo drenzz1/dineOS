@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -163,9 +164,12 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
         {imageFile ? (
           <div className="flex items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
             {preview && (
-              <img
+              <Image
                 src={preview}
                 alt="Preview"
+                width={48}
+                height={48}
+                unoptimized
                 className="h-12 w-12 rounded object-cover"
               />
             )}

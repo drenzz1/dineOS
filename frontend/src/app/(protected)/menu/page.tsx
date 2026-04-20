@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import {
   getMenuItems,
   getCategories,
@@ -10,11 +11,20 @@ import {
 } from "@/lib/api/menuApi";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
 import MenuItemForm from "@/components/menu/MenuItemForm";
 import CategoryTabs from "@/components/menu/CategoryTabs";
-import MenuItemTable from "@/components/menu/MenuItemTable";
 import type { MenuItem } from "@/types";
+
+const Modal = dynamic(
+  () => import("@/components/ui/Modal").then((m) => m.Modal),
+  { ssr: false }
+);
+
+const MenuItemTable = dynamic(
+  () => import("@/components/menu/MenuItemTable"),
+  { loading: () => <p>Loading table...</p> }
+);
+
 
 export default function MenuPage() {
   const queryClient = useQueryClient();

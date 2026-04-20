@@ -2,8 +2,13 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
+
+const Modal = dynamic(
+  () => import("@/components/ui/Modal").then((m) => m.Modal),
+  { ssr: false }
+);
 import { ShiftNoteForm, ShiftNoteList } from "@/components/shifts";
 import { getShiftNotes, deleteShiftNote } from "@/lib/api/shiftApi";
 import { queryKeys } from "@/lib/api/queryKeys";
