@@ -30,6 +30,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-8 md:py-16">
       <div
+        data-testid="modal-overlay"
         className="fixed inset-0 bg-black/50"
         aria-hidden="true"
         onClick={onClose}
