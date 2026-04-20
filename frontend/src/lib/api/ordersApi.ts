@@ -1,15 +1,15 @@
-import { OrderStatus } from "@/types";
+import { OrderStatus, MenuCategory } from "@/types";
 import type { MenuItem, Order } from "@/types";
 import type { OrderFormValues } from "@/lib/validations/order";
 
 const MOCK_MENU_ITEMS: MenuItem[] = [
-  { id: "1", name: "Margherita Pizza", price: 12.99, category: "Pizza" },
-  { id: "2", name: "Pepperoni Pizza", price: 14.99, category: "Pizza" },
-  { id: "3", name: "Caesar Salad", price: 8.99, category: "Salads" },
-  { id: "4", name: "Pasta Carbonara", price: 13.99, category: "Pasta" },
-  { id: "5", name: "Coca Cola", price: 2.99, category: "Drinks" },
-  { id: "6", name: "Sparkling Water", price: 1.99, category: "Drinks" },
-  { id: "7", name: "Tiramisu", price: 5.99, category: "Desserts" },
+  { id: "1", name: "Margherita Pizza", price: 12.99, category: MenuCategory.MainCourse },
+  { id: "2", name: "Pepperoni Pizza", price: 14.99, category: MenuCategory.MainCourse },
+  { id: "3", name: "Caesar Salad", price: 8.99, category: MenuCategory.Starters },
+  { id: "4", name: "Pasta Carbonara", price: 13.99, category: MenuCategory.MainCourse },
+  { id: "5", name: "Coca Cola", price: 2.99, category: MenuCategory.Drinks },
+  { id: "6", name: "Sparkling Water", price: 1.99, category: MenuCategory.Drinks },
+  { id: "7", name: "Tiramisu", price: 5.99, category: MenuCategory.Desserts },
 ];
 
 let mockOrders: Order[] = [];

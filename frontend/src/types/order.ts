@@ -8,13 +8,6 @@ export enum OrderStatus {
   Cancelled = "Cancelled",
 }
 
-export interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-}
-
 export interface OrderItem {
   id: string;
   name: string;
