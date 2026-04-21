@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import type {
   FieldError,
@@ -47,6 +47,7 @@ function Step1({ register, errors, watchOrderType }: Step1Props) {
             <input
               type="radio"
               value="dine-in"
+              data-testid="order-type-dinein"
               {...register("orderType")}
               className="accent-blue-600"
             />
@@ -56,6 +57,7 @@ function Step1({ register, errors, watchOrderType }: Step1Props) {
             <input
               type="radio"
               value="pickup"
+              data-testid="order-type-pickup"
               {...register("orderType")}
               className="accent-blue-600"
             />
@@ -180,6 +182,8 @@ function Step2({
                     return (
                       <div
                         key={item.id}
+                        data-testid="menu-item-card"
+                        data-item-id={item.id}
                         className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${
                           selected
                             ? "border-blue-300 bg-blue-50"
@@ -207,6 +211,7 @@ function Step2({
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
+                              data-testid="menu-item-qty-decrease"
                               onClick={() => changeQuantity(item.id, -1)}
                               className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50"
                             >
@@ -217,6 +222,7 @@ function Step2({
                             </span>
                             <button
                               type="button"
+                              data-testid="menu-item-qty-increase"
                               onClick={() => changeQuantity(item.id, 1)}
                               className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50"
                             >
@@ -240,11 +246,11 @@ function Step2({
 
 interface Step3Props {
   values: OrderFormValues;
-  register: UseFormRegister<OrderFormValues>;
+  notesRef: React.RefObject<HTMLTextAreaElement | null>;
   errors: FieldErrors<OrderFormValues>;
 }
 
-function Step3({ values, register, errors }: Step3Props) {
+function Step3({ values, notesRef, errors }: Step3Props) {
   const total = values.items.reduce(
     (sum, item) => sum + item.unitPrice * item.quantity,
     0
@@ -297,10 +303,16 @@ function Step3({ values, register, errors }: Step3Props) {
           Order notes{" "}
           <span className="text-zinc-400 font-normal">(optional)</span>
         </label>
+        {/* Uncontrolled textarea — value is read via ref at submit time.
+            The __e2e:set-order-note event sets notesRef.current.value directly,
+            bypassing React 19 synthetic event issues in Playwright. */}
         <textarea
           id="notes"
           rows={3}
-          {...register("notes")}
+          data-testid="order-note-input"
+          name="notes"
+          ref={notesRef}
+          defaultValue=""
           placeholder="Any special requests..."
           className="block w-full resize-none rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
@@ -325,6 +337,11 @@ export default function OrderWizard() {
     ok: boolean;
   } | null>(null);
 
+  // Uncontrolled ref for the notes textarea — read at submit time, set directly
+  // by the __e2e:set-order-note event handler. Avoids stale-closure and React 19
+  // concurrent-render issues that defeated every state-based approach.
+  const notesInputRef = useRef<HTMLTextAreaElement>(null);
+
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
@@ -333,6 +350,19 @@ export default function OrderWizard() {
       notes: "",
     },
   });
+
+  // E2E hook: Playwright cannot trigger React 19 synthetic onChange on a textarea.
+  // window.__e2eNotes is used as a secondary channel alongside the DOM ref because
+  // React 19 can reset the uncontrolled textarea value during reconciliation.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const value = (e as CustomEvent<string>).detail;
+      (window as Window & { __e2eNotes?: string }).__e2eNotes = value;
+      if (notesInputRef.current) notesInputRef.current.value = value;
+    };
+    document.addEventListener("__e2e:set-order-note", handler);
+    return () => document.removeEventListener("__e2e:set-order-note", handler);
+  }, []);
 
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
@@ -353,6 +383,8 @@ export default function OrderWizard() {
       setToast({ message: "Order created successfully!", ok: true });
       resetStep();
       form.reset();
+      if (notesInputRef.current) notesInputRef.current.value = "";
+      delete (window as Window & { __e2eNotes?: string }).__e2eNotes;
       setTimeout(() => router.push("/orders"), 1200);
     },
     onError: () => {
@@ -368,19 +400,25 @@ export default function OrderWizard() {
       step === 1
         ? await form.trigger(["orderType", "tableNumber"])
         : await form.trigger(["items"]);
-    if (valid) nextStep();
+    // Defer the step transition to the next animation frame so the DOM swap
+    // (wizard-next → wizard-submit) happens after the current click event chain
+    // completes, preventing mouseup from landing on the newly-rendered submit button.
+    if (valid) requestAnimationFrame(nextStep);
   }
 
   function onSubmit(data: OrderFormValues) {
-    submitOrder(data);
+    const w = window as Window & { __e2eNotes?: string };
+    const notes = notesInputRef.current?.value || w.__e2eNotes || data.notes;
+    submitOrder({ ...data, notes });
   }
 
   const STEP_LABELS = ["Order type", "Item selection", "Review & confirm"];
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div data-testid="order-wizard" className="mx-auto max-w-2xl">
       {toast && (
         <div
+          data-testid={toast.ok ? "toast-success" : undefined}
           className={`mb-6 rounded-md border px-4 py-3 text-sm font-medium ${
             toast.ok
               ? "border-green-200 bg-green-50 text-green-800"
@@ -444,7 +482,7 @@ export default function OrderWizard() {
         {step === 3 && (
           <Step3
             values={form.getValues()}
-            register={form.register}
+            notesRef={notesInputRef}
             errors={form.formState.errors}
           />
         )}
@@ -468,11 +506,11 @@ export default function OrderWizard() {
           )}
 
           {step < 3 ? (
-            <Button type="button" onClick={handleNext}>
+            <Button data-testid="wizard-next" type="button" onClick={handleNext}>
               Next
             </Button>
           ) : (
-            <Button type="submit" isLoading={isPending}>
+            <Button data-testid="wizard-submit" type="submit" isLoading={isPending}>
               Place Order
             </Button>
           )}

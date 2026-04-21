@@ -77,12 +77,12 @@ export default function OrderBoard() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-zinc-900">Order Board</h1>
         <Link href="/orders/new">
-          <Button>New Order</Button>
+          <Button data-testid="new-order-button">New Order</Button>
         </Link>
       </div>
 
       {/* Board — single column on mobile, 5-column grid on lg+ */}
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-5 lg:items-start lg:gap-4">
+      <div data-testid="orders-list" className="flex flex-col gap-4 lg:grid lg:grid-cols-5 lg:items-start lg:gap-4">
         {COLUMNS.map(({ status, label, headerClass, emptyMessage }) => {
           const orders = grouped[status];
 

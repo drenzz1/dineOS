@@ -1,6 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { OrderStatus } from "@/types/order";
 import type { Order } from "@/types/order";
 
@@ -37,6 +38,8 @@ export default function OrderCard({ order, onClick }: OrderCardProps) {
       className={`cursor-pointer transition-shadow hover:shadow-md ${alertBorder}`}
       role="button"
       tabIndex={0}
+      data-testid="order-card"
+      data-order-id={order.id}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
@@ -83,6 +86,8 @@ export default function OrderCard({ order, onClick }: OrderCardProps) {
             <span className="line-clamp-1">{order.notes}</span>
           </p>
         )}
+
+        <StatusBadge status={order.status} data-testid="order-status-badge" />
       </div>
     </Card>
   );
