@@ -16,6 +16,9 @@ export default function AdminLayout({
           <a href="/admin/restaurants" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
             Restaurants
           </a>
+          <a href="/admin/users" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
+            Users
+          </a>
         </nav>
       </aside>
       <main className="flex-1 p-6">{children}</main>
