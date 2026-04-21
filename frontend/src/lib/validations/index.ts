@@ -6,3 +6,5 @@ export { staffMemberSchema } from "./staffMember";
 export type { StaffMemberFormValues } from "./staffMember";
 export { shiftNoteSchema } from "./shiftNote";
 export type { ShiftNoteFormValues } from "./shiftNote";
+export { restaurantSchema } from "./restaurant";
+export type { RestaurantFormValues } from "./restaurant";
