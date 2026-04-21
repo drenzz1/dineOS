@@ -14,6 +14,7 @@ export const queryKeys = {
   orders: {
     all: ["orders"] as const,
     list: () => [...queryKeys.orders.all, "list"] as const,
+    byDate: (date: string) => [...queryKeys.orders.all, { date }] as const,
   },
   staff: {
     all: ["staff"] as const,
