@@ -1,9 +1,9 @@
 // TODO: Replace cookie-based auth with Keycloak session validation.
 import { NextRequest, NextResponse } from "next/server";
 
-type Role = "Manager" | "Cashier" | "KitchenStaff";
+type Role = "Manager" | "Cashier" | "KitchenStaff" | "SuperAdmin";
 
-const ROLE_VALUES: Role[] = ["Manager", "Cashier", "KitchenStaff"];
+const ROLE_VALUES: Role[] = ["Manager", "Cashier", "KitchenStaff", "SuperAdmin"];
 
 function isValidRole(value: string): value is Role {
   return (ROLE_VALUES as string[]).includes(value);
@@ -16,6 +16,10 @@ function isAllowed(pathname: string, allowed: string[]): boolean {
   return allowed.some(
     (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
   );
+}
+
+function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
 }
 
 function redirectTo(destination: string, request: NextRequest): NextResponse {
@@ -49,7 +53,20 @@ export function middleware(request: NextRequest): NextResponse {
 
   const role: Role = rawRole;
 
-  // Manager can access everything.
+  // SuperAdmin is confined to /admin/* and must not enter tenant routes.
+  if (role === "SuperAdmin") {
+    if (!isAdminPath(pathname)) {
+      return redirectTo("/admin/dashboard", request);
+    }
+    return NextResponse.next();
+  }
+
+  // Non-SuperAdmin roles must not enter /admin/* routes.
+  if (isAdminPath(pathname)) {
+    return redirectTo("/dashboard", request);
+  }
+
+  // Manager can access all tenant routes.
   if (role === "Manager") {
     return NextResponse.next();
   }

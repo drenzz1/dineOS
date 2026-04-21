@@ -23,4 +23,8 @@ export const queryKeys = {
     all: ["shifts"] as const,
     list: () => [...queryKeys.shifts.all, "list"] as const,
   },
+  adminUsers: {
+    all: ["adminUsers"] as const,
+    list: () => [...queryKeys.adminUsers.all, "list"] as const,
+  },
 } as const;
