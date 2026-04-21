@@ -9,6 +9,7 @@ import { menuItemSchema } from "@/lib/validations/menuItem";
 import type { MenuItemFormValues } from "@/lib/validations/menuItem";
 import { saveMenuItem } from "@/lib/api/menuApi";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { useTenant } from "@/hooks/useTenant";
 import { MenuCategory } from "@/types";
 import { Button } from "@/components/ui/Button";
 
@@ -20,6 +21,7 @@ interface MenuItemFormProps {
 
 export default function MenuItemForm({ onClose, categories, defaultValues }: MenuItemFormProps) {
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -42,7 +44,7 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
     mutationFn: (data: MenuItemFormValues) =>
       saveMenuItem(data, defaultValues?.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.menu.list(tenantId) });
       onClose();
     },
   });

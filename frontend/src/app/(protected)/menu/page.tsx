@@ -10,6 +10,7 @@ import {
   deleteMenuItem,
 } from "@/lib/api/menuApi";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { useTenant } from "@/hooks/useTenant";
 import { Button } from "@/components/ui/Button";
 import MenuItemForm from "@/components/menu/MenuItemForm";
 import CategoryTabs from "@/components/menu/CategoryTabs";
@@ -28,6 +29,7 @@ const MenuItemTable = dynamic(
 
 export default function MenuPage() {
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -35,12 +37,12 @@ export default function MenuPage() {
   const [deleteTarget, setDeleteTarget] = useState<MenuItem | null>(null);
 
   const { data: categories = [] } = useQuery({
-    queryKey: queryKeys.menuCategories.list(),
+    queryKey: queryKeys.menuCategories.list(tenantId),
     queryFn: getCategories,
   });
 
   const { data: items = [] } = useQuery({
-    queryKey: queryKeys.menu.list(),
+    queryKey: queryKeys.menu.list(tenantId),
     queryFn: getMenuItems,
   });
 
@@ -50,7 +52,7 @@ export default function MenuPage() {
   const { mutate: doAddCategory } = useMutation({
     mutationFn: addCategory,
     onSuccess: (updated) => {
-      queryClient.setQueryData(queryKeys.menuCategories.list(), updated);
+      queryClient.setQueryData(queryKeys.menuCategories.list(tenantId), updated);
       setNewCategory("");
     },
   });
@@ -58,7 +60,7 @@ export default function MenuPage() {
   const { mutate: doDelete, isPending: isDeleting } = useMutation({
     mutationFn: deleteMenuItem,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.menu.list(tenantId) });
       setDeleteTarget(null);
     },
   });

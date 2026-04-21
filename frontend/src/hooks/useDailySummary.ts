@@ -1,6 +1,7 @@
 // TODO: replace with real API call when backend is ready
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { useTenant } from "@/hooks/useTenant";
 import { OrderStatus } from "@/types/order";
 import type { Order, OrderItem } from "@/types/order";
 
@@ -199,8 +200,9 @@ export interface UseDailySummaryResult {
 }
 
 export function useDailySummary(date: string): UseDailySummaryResult {
+  const { tenantId } = useTenant();
   const { data: orders = [], isLoading, isError } = useQuery({
-    queryKey: queryKeys.orders.byDate(date),
+    queryKey: queryKeys.orders.byDate(tenantId, date),
     queryFn: () => fetchOrdersForDate(date),
   });
 

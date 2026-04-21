@@ -1,30 +1,41 @@
 export const queryKeys = {
   menuItems: {
     all: ["menuItems"] as const,
-    list: () => [...queryKeys.menuItems.all, "list"] as const,
+    list: (tenantId: string | null) =>
+      [...queryKeys.menuItems.all, tenantId, "list"] as const,
   },
   menu: {
     all: ["menu"] as const,
-    list: () => [...queryKeys.menu.all, "list"] as const,
+    list: (tenantId: string | null) =>
+      [...queryKeys.menu.all, tenantId, "list"] as const,
   },
   menuCategories: {
     all: ["menuCategories"] as const,
-    list: () => [...queryKeys.menuCategories.all, "list"] as const,
+    list: (tenantId: string | null) =>
+      [...queryKeys.menuCategories.all, tenantId, "list"] as const,
   },
   orders: {
     all: ["orders"] as const,
-    list: () => [...queryKeys.orders.all, "list"] as const,
-    byDate: (date: string) => [...queryKeys.orders.all, { date }] as const,
-    kitchen: () =>
-      [...queryKeys.orders.all, { status: ["New", "InProgress"] }] as const,
+    list: (tenantId: string | null) =>
+      [...queryKeys.orders.all, tenantId, "list"] as const,
+    byDate: (tenantId: string | null, date: string) =>
+      [...queryKeys.orders.all, tenantId, { date }] as const,
+    kitchen: (tenantId: string | null) =>
+      [
+        ...queryKeys.orders.all,
+        tenantId,
+        { status: ["New", "InProgress"] },
+      ] as const,
   },
   staff: {
     all: ["staff"] as const,
-    list: () => [...queryKeys.staff.all, "list"] as const,
+    list: (tenantId: string | null) =>
+      [...queryKeys.staff.all, tenantId, "list"] as const,
   },
   shifts: {
     all: ["shifts"] as const,
-    list: () => [...queryKeys.shifts.all, "list"] as const,
+    list: (tenantId: string | null) =>
+      [...queryKeys.shifts.all, tenantId, "list"] as const,
   },
   adminUsers: {
     all: ["adminUsers"] as const,

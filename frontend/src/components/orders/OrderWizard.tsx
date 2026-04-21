@@ -18,6 +18,7 @@ import { orderSchema } from "@/lib/validations/order";
 import type { OrderFormValues } from "@/lib/validations/order";
 import { createOrder, getMenuItems } from "@/lib/api/ordersApi";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { useTenant } from "@/hooks/useTenant";
 import { useOrderWizardStore } from "@/stores/orderWizardStore";
 import { Button } from "@/components/ui/Button";
 import type { MenuItem } from "@/types";
@@ -317,6 +318,7 @@ function Step3({ values, register, errors }: Step3Props) {
 export default function OrderWizard() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
   const { step, nextStep, prevStep, reset: resetStep } = useOrderWizardStore();
   const [toast, setToast] = useState<{
     message: string;
@@ -340,14 +342,14 @@ export default function OrderWizard() {
   const watchOrderType = form.watch("orderType");
 
   const { data: menuItems = [], isLoading: menuLoading } = useQuery({
-    queryKey: queryKeys.menuItems.list(),
+    queryKey: queryKeys.menuItems.list(tenantId),
     queryFn: getMenuItems,
   });
 
   const { mutate: submitOrder, isPending } = useMutation({
     mutationFn: createOrder,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.orders.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.list(tenantId) });
       setToast({ message: "Order created successfully!", ok: true });
       resetStep();
       form.reset();
