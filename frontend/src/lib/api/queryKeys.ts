@@ -46,4 +46,7 @@ export const queryKeys = {
     list: () => [...queryKeys.adminRestaurants.all, "list"] as const,
     detail: (id: string) => [...queryKeys.adminRestaurants.all, id] as const,
   },
+  adminAnalytics: {
+    all: ["admin", "analytics"] as const,
+  },
 } as const;
