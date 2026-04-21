@@ -1,4 +1,5 @@
-import Link from "next/link";
+import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminHeader from "@/components/admin/AdminHeader";
 
 export default function AdminLayout({
   children,
@@ -6,24 +7,35 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-full">
-      <aside className="w-64 border-r border-zinc-200 p-4">
-        <nav className="flex flex-col gap-2">
-          <span className="mb-4 text-xs font-semibold uppercase tracking-widest text-zinc-400">
-            Admin
-          </span>
-          <Link href="/admin/dashboard" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
-            Dashboard
-          </Link>
-          <Link href="/admin/restaurants" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
-            Restaurants
-          </Link>
-          <Link href="/admin/users" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
-            Users
-          </Link>
+    <div className="flex min-h-screen bg-slate-50">
+      {/* Sidebar — desktop only */}
+      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+        <AdminSidebar />
+      </div>
+
+      {/* Content column */}
+      <div className="flex flex-1 flex-col lg:pl-64">
+        <AdminHeader />
+
+        {/* Mobile nav strip — visible below lg */}
+        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-slate-900 px-4 py-2 lg:hidden">
+          {[
+            { label: "Dashboard", href: "/admin/dashboard" },
+            { label: "Restaurants", href: "/admin/restaurants" },
+            { label: "Users", href: "/admin/users" },
+          ].map(({ label, href }) => (
+            <a
+              key={href}
+              href={href}
+              className="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
+            >
+              {label}
+            </a>
+          ))}
         </nav>
-      </aside>
-      <main className="flex-1 p-6">{children}</main>
+
+        <main className="flex-1 p-6">{children}</main>
+      </div>
     </div>
   );
 }
