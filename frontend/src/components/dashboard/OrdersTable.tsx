@@ -123,7 +123,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
 
       {visible.length === 0 ? (
         <div className="flex items-center justify-center rounded-lg border border-dashed border-zinc-300 py-12">
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-zinc-600">
             {orders.length === 0
               ? "No orders for this date."
               : `No ${filter} orders.`}
@@ -134,22 +134,22 @@ export function OrdersTable({ orders }: OrdersTableProps) {
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left">
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                   Order #
                 </th>
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                   Type
                 </th>
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                   Status
                 </th>
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                   Items
                 </th>
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                   Total
                 </th>
-                <th className="pb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <th className="pb-2 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                   Time
                 </th>
               </tr>

@@ -44,7 +44,7 @@ const COLUMNS: Column[] = [
   {
     status: OrderStatus.Cancelled,
     label: "Cancelled",
-    headerClass: "bg-red-50 text-red-600",
+    headerClass: "bg-red-50 text-red-700",
     emptyMessage: "No cancelled orders",
   },
 ];
@@ -100,7 +100,7 @@ export default function OrderBoard() {
 
               {/* Order cards / empty state */}
               {orders.length === 0 ? (
-                <p className="px-2 py-3 text-xs italic text-zinc-400">
+                <p className="px-2 py-3 text-xs italic text-zinc-600">
                   {emptyMessage}
                 </p>
               ) : (

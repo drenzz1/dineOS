@@ -11,7 +11,7 @@ interface ShiftNoteListProps {
 export default function ShiftNoteList({ notes, onDelete }: ShiftNoteListProps) {
   if (notes.length === 0) {
     return (
-      <div className="flex items-center justify-center py-16 text-sm text-zinc-400">
+      <div className="flex items-center justify-center py-16 text-sm text-zinc-600">
         No shift notes yet.
       </div>
     );

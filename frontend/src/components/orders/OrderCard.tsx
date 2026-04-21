@@ -47,10 +47,10 @@ export default function OrderCard({ order, onClick }: OrderCardProps) {
       <div className="space-y-2">
         {/* Order ID + elapsed time */}
         <div className="flex items-center justify-between">
-          <span className="font-mono text-xs font-semibold uppercase text-zinc-400">
+          <span className="font-mono text-xs font-semibold uppercase text-zinc-600">
             #{order.id.slice(0, 8)}
           </span>
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs text-zinc-600">
             {formatElapsed(order.createdAt)}
           </span>
         </div>
@@ -69,7 +69,7 @@ export default function OrderCard({ order, onClick }: OrderCardProps) {
 
         {/* Note preview */}
         {order.notes && (
-          <p className="flex items-start gap-1 text-xs text-zinc-400">
+          <p className="flex items-start gap-1 text-xs text-zinc-600">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 16 16"

@@ -26,7 +26,11 @@ export default function DashboardPage() {
             Overview of orders and revenue for the selected date.
           </p>
         </div>
+        <label htmlFor="dashboard-date" className="sr-only">
+          Summary date
+        </label>
         <input
+          id="dashboard-date"
           type="date"
           value={date}
           max={todayString()}
