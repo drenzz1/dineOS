@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -78,16 +78,22 @@ export default function StaffPage() {
     null
   );
 
-  // Role guard — redirect non-Managers to dashboard
-  useEffect(() => {
-    if (!isManager(MOCK_ROLE)) {
-      router.replace("/dashboard");
-    }
-  }, [router]);
-
-  if (!isManager(MOCK_ROLE)) return null;
-
   const { staff, isLoading, isError } = useStaff();
+
+  // Deactivate / reactivate mutation
+  const { mutate: doToggle, isPending: isToggling } = useMutation({
+    mutationFn: (id: string) => toggleStaffActive(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.staff.list() });
+      setDeactivateTarget(null);
+    },
+  });
+
+  // Role guard — redirect non-Managers to dashboard
+  if (!isManager(MOCK_ROLE)) {
+    router.replace("/dashboard");
+    return null;
+  }
 
   // Filter counts
   const counts: Record<RoleFilter, number> = {
@@ -101,15 +107,6 @@ export default function StaffPage() {
     filter === "All"
       ? staff
       : staff.filter((m) => (m.role as Role) === filter);
-
-  // Deactivate / reactivate mutation
-  const { mutate: doToggle, isPending: isToggling } = useMutation({
-    mutationFn: (id: string) => toggleStaffActive(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.staff.list() });
-      setDeactivateTarget(null);
-    },
-  });
 
   function handleToggleActive(member: StaffMember) {
     if (member.isActive) {
