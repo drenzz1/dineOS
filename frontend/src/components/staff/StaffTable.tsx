@@ -10,7 +10,7 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
         isActive
           ? "bg-green-100 text-green-800"
-          : "bg-zinc-100 text-zinc-500"
+          : "bg-zinc-100 text-zinc-700"
       }`}
     >
       {isActive ? "Active" : "Inactive"}
@@ -68,7 +68,7 @@ export function StaffTable({ staff, onEdit, onToggleActive }: StaffTableProps) {
             <tr
               key={member.id}
               className={`transition-colors hover:bg-zinc-50 ${
-                member.isActive ? "" : "opacity-50"
+                member.isActive ? "" : "bg-zinc-50"
               }`}
             >
               {/* Name */}

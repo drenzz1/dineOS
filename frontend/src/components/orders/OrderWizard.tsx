@@ -76,7 +76,7 @@ function Step1({ register, errors, watchOrderType }: Step1Props) {
             className="block text-sm font-medium text-zinc-700"
           >
             Table number{" "}
-            <span className="text-zinc-400 font-normal">(1–50)</span>
+            <span className="text-zinc-600 font-normal">(1–50)</span>
           </label>
           <input
             id="tableNumber"
@@ -170,7 +170,7 @@ function Step2({
         <div className="space-y-5">
           {categories.map((category) => (
             <div key={category}>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                 {category}
               </p>
               <div className="space-y-2">
@@ -212,6 +212,7 @@ function Step2({
                             <button
                               type="button"
                               data-testid="menu-item-qty-decrease"
+                              aria-label={`Decrease quantity of ${item.name}`}
                               onClick={() => changeQuantity(item.id, -1)}
                               className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50"
                             >
@@ -223,6 +224,7 @@ function Step2({
                             <button
                               type="button"
                               data-testid="menu-item-qty-increase"
+                              aria-label={`Increase quantity of ${item.name}`}
                               onClick={() => changeQuantity(item.id, 1)}
                               className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50"
                             >
@@ -301,7 +303,7 @@ function Step3({ values, notesRef, errors }: Step3Props) {
           className="block text-sm font-medium text-zinc-700"
         >
           Order notes{" "}
-          <span className="text-zinc-400 font-normal">(optional)</span>
+          <span className="text-zinc-600 font-normal">(optional)</span>
         </label>
         {/* Uncontrolled textarea — value is read via ref at submit time.
             The __e2e:set-order-note event sets notesRef.current.value directly,
@@ -319,7 +321,7 @@ function Step3({ values, notesRef, errors }: Step3Props) {
         {errors.notes && (
           <p className="text-sm text-red-600">{errors.notes.message}</p>
         )}
-        <p className="text-xs text-zinc-400">Max 300 characters</p>
+        <p className="text-xs text-zinc-600">Max 300 characters</p>
       </div>
     </div>
   );
@@ -439,14 +441,14 @@ export default function OrderWizard() {
                   ? "bg-blue-600 text-white"
                   : s < step
                     ? "bg-blue-100 text-blue-700"
-                    : "bg-zinc-100 text-zinc-400"
+                    : "bg-zinc-100 text-zinc-600"
               }`}
             >
               {s}
             </div>
             <span
               className={`hidden text-xs md:inline ${
-                s === step ? "font-medium text-zinc-800" : "text-zinc-400"
+                s === step ? "font-medium text-zinc-800" : "text-zinc-600"
               }`}
             >
               {STEP_LABELS[i]}

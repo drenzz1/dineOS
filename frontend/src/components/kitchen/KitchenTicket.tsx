@@ -68,7 +68,7 @@ export default function KitchenTicket({ order }: KitchenTicketProps) {
       {/* Header row */}
       <div className="mb-4 flex items-start justify-between gap-2">
         <div>
-          <p className="font-mono text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          <p className="font-mono text-xs font-semibold uppercase tracking-wider text-zinc-400">
             #{order.id.slice(0, 8)}
           </p>
           <p className="mt-0.5 text-xl font-bold text-white md:text-2xl">
@@ -119,7 +119,7 @@ export default function KitchenTicket({ order }: KitchenTicketProps) {
         <Button
           size="lg"
           variant="secondary"
-          className="w-full bg-green-600 text-white hover:bg-green-700"
+          className="w-full bg-green-700 text-white hover:bg-green-800"
           isLoading={isPending}
           onClick={() => changeStatus(OrderStatus.Ready)}
         >

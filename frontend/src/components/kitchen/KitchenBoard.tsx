@@ -66,7 +66,7 @@ export default function KitchenBoard() {
           Kitchen Display
         </h1>
         {isLoading && (
-          <span className="text-sm text-zinc-500 animate-pulse">
+          <span className="text-sm text-zinc-300 animate-pulse">
             Loading…
           </span>
         )}

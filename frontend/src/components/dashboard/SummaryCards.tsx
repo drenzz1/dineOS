@@ -36,12 +36,12 @@ interface SummaryCardProps {
 function SummaryCard({ label, value, accent, subtext }: SummaryCardProps) {
   return (
     <Card>
-      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-600">
         {label}
       </p>
       <p className={`mt-2 text-2xl font-bold ${accent}`}>{value}</p>
       {subtext && (
-        <p className="mt-1 text-xs text-zinc-400">{subtext}</p>
+        <p className="mt-1 text-xs text-zinc-600">{subtext}</p>
       )}
     </Card>
   );
@@ -69,7 +69,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
       label: "Cancelled",
       value: String(summary.cancelledOrders),
       accent:
-        summary.cancelledOrders > 0 ? "text-red-600" : "text-zinc-400",
+        summary.cancelledOrders > 0 ? "text-red-600" : "text-zinc-600",
     },
     {
       label: "Avg Prep Time",

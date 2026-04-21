@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# a11y audit intermediates
+/docs/a11y-tmp/
+/docs/a11y-raw.json

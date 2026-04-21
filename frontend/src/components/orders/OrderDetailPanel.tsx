@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateOrderStatus } from "@/lib/api/ordersApi";
 import { queryKeys } from "@/lib/api/queryKeys";
@@ -26,6 +27,7 @@ const ALL_STATUSES: OrderStatus[] = [
 export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelProps) {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
+  const panelRef = useFocusTrap(!!order);
 
   // Close on Escape key
   useEffect(() => {
@@ -71,6 +73,7 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
 
       {/* Slide-in panel */}
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label="Order details"

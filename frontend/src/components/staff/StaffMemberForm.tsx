@@ -125,7 +125,7 @@ export default function StaffMemberForm({
           className="block text-sm font-medium text-zinc-700"
         >
           PIN{" "}
-          <span className="font-normal text-zinc-400">(4 digits)</span>
+          <span className="font-normal text-zinc-600">(4 digits)</span>
         </label>
         <input
           id="sm-pin"

@@ -97,6 +97,7 @@ export default function MenuPage() {
           onChange={(e) => setNewCategory(e.target.value)}
           onKeyDown={handleCategoryKeyDown}
           placeholder="New category — press Enter to add"
+          aria-label="New category name"
           className="w-72 rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
