@@ -3,6 +3,7 @@ import type { OrderStatus } from "@/types/order";
 interface StatusBadgeProps {
   status: OrderStatus;
   className?: string;
+  "data-testid"?: string;
 }
 
 const statusClasses: Record<OrderStatus, string> = {
@@ -17,9 +18,10 @@ function mergeClasses(...classes: Array<string | undefined | false>): string {
   return classes.filter(Boolean).join(" ");
 }
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+export function StatusBadge({ status, className, "data-testid": testId }: StatusBadgeProps) {
   return (
     <span
+      data-testid={testId}
       className={mergeClasses(
         "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
         statusClasses[status],

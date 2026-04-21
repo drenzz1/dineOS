@@ -79,7 +79,7 @@ export default function LoginPage() {
           Dev mode — select a role to bypass auth.
         </div>
 
-        <div className="space-y-2">
+        <div data-testid="login-role-select" className="space-y-2">
           {tenantRoles.map((role) => (
             <Button
               key={role}
@@ -101,7 +101,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <Button className="w-full" onClick={() => handleDevLogin("SuperAdmin")}>
+        <Button data-testid="login-submit" className="w-full" onClick={() => handleDevLogin("SuperAdmin")}>
           Sign in as SuperAdmin
         </Button>
       </div>
