@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function AdminLayout({
   children,
 }: {
@@ -10,15 +12,15 @@ export default function AdminLayout({
           <span className="mb-4 text-xs font-semibold uppercase tracking-widest text-zinc-400">
             Admin
           </span>
-          <a href="/admin/dashboard" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
+          <Link href="/admin/dashboard" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
             Dashboard
-          </a>
-          <a href="/admin/restaurants" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
+          </Link>
+          <Link href="/admin/restaurants" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
             Restaurants
-          </a>
-          <a href="/admin/users" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
+          </Link>
+          <Link href="/admin/users" className="rounded px-3 py-2 text-sm hover:bg-zinc-100">
             Users
-          </a>
+          </Link>
         </nav>
       </aside>
       <main className="flex-1 p-6">{children}</main>
