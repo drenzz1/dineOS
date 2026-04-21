@@ -63,6 +63,26 @@ export default function OrderCard({ order, onClick }: OrderCardProps) {
         <p className="text-xs text-zinc-500">
           {order.items.length} item{order.items.length !== 1 ? "s" : ""}
         </p>
+
+        {/* Note preview */}
+        {order.notes && (
+          <p className="flex items-start gap-1 text-xs text-zinc-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              className="mt-px h-3 w-3 shrink-0"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Zm2 1.5a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 5.5Zm0 3a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 8.5Zm0 3a.75.75 0 0 1 .75-.75h4a.75.75 0 0 1 0 1.5h-4A.75.75 0 0 1 4 11.5Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span className="line-clamp-1">{order.notes}</span>
+          </p>
+        )}
       </div>
     </Card>
   );
