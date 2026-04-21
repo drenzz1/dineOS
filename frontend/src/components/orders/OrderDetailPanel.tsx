@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateOrderStatus } from "@/lib/api/ordersApi";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { useTenant } from "@/hooks/useTenant";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { OrderStatus } from "@/types/order";
@@ -24,6 +25,7 @@ const ALL_STATUSES: OrderStatus[] = [
 
 export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelProps) {
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
 
   // Close on Escape key
   useEffect(() => {
@@ -44,7 +46,7 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
       status: OrderStatus;
     }) => updateOrderStatus(orderId, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.orders.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.list(tenantId) });
       onClose();
     },
   });

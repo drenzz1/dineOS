@@ -7,6 +7,7 @@ import { staffMemberSchema } from "@/lib/validations/staffMember";
 import type { StaffMemberFormValues } from "@/lib/validations/staffMember";
 import { saveStaffMember } from "@/lib/api/staffApi";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { useTenant } from "@/hooks/useTenant";
 import { Button } from "@/components/ui/Button";
 
 const ROLES = ["Manager", "Cashier", "KitchenStaff"] as const;
@@ -21,6 +22,7 @@ export default function StaffMemberForm({
   defaultValues,
 }: StaffMemberFormProps) {
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
 
   const {
     register,
@@ -40,7 +42,7 @@ export default function StaffMemberForm({
     mutationFn: (data: StaffMemberFormValues) =>
       saveStaffMember(data, defaultValues?.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.staff.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.staff.list(tenantId) });
       onClose();
     },
   });

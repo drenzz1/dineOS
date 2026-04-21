@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { StaffTable, StaffTableSkeleton } from "@/components/staff/StaffTable";
 import StaffMemberForm from "@/components/staff/StaffMemberForm";
 import { useStaff } from "@/hooks/useStaff";
+import { useTenant } from "@/hooks/useTenant";
 import { toggleStaffActive } from "@/lib/api/staffApi";
 import { queryKeys } from "@/lib/api/queryKeys";
 import type { StaffMember, Role } from "@/types/staff";
@@ -70,6 +71,7 @@ function FilterStrip({ active, onChange, counts }: FilterStripProps) {
 export default function StaffPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
 
   const [filter, setFilter] = useState<RoleFilter>("All");
   const [addOpen, setAddOpen] = useState(false);
@@ -84,7 +86,7 @@ export default function StaffPage() {
   const { mutate: doToggle, isPending: isToggling } = useMutation({
     mutationFn: (id: string) => toggleStaffActive(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.staff.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.staff.list(tenantId) });
       setDeactivateTarget(null);
     },
   });

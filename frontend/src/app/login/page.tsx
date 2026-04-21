@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { getShiftNotes } from "@/lib/api/shiftApi";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { useTenant } from "@/hooks/useTenant";
 import type { Priority, Role } from "@/types";
 
 const BANNER: Record<Priority, string> = {
@@ -28,9 +29,10 @@ function setDevAuthCookies(role: Role): void {
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { tenantId } = useTenant();
 
   const { data: notes = [] } = useQuery({
-    queryKey: queryKeys.shifts.list(),
+    queryKey: queryKeys.shifts.list(tenantId),
     queryFn: getShiftNotes,
   });
 

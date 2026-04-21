@@ -2,6 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getOrders } from "@/lib/api/ordersApi";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { useTenant } from "@/hooks/useTenant";
 import { OrderStatus } from "@/types/order";
 import type { Order } from "@/types/order";
 
@@ -16,8 +17,9 @@ const EMPTY_GROUPS: GroupedOrders = {
 };
 
 export function useOrderBoard() {
+  const { tenantId } = useTenant();
   const { data: orders = [], isLoading, isError } = useQuery({
-    queryKey: queryKeys.orders.list(),
+    queryKey: queryKeys.orders.list(tenantId),
     queryFn: getOrders,
     // Poll every 30 s until SignalR real-time updates are wired up
     refetchInterval: 30_000,

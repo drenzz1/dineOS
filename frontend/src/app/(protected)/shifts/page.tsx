@@ -12,14 +12,16 @@ const Modal = dynamic(
 import { ShiftNoteForm, ShiftNoteList } from "@/components/shifts";
 import { getShiftNotes, deleteShiftNote } from "@/lib/api/shiftApi";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { useTenant } from "@/hooks/useTenant";
 
 export default function ShiftsPage() {
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
   const [open, setOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const { data = [] } = useQuery({
-    queryKey: queryKeys.shifts.list(),
+    queryKey: queryKeys.shifts.list(tenantId),
     queryFn: getShiftNotes,
   });
 
@@ -30,7 +32,7 @@ export default function ShiftsPage() {
   const { mutate: doDelete, isPending: isDeleting } = useMutation({
     mutationFn: deleteShiftNote,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.shifts.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.shifts.list(tenantId) });
       setConfirmDeleteId(null);
     },
   });

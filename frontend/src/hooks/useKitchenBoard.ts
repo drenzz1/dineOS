@@ -1,6 +1,7 @@
 // TODO: replace with real API call when backend is ready
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { useTenant } from "@/hooks/useTenant";
 import { OrderStatus } from "@/types/order";
 import type { Order } from "@/types/order";
 
@@ -85,8 +86,9 @@ export interface UseKitchenBoardResult {
 }
 
 export function useKitchenBoard(): UseKitchenBoardResult {
+  const { tenantId } = useTenant();
   const { data: orders = [], isLoading, isError } = useQuery({
-    queryKey: queryKeys.orders.kitchen(),
+    queryKey: queryKeys.orders.kitchen(tenantId),
     queryFn: fetchKitchenOrders,
     // TODO: replace polling with SignalR when backend is ready
     refetchInterval: 10_000,

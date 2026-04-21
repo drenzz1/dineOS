@@ -8,6 +8,7 @@ export enum MenuCategory {
 
 export interface MenuItem {
   id: string;
+  tenantId?: string;
   name: string;
   price: number;
   category: string;
