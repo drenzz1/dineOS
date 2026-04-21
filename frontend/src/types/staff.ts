@@ -6,4 +6,5 @@ export interface StaffMember {
   email: string;
   role: Role;
   pin: string;
+  isActive: boolean;
 }
