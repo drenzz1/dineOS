@@ -15,6 +15,8 @@ export const queryKeys = {
     all: ["orders"] as const,
     list: () => [...queryKeys.orders.all, "list"] as const,
     byDate: (date: string) => [...queryKeys.orders.all, { date }] as const,
+    kitchen: () =>
+      [...queryKeys.orders.all, { status: ["New", "InProgress"] }] as const,
   },
   staff: {
     all: ["staff"] as const,
