@@ -1,10 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useAdminAnalytics } from "@/hooks/useAdminAnalytics";
 import PlatformSummaryCards from "@/components/admin/PlatformSummaryCards";
-import RestaurantGrowthChart from "@/components/admin/RestaurantGrowthChart";
 import TopRestaurantsTable from "@/components/admin/TopRestaurantsTable";
 import ActivityFeed from "@/components/admin/ActivityFeed";
+
+const RestaurantGrowthChart = dynamic(
+  () => import("@/components/admin/RestaurantGrowthChart"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[268px] animate-pulse rounded-lg bg-zinc-100" />
+    ),
+  }
+);
 
 export default function AdminDashboardPage() {
   const { analytics, isLoading, isError } = useAdminAnalytics();

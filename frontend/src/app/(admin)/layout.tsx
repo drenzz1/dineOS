@@ -1,3 +1,4 @@
+import Link from "next/link";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
 
@@ -24,13 +25,13 @@ export default function AdminLayout({
             { label: "Restaurants", href: "/admin/restaurants" },
             { label: "Users", href: "/admin/users" },
           ].map(({ label, href }) => (
-            <a
+            <Link
               key={href}
               href={href}
               className="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
             >
               {label}
-            </a>
+            </Link>
           ))}
         </nav>
 
