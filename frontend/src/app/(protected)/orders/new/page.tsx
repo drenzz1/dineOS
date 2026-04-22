@@ -1,5 +1,14 @@
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import OrderWizard from "@/components/orders/OrderWizard";
+
+const OrderWizard = dynamic(
+  () => import("@/components/orders/OrderWizard"),
+  {
+    loading: () => (
+      <div className="h-96 animate-pulse rounded-lg bg-zinc-100" />
+    ),
+  }
+);
 
 // TODO: restrict to Cashier and Manager roles — blocked by #32
 export default function NewOrderPage() {

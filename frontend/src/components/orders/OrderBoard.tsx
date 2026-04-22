@@ -1,13 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import OrderCard from "./OrderCard";
-import OrderDetailPanel from "./OrderDetailPanel";
 import { useOrderBoard } from "@/hooks/useOrderBoard";
 import { OrderStatus } from "@/types/order";
 import type { Order } from "@/types/order";
+
+const OrderDetailPanel = dynamic(
+  () => import("./OrderDetailPanel"),
+  { ssr: false, loading: () => null }
+);
 
 interface Column {
   status: OrderStatus;
