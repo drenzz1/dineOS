@@ -13,6 +13,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -129,10 +130,14 @@ function DraggableCard({ order, onClick }: DraggableCardProps) {
       {...attributes}
       style={{
         transform: CSS.Transform.toString(transform),
+        // Disable Card's transform transition while dragging so dnd-kit's
+        // per-frame updates aren't smoothed — prevents the size-morph glitch
+        transition: isDragging ? "opacity 0ms, box-shadow 0ms" : undefined,
         zIndex: isDragging ? 50 : undefined,
         opacity: isDragging ? 0.5 : 1,
         cursor: isDragging ? "grabbing" : "grab",
         touchAction: "none",
+        willChange: isDragging ? "transform" : undefined,
       }}
     >
       <OrderCard order={order} onClick={onClick} />
@@ -297,6 +302,7 @@ export default function OrderBoard() {
       ) : (
         <DndContext
           sensors={sensors}
+          modifiers={[restrictToWindowEdges]}
           onDragEnd={handleDragEnd}
         >
           <div
