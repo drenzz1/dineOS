@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
@@ -132,35 +132,18 @@ function DraggableCard({ order, onClick, onDoubleClick }: DraggableCardProps) {
     data: { order },
   });
 
-  // Native dblclick is suppressed by dnd-kit's preventDefault on pointerdown.
-  // Track rapid taps on a parent div — events bubble up since dnd-kit never
-  // calls stopPropagation, so both handlers fire independently.
-  const lastTapRef = useRef(0);
-
-  function handleOuterPointerDown() {
-    const now = Date.now();
-    if (now - lastTapRef.current < 300) {
-      onDoubleClick();
-      lastTapRef.current = 0;
-    } else {
-      lastTapRef.current = now;
-    }
-  }
-
   return (
-    <div onPointerDown={handleOuterPointerDown}>
-      <div
-        ref={setNodeRef}
-        {...listeners}
-        {...attributes}
-        style={{
-          opacity: isDragging ? 0 : 1,
-          cursor: "grab",
-          touchAction: "none",
-        }}
-      >
-        <OrderCard order={order} onClick={onClick} />
-      </div>
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{
+        opacity: isDragging ? 0 : 1,
+        cursor: "grab",
+        touchAction: "none",
+      }}
+    >
+      <OrderCard order={order} onClick={onClick} onDoubleClick={onDoubleClick} />
     </div>
   );
 }
