@@ -162,7 +162,7 @@ function DroppableColumn({ column, orders, onCardClick, onCardDoubleClick }: Dro
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex flex-col gap-2" aria-label={`${label} orders`}>
       <div className={`flex items-center justify-between rounded-md border px-3 py-2 ${badgeClass}`}>
         <span className="text-[13px] font-semibold">{label}</span>
         <span className={`dos-num inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${countClass}`}>

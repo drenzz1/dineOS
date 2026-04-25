@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { OrderStatus } from "@/types/order";
@@ -38,12 +39,38 @@ function mergeClasses(...classes: Array<string | undefined | false>): string {
 
 export default function OrderCard({ order, onClick, onDoubleClick }: OrderCardProps) {
   const stallClass = getStallClass(order);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    };
+  }, []);
+
+  function clearClickTimer() {
+    if (!clickTimerRef.current) return;
+    clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = null;
+  }
+
+  function handleClick() {
+    clearClickTimer();
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null;
+      onClick();
+    }, 180);
+  }
+
+  function handleDoubleClick() {
+    clearClickTimer();
+    onDoubleClick?.();
+  }
 
   return (
     <Card
       interactive
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       className={mergeClasses(stallClass)}
       role="button"
       tabIndex={0}
