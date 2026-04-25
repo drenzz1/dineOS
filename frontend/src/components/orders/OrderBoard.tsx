@@ -13,7 +13,7 @@ import {
   useDraggable,
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
-import { restrictToWindowEdges } from "@dnd-kit/modifiers";
+import { restrictToWindowEdges, snapCenterToCursor } from "@dnd-kit/modifiers";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -308,6 +308,7 @@ export default function OrderBoard() {
       ) : (
         <DndContext
           sensors={sensors}
+          modifiers={[snapCenterToCursor]}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
