@@ -5,15 +5,14 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   DndContext,
-  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
   useDroppable,
   useDraggable,
 } from "@dnd-kit/core";
-import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
-import { snapCenterToCursor } from "@dnd-kit/modifiers";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -118,7 +117,7 @@ interface DraggableCardProps {
 }
 
 function DraggableCard({ order, onClick }: DraggableCardProps) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
     id: order.id,
     data: { order },
   });
@@ -128,7 +127,13 @@ function DraggableCard({ order, onClick }: DraggableCardProps) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      style={{ opacity: isDragging ? 0 : 1, touchAction: "none" }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        zIndex: isDragging ? 50 : undefined,
+        opacity: isDragging ? 0.5 : 1,
+        cursor: isDragging ? "grabbing" : "grab",
+        touchAction: "none",
+      }}
     >
       <OrderCard order={order} onClick={onClick} />
     </div>
@@ -188,7 +193,6 @@ export default function OrderBoard() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -206,12 +210,7 @@ export default function OrderBoard() {
     },
   });
 
-  function handleDragStart(event: DragStartEvent) {
-    setActiveOrder((event.active.data.current as { order: Order } | undefined)?.order ?? null);
-  }
-
   function handleDragEnd(event: DragEndEvent) {
-    setActiveOrder(null);
     const { active, over } = event;
     if (!over) return;
 
@@ -298,7 +297,6 @@ export default function OrderBoard() {
       ) : (
         <DndContext
           sensors={sensors}
-          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
           <div
@@ -315,13 +313,6 @@ export default function OrderBoard() {
             ))}
           </div>
 
-          <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]}>
-            {activeOrder ? (
-              <div className="rotate-1 scale-105 opacity-95 shadow-xl">
-                <OrderCard order={activeOrder} onClick={() => {}} />
-              </div>
-            ) : null}
-          </DragOverlay>
         </DndContext>
       )}
 
