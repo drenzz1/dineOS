@@ -5,14 +5,14 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
   useDroppable,
   useDraggable,
 } from "@dnd-kit/core";
-import type { DragEndEvent } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
@@ -118,7 +118,7 @@ interface DraggableCardProps {
 }
 
 function DraggableCard({ order, onClick }: DraggableCardProps) {
-  const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: order.id,
     data: { order },
   });
@@ -129,15 +129,10 @@ function DraggableCard({ order, onClick }: DraggableCardProps) {
       {...listeners}
       {...attributes}
       style={{
-        transform: CSS.Transform.toString(transform),
-        // Disable Card's transform transition while dragging so dnd-kit's
-        // per-frame updates aren't smoothed — prevents the size-morph glitch
-        transition: isDragging ? "opacity 0ms, box-shadow 0ms" : undefined,
-        zIndex: isDragging ? 50 : undefined,
-        opacity: isDragging ? 0.5 : 1,
-        cursor: isDragging ? "grabbing" : "grab",
+        // Hide original slot while dragging — DragOverlay renders the visual
+        opacity: isDragging ? 0 : 1,
+        cursor: "grab",
         touchAction: "none",
-        willChange: isDragging ? "transform" : undefined,
       }}
     >
       <OrderCard order={order} onClick={onClick} />
@@ -169,8 +164,9 @@ function DroppableColumn({ column, orders, onCardClick }: DroppableColumnProps) 
       <div
         ref={setNodeRef}
         className={[
-          "flex flex-col gap-2 rounded-md transition-colors duration-150 min-h-[60px] p-0.5",
-          isOver ? "bg-accent/8 ring-2 ring-accent/30 ring-inset" : "",
+          "flex flex-col gap-2 rounded-md min-h-[60px]",
+          // Use outline (not ring) — outline doesn't affect box model so no layout shift
+          isOver ? "bg-accent/8 outline outline-2 outline-accent/40 outline-offset-[-2px]" : "",
         ].filter(Boolean).join(" ")}
       >
         {orders.length === 0 ? (
@@ -198,10 +194,12 @@ export default function OrderBoard() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [overlayWidth, setOverlayWidth] = useState<number | undefined>(undefined);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      // Require 8px of movement before starting a drag so normal clicks still fire
+      // 8px threshold so normal clicks still open the detail panel
       activationConstraint: { distance: 8 },
     })
   );
@@ -210,21 +208,29 @@ export default function OrderBoard() {
     mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>
       updateOrderStatus(orderId, status),
     onError: () => {
-      // On error, re-fetch to restore server truth
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.list(tenantId) });
     },
   });
 
+  function handleDragStart(event: DragStartEvent) {
+    const order = (event.active.data.current as { order: Order } | undefined)?.order;
+    setActiveOrder(order ?? null);
+    // Capture the card's current pixel width so the overlay renders at the same size
+    const width = event.active.rect.current.initial?.width;
+    setOverlayWidth(width ?? undefined);
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveOrder(null);
+    setOverlayWidth(undefined);
+
     const { active, over } = event;
     if (!over) return;
 
     const order = (active.data.current as { order: Order } | undefined)?.order;
     const newStatus = over.id as OrderStatus;
-
     if (!order || order.status === newStatus) return;
 
-    // Optimistic update — move the card immediately in the UI
     queryClient.setQueryData(
       queryKeys.orders.list(tenantId),
       (old: Order[] | undefined) =>
@@ -302,7 +308,7 @@ export default function OrderBoard() {
       ) : (
         <DndContext
           sensors={sensors}
-          modifiers={[restrictToWindowEdges]}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
           <div
@@ -319,6 +325,14 @@ export default function OrderBoard() {
             ))}
           </div>
 
+          {/* Overlay rendered at body level — fixed width from measured card so it never resizes */}
+          <DragOverlay modifiers={[restrictToWindowEdges]} dropAnimation={null}>
+            {activeOrder ? (
+              <div style={{ width: overlayWidth, cursor: "grabbing" }}>
+                <OrderCard order={activeOrder} onClick={() => {}} />
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       )}
 
