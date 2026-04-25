@@ -144,7 +144,7 @@ describe('OrderWizard', () => {
     await goToStep3(user);
     await user.click(screen.getByRole('button', { name: /place order/i }));
     await waitFor(() =>
-      expect(screen.getByText('Loading...')).toBeInTheDocument()
+      expect(screen.getByTestId('wizard-submit')).toBeDisabled()
     );
     act(() => {});
   });

@@ -1,6 +1,8 @@
 "use client";
 
 import type { ShiftSummary } from "@/types";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Illo } from "@/components/ui/Illo";
 import ShiftNoteCard from "./ShiftNoteCard";
 
 interface ShiftNoteListProps {
@@ -11,8 +13,12 @@ interface ShiftNoteListProps {
 export default function ShiftNoteList({ notes, onDelete }: ShiftNoteListProps) {
   if (notes.length === 0) {
     return (
-      <div className="flex items-center justify-center py-16 text-sm text-zinc-600">
-        No shift notes yet.
+      <div className="rounded-md border border-dashed border-border-strong bg-surface">
+        <EmptyState
+          illustration={<Illo.Note />}
+          title="No shift notes yet"
+          description="Capture the kind of things you'd want the next shift to know — counts, repairs, VIPs, unusual incidents."
+        />
       </div>
     );
   }

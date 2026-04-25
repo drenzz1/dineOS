@@ -11,9 +11,14 @@ export default function ProtectedLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-full">
+    <div className="flex min-h-full bg-bg text-fg">
       <ProtectedSidebar />
-      <main id="main-content" className="flex-1 p-6">{children}</main>
+      <main
+        id="main-content"
+        className="flex-1 min-w-0 p-6 animate-fade-up"
+      >
+        {children}
+      </main>
     </div>
   );
 }

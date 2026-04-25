@@ -16,32 +16,35 @@ export function DataTable<T extends Record<string, unknown>>({
 }: DataTableProps<T>) {
   if (data.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center">
-        <p className="text-sm text-zinc-500">{emptyMessage}</p>
+      <div className="rounded-md border border-dashed border-border-strong bg-surface p-8 text-center">
+        <p className="text-sm text-fg-subtle">{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200">
-      <table className="w-full text-sm text-zinc-900">
-        <thead className="border-b border-zinc-200 bg-zinc-50">
+    <div className="overflow-x-auto rounded-md border border-border bg-surface shadow-sm">
+      <table className="w-full text-sm text-fg">
+        <thead className="border-b border-border bg-surface-2">
           <tr>
             {columns.map((col) => (
               <th
                 key={col.key}
-                className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-subtle"
               >
                 {col.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-100">
+        <tbody className="divide-y divide-border">
           {data.map((row, rowIndex) => (
-            <tr key={rowIndex} className="hover:bg-zinc-50">
+            <tr
+              key={rowIndex}
+              className="transition-colors duration-150 hover:bg-surface-2"
+            >
               {columns.map((col) => (
-                <td key={col.key} className="px-4 py-3">
+                <td key={col.key} className="px-4 py-3 text-[13px]">
                   {String(row[col.key] ?? "")}
                 </td>
               ))}

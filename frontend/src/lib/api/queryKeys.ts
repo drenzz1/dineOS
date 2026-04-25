@@ -49,4 +49,8 @@ export const queryKeys = {
   adminAnalytics: {
     all: ["admin", "analytics"] as const,
   },
+  dashboard: {
+    manager: (tenantId: string | null) =>
+      ["dashboard", tenantId, "manager"] as const,
+  },
 } as const;

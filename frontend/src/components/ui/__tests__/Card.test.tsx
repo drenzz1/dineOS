@@ -10,19 +10,18 @@ describe("Card", () => {
   it("applies base card classes by default", () => {
     const { container } = render(<Card>Content</Card>);
     const el = container.firstChild as HTMLElement;
-    expect(el).toHaveClass("rounded-lg");
-    expect(el).toHaveClass("bg-white");
+    expect(el).toHaveClass("rounded-md");
+    expect(el).toHaveClass("bg-surface");
     expect(el).toHaveClass("shadow-sm");
   });
 
   it("merges extra className with base classes", () => {
     const { container } = render(
-      <Card className="border border-zinc-200">Content</Card>
+      <Card className="border-2">Content</Card>
     );
     const el = container.firstChild as HTMLElement;
-    expect(el).toHaveClass("rounded-lg");
-    expect(el).toHaveClass("border");
-    expect(el).toHaveClass("border-zinc-200");
+    expect(el).toHaveClass("rounded-md");
+    expect(el).toHaveClass("border-2");
   });
 
   it("forwards additional HTML attributes to the div", () => {

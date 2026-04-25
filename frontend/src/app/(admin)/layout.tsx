@@ -8,7 +8,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div data-chrome="admin" className="flex min-h-screen bg-bg text-fg">
       {/* Sidebar — desktop only */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <AdminSidebar />
@@ -19,7 +19,10 @@ export default function AdminLayout({
         <AdminHeader />
 
         {/* Mobile nav strip — visible below lg */}
-        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-slate-900 px-4 py-2 lg:hidden">
+        <nav
+          aria-label="Platform sections"
+          className="flex gap-1 overflow-x-auto border-b border-border bg-surface px-4 py-2 lg:hidden"
+        >
           {[
             { label: "Dashboard", href: "/admin/dashboard" },
             { label: "Restaurants", href: "/admin/restaurants" },
@@ -28,14 +31,19 @@ export default function AdminLayout({
             <Link
               key={href}
               href={href}
-              className="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
+              className="shrink-0 rounded-sm px-3 py-1.5 text-[13px] font-medium text-fg-muted hover:bg-surface-2 hover:text-fg transition-colors"
             >
               {label}
             </Link>
           ))}
         </nav>
 
-        <main id="main-content" className="flex-1 p-6">{children}</main>
+        <main
+          id="main-content"
+          className="flex-1 p-6 animate-fade-up"
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

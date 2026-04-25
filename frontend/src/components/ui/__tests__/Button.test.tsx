@@ -30,7 +30,7 @@ describe("Button", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  it("shows loading spinner and suppresses click while loading", async () => {
+  it("disables the button and suppresses click while loading", async () => {
     const user = userEvent.setup();
     const onClick = jest.fn();
     render(
@@ -38,8 +38,19 @@ describe("Button", () => {
         Save
       </Button>
     );
-    await user.click(screen.getByRole("button"));
+    const btn = screen.getByRole("button");
+    expect(btn).toBeDisabled();
+    await user.click(btn);
     expect(onClick).not.toHaveBeenCalled();
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
+  });
+
+  it("renders leading and trailing slots", () => {
+    render(
+      <Button leading={<span data-testid="lead">L</span>} trailing={<span data-testid="trail">T</span>}>
+        Label
+      </Button>
+    );
+    expect(screen.getByTestId("lead")).toBeInTheDocument();
+    expect(screen.getByTestId("trail")).toBeInTheDocument();
   });
 });

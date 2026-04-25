@@ -18,24 +18,40 @@ const navItems: NavItem[] = [
   { label: "Staff", href: "/staff" },
 ];
 
+function mergeClasses(...classes: Array<string | undefined | false>): string {
+  return classes.filter(Boolean).join(" ");
+}
+
 export default function ProtectedSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 border-r border-zinc-200 p-4">
-      <nav className="flex flex-col gap-1">
+    <aside className="hidden md:flex md:w-64 md:shrink-0 md:flex-col bg-surface border-r border-border">
+      {/* Brand strip */}
+      <div className="flex h-14 items-center gap-2 border-b border-border px-5">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-sm bg-accent/15">
+          <span className="h-2 w-2 rounded-full bg-accent" />
+        </span>
+        <span className="text-[13px] font-semibold tracking-[-0.01em] text-fg">
+          dineOS
+        </span>
+      </div>
+
+      <nav aria-label="Main" className="flex flex-col gap-0.5 p-2.5">
         {navItems.map(({ label, href }) => {
           const isActive =
-            pathname === href || pathname.startsWith(href + "/");
+            pathname === href || pathname?.startsWith(href + "/");
           return (
             <Link
               key={href}
               href={href}
-              className={
+              aria-current={isActive ? "page" : undefined}
+              className={mergeClasses(
+                "flex items-center h-8 rounded-sm px-3 text-[13px] font-medium transition-colors duration-150",
                 isActive
-                  ? "rounded-md px-3 py-2 text-sm font-medium bg-zinc-100 text-zinc-900"
-                  : "rounded-md px-3 py-2 text-sm font-medium text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition-colors"
-              }
+                  ? "bg-accent-soft text-accent"
+                  : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+              )}
             >
               {label}
             </Link>

@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { Navbar } from "../Navbar";
 
+jest.mock("next/navigation", () => ({
+  usePathname: () => "/dashboard",
+}));
+
 const ALL_LINKS = [
   "Dashboard",
   "Orders",
