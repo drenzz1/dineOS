@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
@@ -132,14 +132,29 @@ function DraggableCard({ order, onClick, onDoubleClick }: DraggableCardProps) {
     data: { order },
   });
 
+  // dnd-kit's PointerSensor calls preventDefault() on pointerdown, which
+  // suppresses the native dblclick event. Detect double-tap manually instead.
+  const lastTapRef = useRef(0);
+  const mergedListeners = {
+    ...listeners,
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        onDoubleClick();
+        lastTapRef.current = 0;
+      } else {
+        lastTapRef.current = now;
+      }
+      listeners?.onPointerDown?.(e);
+    },
+  };
+
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
+      {...mergedListeners}
       {...attributes}
-      onDoubleClick={onDoubleClick}
       style={{
-        // Hide original slot while dragging — DragOverlay renders the visual
         opacity: isDragging ? 0 : 1,
         cursor: "grab",
         touchAction: "none",
