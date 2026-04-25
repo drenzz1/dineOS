@@ -274,7 +274,7 @@ export default function OrderQuickCreate() {
                   aria-pressed={quantity > 0}
                   className={`group rounded-lg border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                     quantity > 0
-                      ? "border-accent bg-accent-soft shadow-md ring-2 ring-accent/20"
+                      ? "border-status-ready-border bg-status-ready-bg shadow-md ring-2 ring-status-ready-solid/20"
                       : "border-border bg-surface hover:border-border-strong"
                   }`}
                 >
@@ -291,14 +291,14 @@ export default function OrderQuickCreate() {
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                         quantity > 0
-                          ? "bg-accent text-accent-fg"
+                          ? "bg-status-ready-solid text-white"
                           : "bg-surface-2 text-accent group-hover:bg-accent group-hover:text-accent-fg"
                       }`}
                     >
                       {quantity > 0 ? "Add another" : "Add to ticket"}
                     </span>
                     {quantity > 0 && (
-                      <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-bold text-accent-fg shadow-xs">
+                      <span className="rounded-full bg-status-ready-solid px-2.5 py-1 text-xs font-bold text-white shadow-xs">
                         In cart: {quantity}
                       </span>
                     )}
@@ -331,7 +331,10 @@ export default function OrderQuickCreate() {
             ) : (
               <div className="space-y-3">
                 {cartItems.map((item) => (
-                  <div key={item.menuItemId} className="rounded-md border border-border bg-bg-sunken p-3">
+                  <div
+                    key={item.menuItemId}
+                    className="rounded-md border border-status-ready-border bg-status-ready-bg p-3"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-fg">{item.name}</p>
