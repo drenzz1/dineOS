@@ -1,14 +1,5 @@
-import dynamic from "next/dynamic";
 import Link from "next/link";
-
-const OrderWizard = dynamic(
-  () => import("@/components/orders/OrderWizard"),
-  {
-    loading: () => (
-      <div className="h-96 animate-pulse rounded-lg bg-zinc-100" />
-    ),
-  }
-);
+import OrderQuickCreate from "@/components/orders/OrderQuickCreate";
 
 // TODO: restrict to Cashier and Manager roles — blocked by #32
 export default function NewOrderPage() {
@@ -17,14 +8,16 @@ export default function NewOrderPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/orders"
-          className="text-sm text-zinc-500 transition-colors hover:text-zinc-900"
+          className="text-sm text-fg-muted transition-colors hover:text-fg"
         >
-          ← Orders
+          Back to orders
         </Link>
-        <span className="text-zinc-300">/</span>
-        <h1 className="text-2xl font-semibold text-zinc-900">New Order</h1>
+        <span className="text-fg-subtle">/</span>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-fg">
+          New Order
+        </h1>
       </div>
-      <OrderWizard />
+      <OrderQuickCreate />
     </div>
   );
 }

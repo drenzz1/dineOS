@@ -9,7 +9,7 @@ function isValidRole(value: string): value is Role {
   return (ROLE_VALUES as string[]).includes(value);
 }
 
-const CASHIER_ALLOWED = ["/orders", "/kitchen"];
+const CASHIER_ALLOWED = ["/orders", "/payments", "/kitchen"];
 const KITCHEN_STAFF_ALLOWED = ["/kitchen"];
 const PUBLIC_PATHS = ["/", "/login"];
 

@@ -17,6 +17,7 @@ interface NavbarProps {
 const ALL_LINKS: NavLink[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Orders", href: "/orders" },
+  { label: "Payments", href: "/payments" },
   { label: "Kitchen", href: "/kitchen" },
   { label: "Menu", href: "/menu" },
   { label: "Reports", href: "/reports" },
@@ -26,7 +27,9 @@ const ALL_LINKS: NavLink[] = [
 
 const ROLE_LINKS: Record<Role, NavLink[]> = {
   Manager: ALL_LINKS,
-  Cashier: ALL_LINKS.filter((l) => ["/orders", "/kitchen"].includes(l.href)),
+  Cashier: ALL_LINKS.filter((l) =>
+    ["/orders", "/payments", "/kitchen"].includes(l.href)
+  ),
   KitchenStaff: ALL_LINKS.filter((l) => l.href === "/kitchen"),
 };
 

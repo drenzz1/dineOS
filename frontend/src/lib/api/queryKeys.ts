@@ -26,6 +26,8 @@ export const queryKeys = {
         tenantId,
         { status: ["New", "InProgress"] },
       ] as const,
+    payments: (tenantId: string | null) =>
+      [...queryKeys.orders.all, tenantId, "payments"] as const,
   },
   staff: {
     all: ["staff"] as const,

@@ -13,6 +13,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Orders", href: "/orders" },
+  { label: "Payments", href: "/payments" },
   { label: "Kitchen", href: "/kitchen" },
   { label: "Menu", href: "/menu" },
   { label: "Reports", href: "/reports" },
@@ -22,7 +23,9 @@ const navItems: NavItem[] = [
 
 const ROLE_NAV_ITEMS: Record<Exclude<Role, "SuperAdmin">, NavItem[]> = {
   Manager: navItems,
-  Cashier: navItems.filter(({ href }) => ["/orders", "/kitchen"].includes(href)),
+  Cashier: navItems.filter(({ href }) =>
+    ["/orders", "/payments", "/kitchen"].includes(href)
+  ),
   KitchenStaff: navItems.filter(({ href }) => href === "/kitchen"),
 };
 

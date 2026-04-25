@@ -10,6 +10,7 @@ jest.mock("next/navigation", () => ({
 const ALL_LINKS = [
   "Dashboard",
   "Orders",
+  "Payments",
   "Kitchen",
   "Menu",
   "Reports",
@@ -50,17 +51,18 @@ describe("ProtectedSidebar", () => {
     });
   });
 
-  it("shows only Orders and Kitchen to cashiers", () => {
+  it("shows only Orders, Payments, and Kitchen to cashiers", () => {
     renderForRole("Cashier");
 
     expect(screen.getByRole("link", { name: "Orders" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Payments" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Kitchen" })).toBeInTheDocument();
 
-    ALL_LINKS.filter((label) => !["Orders", "Kitchen"].includes(label)).forEach(
-      (label) => {
-        expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
-      }
-    );
+    ALL_LINKS.filter(
+      (label) => !["Orders", "Payments", "Kitchen"].includes(label)
+    ).forEach((label) => {
+      expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
+    });
   });
 
   it("shows only Kitchen to kitchen staff", () => {

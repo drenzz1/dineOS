@@ -8,6 +8,7 @@ jest.mock("next/navigation", () => ({
 const ALL_LINKS = [
   "Dashboard",
   "Orders",
+  "Payments",
   "Kitchen",
   "Menu",
   "Reports",
@@ -15,7 +16,7 @@ const ALL_LINKS = [
   "Staff",
 ];
 
-const CASHIER_LINKS = ["Orders", "Kitchen"];
+const CASHIER_LINKS = ["Orders", "Payments", "Kitchen"];
 const KITCHEN_STAFF_LINKS = ["Kitchen"];
 
 describe("Navbar — Manager", () => {
