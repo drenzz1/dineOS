@@ -11,6 +11,7 @@ function isValidRole(value: string): value is Role {
 
 const CASHIER_ALLOWED = ["/orders", "/kitchen"];
 const KITCHEN_STAFF_ALLOWED = ["/kitchen"];
+const PUBLIC_PATHS = ["/", "/login"];
 
 function isAllowed(pathname: string, allowed: string[]): boolean {
   return allowed.some(
@@ -29,8 +30,8 @@ function redirectTo(destination: string, request: NextRequest): NextResponse {
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
 
-  // Always allow the login page through — prevents redirect loops.
-  if (pathname === "/login") {
+  // Always allow public marketing/auth pages through — prevents redirect loops.
+  if (PUBLIC_PATHS.includes(pathname)) {
     return NextResponse.next();
   }
 
