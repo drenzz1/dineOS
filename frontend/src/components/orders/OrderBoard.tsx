@@ -13,6 +13,7 @@ import {
   useDraggable,
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import { snapCenterToCursor } from "@dnd-kit/modifiers";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -314,7 +315,7 @@ export default function OrderBoard() {
             ))}
           </div>
 
-          <DragOverlay dropAnimation={null}>
+          <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]}>
             {activeOrder ? (
               <div className="rotate-1 scale-105 opacity-95 shadow-xl">
                 <OrderCard order={activeOrder} onClick={() => {}} />
