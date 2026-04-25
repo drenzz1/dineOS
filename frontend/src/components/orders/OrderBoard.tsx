@@ -132,35 +132,35 @@ function DraggableCard({ order, onClick, onDoubleClick }: DraggableCardProps) {
     data: { order },
   });
 
-  // dnd-kit's PointerSensor calls preventDefault() on pointerdown, which
-  // suppresses the native dblclick event. Detect double-tap manually instead.
+  // Native dblclick is suppressed by dnd-kit's preventDefault on pointerdown.
+  // Track rapid taps on a parent div — events bubble up since dnd-kit never
+  // calls stopPropagation, so both handlers fire independently.
   const lastTapRef = useRef(0);
-  const mergedListeners = {
-    ...listeners,
-    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
-      const now = Date.now();
-      if (now - lastTapRef.current < 300) {
-        onDoubleClick();
-        lastTapRef.current = 0;
-      } else {
-        lastTapRef.current = now;
-      }
-      listeners?.onPointerDown?.(e);
-    },
-  };
+
+  function handleOuterPointerDown() {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      onDoubleClick();
+      lastTapRef.current = 0;
+    } else {
+      lastTapRef.current = now;
+    }
+  }
 
   return (
-    <div
-      ref={setNodeRef}
-      {...mergedListeners}
-      {...attributes}
-      style={{
-        opacity: isDragging ? 0 : 1,
-        cursor: "grab",
-        touchAction: "none",
-      }}
-    >
-      <OrderCard order={order} onClick={onClick} />
+    <div onPointerDown={handleOuterPointerDown}>
+      <div
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
+        style={{
+          opacity: isDragging ? 0 : 1,
+          cursor: "grab",
+          touchAction: "none",
+        }}
+      >
+        <OrderCard order={order} onClick={onClick} />
+      </div>
     </div>
   );
 }
