@@ -30,6 +30,7 @@ export default function OrderQuickCreate() {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [payAfterCreate, setPayAfterCreate] = useState(false);
+  const [lastAddedItemName, setLastAddedItemName] = useState<string | null>(null);
 
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
@@ -79,12 +80,16 @@ export default function OrderQuickCreate() {
     (sum, item) => sum + item.quantity * item.unitPrice,
     0
   );
+  const totalUnits = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   function getCartIndex(menuItemId: string): number {
     return fields.findIndex((field) => field.menuItemId === menuItemId);
   }
 
   function addItem(item: MenuItem) {
+    setLastAddedItemName(item.name);
+    window.setTimeout(() => setLastAddedItemName(null), 1200);
+
     const index = getCartIndex(item.id);
     if (index === -1) {
       append({
@@ -169,6 +174,15 @@ export default function OrderQuickCreate() {
               ))}
             </div>
           </div>
+
+          {lastAddedItemName && (
+            <div
+              role="status"
+              className="mt-4 rounded-md border border-status-ready-border bg-status-ready-bg px-3 py-2 text-sm font-semibold text-status-ready-fg"
+            >
+              Added {lastAddedItemName} to the current ticket.
+            </div>
+          )}
 
           <div className="mt-4 grid gap-3 md:grid-cols-[180px_1fr]">
             <div>
@@ -257,7 +271,12 @@ export default function OrderQuickCreate() {
                   key={item.id}
                   type="button"
                   onClick={() => addItem(item)}
-                  className="group rounded-lg border border-border bg-surface p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md"
+                  aria-pressed={quantity > 0}
+                  className={`group rounded-lg border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+                    quantity > 0
+                      ? "border-accent bg-accent-soft shadow-md ring-2 ring-accent/20"
+                      : "border-border bg-surface hover:border-border-strong"
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -269,12 +288,18 @@ export default function OrderQuickCreate() {
                     </span>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-accent group-hover:text-accent-hover">
-                      Tap to add
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        quantity > 0
+                          ? "bg-accent text-accent-fg"
+                          : "bg-surface-2 text-accent group-hover:bg-accent group-hover:text-accent-fg"
+                      }`}
+                    >
+                      {quantity > 0 ? "Add another" : "Add to ticket"}
                     </span>
                     {quantity > 0 && (
-                      <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">
-                        x{quantity}
+                      <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-bold text-accent-fg shadow-xs">
+                        In cart: {quantity}
                       </span>
                     )}
                   </div>
@@ -292,7 +317,7 @@ export default function OrderQuickCreate() {
               Current ticket
             </h2>
             <p className="text-[12px] text-fg-muted">
-              {cartItems.length} item{cartItems.length === 1 ? "" : "s"} selected
+              {totalUnits} unit{totalUnits === 1 ? "" : "s"} across {cartItems.length} item{cartItems.length === 1 ? "" : "s"}
             </p>
           </div>
 
