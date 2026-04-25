@@ -32,6 +32,14 @@ const OrderDetailPanel = dynamic(
   { ssr: false, loading: () => null }
 );
 
+// ─── Status progression ───────────────────────────────────────────────────────
+
+const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
+  [OrderStatus.New]: OrderStatus.InProgress,
+  [OrderStatus.InProgress]: OrderStatus.Ready,
+  [OrderStatus.Ready]: OrderStatus.Delivered,
+};
+
 // ─── Column config ────────────────────────────────────────────────────────────
 
 interface Column {
@@ -115,9 +123,10 @@ function BoardSkeleton() {
 interface DraggableCardProps {
   order: Order;
   onClick: () => void;
+  onDoubleClick: () => void;
 }
 
-function DraggableCard({ order, onClick }: DraggableCardProps) {
+function DraggableCard({ order, onClick, onDoubleClick }: DraggableCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: order.id,
     data: { order },
@@ -128,6 +137,7 @@ function DraggableCard({ order, onClick }: DraggableCardProps) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      onDoubleClick={onDoubleClick}
       style={{
         // Hide original slot while dragging — DragOverlay renders the visual
         opacity: isDragging ? 0 : 1,
@@ -146,9 +156,10 @@ interface DroppableColumnProps {
   column: Column;
   orders: Order[];
   onCardClick: (order: Order) => void;
+  onCardDoubleClick: (order: Order) => void;
 }
 
-function DroppableColumn({ column, orders, onCardClick }: DroppableColumnProps) {
+function DroppableColumn({ column, orders, onCardClick, onCardDoubleClick }: DroppableColumnProps) {
   const { status, label, badgeClass, countClass, emptyMessage } = column;
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
@@ -179,6 +190,7 @@ function DroppableColumn({ column, orders, onCardClick }: DroppableColumnProps) 
               key={order.id}
               order={order}
               onClick={() => onCardClick(order)}
+              onDoubleClick={() => onCardDoubleClick(order)}
             />
           ))
         )}
@@ -218,6 +230,23 @@ export default function OrderBoard() {
     // Capture the card's current pixel width so the overlay renders at the same size
     const width = event.active.rect.current.initial?.width;
     setOverlayWidth(width ?? undefined);
+  }
+
+  function handleDoubleClick(order: Order) {
+    const newStatus = NEXT_STATUS[order.status];
+    if (!newStatus) return;
+
+    queryClient.setQueryData(
+      queryKeys.orders.list(tenantId),
+      (old: Order[] | undefined) =>
+        (old ?? []).map((o) =>
+          o.id === order.id
+            ? { ...o, status: newStatus, updatedAt: new Date().toISOString() }
+            : o
+        )
+    );
+
+    moveOrder({ orderId: order.id, status: newStatus });
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -322,6 +351,7 @@ export default function OrderBoard() {
                 column={column}
                 orders={grouped[column.status]}
                 onCardClick={setSelectedOrder}
+                onCardDoubleClick={handleDoubleClick}
               />
             ))}
           </div>
