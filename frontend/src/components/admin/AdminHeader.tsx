@@ -1,13 +1,18 @@
 export default function AdminHeader() {
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-700/60 bg-slate-900 px-6">
-      <span className="text-sm font-semibold text-slate-100">DineOS Admin</span>
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-6">
+      <div className="flex items-center gap-2">
+        <span className="text-[13px] font-semibold text-fg">dineOS</span>
+        <span className="inline-flex items-center rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted border border-border">
+          Platform
+        </span>
+      </div>
 
       <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-accent-fg">
           SA
         </div>
-        <span className="text-sm font-medium text-slate-300">Super Admin</span>
+        <span className="text-[13px] font-medium text-fg-muted">Super Admin</span>
       </div>
     </header>
   );

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { getShiftNotes } from "@/lib/api/shiftApi";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
+import { useAuthStore } from "@/stores/authStore";
 import type { Priority, Role } from "@/types";
 
 const BANNER: Record<Priority, string> = {
@@ -30,6 +31,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { tenantId } = useTenant();
+  const setAuth = useAuthStore((state) => state.setAuth);
 
   const { data: notes = [] } = useQuery({
     queryKey: queryKeys.shifts.list(tenantId),
@@ -42,6 +44,7 @@ export default function LoginPage() {
 
   function handleDevLogin(role: Role) {
     setDevAuthCookies(role);
+    setAuth("dev-user", role, role === "SuperAdmin" ? null : "demo-tenant", "Olio & Sale");
     const from = searchParams.get("from");
     const destination =
       role === "SuperAdmin"

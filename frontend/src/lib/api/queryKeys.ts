@@ -26,6 +26,8 @@ export const queryKeys = {
         tenantId,
         { status: ["New", "InProgress"] },
       ] as const,
+    payments: (tenantId: string | null) =>
+      [...queryKeys.orders.all, tenantId, "payments"] as const,
   },
   staff: {
     all: ["staff"] as const,
@@ -48,5 +50,9 @@ export const queryKeys = {
   },
   adminAnalytics: {
     all: ["admin", "analytics"] as const,
+  },
+  dashboard: {
+    manager: (tenantId: string | null) =>
+      ["dashboard", tenantId, "manager"] as const,
   },
 } as const;

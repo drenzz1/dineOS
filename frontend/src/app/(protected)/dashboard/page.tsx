@@ -19,11 +19,11 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">
+          <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg">
             Daily Summary
           </h1>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            Overview of orders and revenue for the selected date.
+          <p className="text-[13px] text-fg-muted mt-0.5">
+            Orders and revenue for the selected date.
           </p>
         </div>
         <label htmlFor="dashboard-date" className="sr-only">
@@ -37,14 +37,14 @@ export default function DashboardPage() {
           onChange={(e) => {
             if (e.target.value) setDate(e.target.value);
           }}
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-auto"
+          className="w-full sm:w-auto h-[34px] rounded-sm border border-border-strong bg-surface px-3 text-[13px] text-fg transition-[border-color,box-shadow] duration-150 focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/25"
         />
       </div>
 
       {/* Error state */}
       {isError && (
-        <div className="rounded-md bg-red-50 px-4 py-3">
-          <p className="text-sm text-red-600">
+        <div className="rounded-md border border-status-cancelled-border bg-status-cancelled-bg px-4 py-3">
+          <p className="text-[13px] text-status-cancelled-fg">
             Failed to load data. Please try again.
           </p>
         </div>

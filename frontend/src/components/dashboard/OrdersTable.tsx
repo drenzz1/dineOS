@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Illo } from "@/components/ui/Illo";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { OrderStatus } from "@/types/order";
 import type { Order, OrderItem } from "@/types/order";
 
@@ -52,20 +55,24 @@ interface FilterStripProps {
 function FilterStrip({ active, onChange }: FilterStripProps) {
   return (
     <div className="flex gap-1.5 overflow-x-auto pb-1">
-      {FILTER_OPTIONS.map(({ label, value }) => (
-        <button
-          key={value}
-          type="button"
-          onClick={() => onChange(value)}
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-            active === value
-              ? "bg-zinc-900 text-white"
-              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
+      {FILTER_OPTIONS.map(({ label, value }) => {
+        const isActive = active === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onChange(value)}
+            aria-pressed={isActive}
+            className={`shrink-0 inline-flex items-center rounded-full border h-7 px-3 text-[12px] font-semibold transition-colors duration-150 ${
+              isActive
+                ? "bg-accent text-accent-fg border-accent"
+                : "bg-surface text-fg-muted border-border hover:bg-surface-2 hover:text-fg hover:border-border-strong"
+            }`}
+          >
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -74,30 +81,24 @@ function FilterStrip({ active, onChange }: FilterStripProps) {
 
 export function OrdersTableSkeleton() {
   return (
-    <Card className="space-y-3">
-      {/* Filter strip skeleton */}
+    <Card className="space-y-4">
       <div className="flex gap-2">
-        {[80, 60, 90, 64, 80, 80].map((w, i) => (
-          <div
-            key={i}
-            className="animate-pulse h-6 rounded-full bg-zinc-200"
-            style={{ width: `${w}px` }}
-          />
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Skeleton key={i} className="h-7 w-20 rounded-full" />
         ))}
       </div>
-      {/* Rows skeleton */}
-      <div className="animate-pulse space-y-2 pt-2">
+      <div className="space-y-2 pt-2">
         {[0, 1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="flex items-center gap-4 rounded-md bg-zinc-100 px-3 py-3"
+            className="grid grid-cols-[1fr_1fr_1fr_2fr_0.8fr_0.8fr] items-center gap-4 px-1 py-3 border-b border-border last:border-b-0"
           >
-            <div className="h-3 w-16 rounded bg-zinc-200" />
-            <div className="h-3 w-20 rounded bg-zinc-200" />
-            <div className="h-5 w-16 rounded-full bg-zinc-200" />
-            <div className="h-3 flex-1 rounded bg-zinc-200" />
-            <div className="h-3 w-10 rounded bg-zinc-200" />
-            <div className="h-3 w-12 rounded bg-zinc-200" />
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-12" />
+            <Skeleton className="h-3 w-14" />
           </div>
         ))}
       </div>
@@ -122,57 +123,63 @@ export function OrdersTable({ orders }: OrdersTableProps) {
       <FilterStrip active={filter} onChange={setFilter} />
 
       {visible.length === 0 ? (
-        <div className="flex items-center justify-center rounded-lg border border-dashed border-zinc-300 py-12">
-          <p className="text-sm text-zinc-600">
-            {orders.length === 0
-              ? "No orders for this date."
-              : `No ${filter} orders.`}
-          </p>
+        <div className="rounded-md border border-dashed border-border-strong bg-surface">
+          <EmptyState
+            illustration={<Illo.Ticket />}
+            title={orders.length === 0 ? "No orders for this date" : `No ${filter} orders`}
+            description={
+              orders.length === 0
+                ? "When orders come in, they'll show up here for review."
+                : "Try clearing the filter or selecting a different day."
+            }
+            compact
+          />
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[640px] text-[13px]">
             <thead>
-              <tr className="border-b border-zinc-200 text-left">
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+              <tr className="border-b border-border text-left">
+                <th className="pb-2 pr-4 text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-subtle">
                   Order #
                 </th>
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                <th className="pb-2 pr-4 text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-subtle">
                   Type
                 </th>
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                <th className="pb-2 pr-4 text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-subtle">
                   Status
                 </th>
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                <th className="pb-2 pr-4 text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-subtle">
                   Items
                 </th>
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                <th className="pb-2 pr-4 text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-subtle">
                   Total
                 </th>
-                <th className="pb-2 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                <th className="pb-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-subtle">
                   Time
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-border">
               {visible.map((order) => (
-                <tr key={order.id} className="hover:bg-zinc-50">
-                  <td className="py-3 pr-4 font-mono text-xs font-semibold uppercase text-zinc-500">
+                <tr
+                  key={order.id}
+                  className="transition-colors duration-150 hover:bg-surface-2"
+                >
+                  <td className="py-3 pr-4 dos-num text-[11.5px] font-semibold uppercase text-fg-muted">
                     #{order.id.slice(0, 8)}
                   </td>
-                  <td className="py-3 pr-4 text-zinc-700">
-                    {formatType(order)}
-                  </td>
+                  <td className="py-3 pr-4 text-fg">{formatType(order)}</td>
                   <td className="py-3 pr-4">
                     <StatusBadge status={order.status} />
                   </td>
-                  <td className="py-3 pr-4 text-zinc-600">
+                  <td className="py-3 pr-4 text-fg-muted">
                     {formatItems(order.items)}
                   </td>
-                  <td className="py-3 pr-4 font-medium text-zinc-900">
+                  <td className="py-3 pr-4 dos-num font-medium text-fg">
                     ${orderTotal(order.items).toFixed(2)}
                   </td>
-                  <td className="py-3 text-zinc-500">
+                  <td className="py-3 dos-num text-fg-subtle">
                     {formatTime(order.createdAt)}
                   </td>
                 </tr>

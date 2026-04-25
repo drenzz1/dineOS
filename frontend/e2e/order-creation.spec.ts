@@ -15,37 +15,24 @@ test('Cashier can create a pickup order and see it on the live board', async ({ 
   // Step 4 — confirm URL is on the orders board
   await expect(page).toHaveURL(/\/orders(\/|$)/);
 
-  // Step 5 — open the New Order wizard
+  // Step 5 — open the New Order quick-create screen
   await page.getByTestId('new-order-button').click();
   await page.waitForURL(/\/orders\/new/);
-  await expect(page.getByTestId('order-wizard')).toBeVisible();
+  await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
-  // Step 6 — Wizard Step 1: choose pickup, advance
-  await page.getByTestId('order-type-pickup').click();
-  await page.getByTestId('wizard-next').click();
-
-  // Step 7 — Wizard Step 2: wait for menu items to load, select first item, advance
+  // Step 6 — choose pickup and add an item directly from the menu grid
+  await page.getByTestId('order-type-pickup-option').click();
   await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
-  await page.getByTestId('menu-item-card').first().getByRole('checkbox').click();
-  await expect(page.getByTestId('menu-item-qty-increase').first()).toBeVisible();
-  await page.getByTestId('wizard-next').click();
+  await page.getByTestId('menu-item-card').first().click();
+  await expect(page.getByText(/in cart: 1/i)).toBeVisible();
 
-  // Step 8 — Wizard Step 3: fill note and submit.
-  // Playwright cannot trigger React 19's synthetic onChange on an uncontrolled textarea directly,
-  // so we dispatch a custom DOM event that the wizard listens to and writes via ref.current.value.
+  // Step 7 — fill note and submit
   await expect(page.getByTestId('order-note-input')).toBeVisible();
-  await page.evaluate(() =>
-    document.dispatchEvent(
-      new CustomEvent('__e2e:set-order-note', { detail: 'Extra napkins' }),
-    ),
-  );
+  await page.getByTestId('order-note-input').fill('Extra napkins');
   await expect(page.getByTestId('order-note-input')).toHaveValue('Extra napkins');
-  await page.getByTestId('wizard-submit').click();
+  await page.getByRole('button', { name: /send order/i }).click();
 
-  // Step 9 — success toast must appear
-  await expect(page.getByTestId('toast-success')).toBeVisible();
-
-  // Step 10 — redirect back to board; find a New + Pick-up card (uniquely our order:
+  // Step 8 — redirect back to board; find a New + Pick-up card (uniquely our order:
   // seed ord-001 is New but dine-in; no seed New pickup exists)
   await page.waitForURL(/\/orders(\/|$)/);
   await expect(page.getByTestId('orders-list')).toBeVisible();
@@ -59,7 +46,7 @@ test('Cashier can create a pickup order and see it on the live board', async ({ 
   await expect(newPickupCard).toBeVisible();
   await expect(newPickupCard.getByTestId('order-status-badge')).toHaveText(/^New$/i);
 
-  // Step 11 — click that card; detail panel must show the note "Extra napkins"
+  // Step 9 — click that card; detail panel must show the note "Extra napkins"
   await newPickupCard.click();
 
   const detailPanel = page.getByRole('dialog', { name: /order details/i });

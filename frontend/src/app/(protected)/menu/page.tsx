@@ -12,6 +12,7 @@ import {
 import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
 import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import MenuItemForm from "@/components/menu/MenuItemForm";
 import CategoryTabs from "@/components/menu/CategoryTabs";
 import type { MenuItem } from "@/types";
@@ -23,9 +24,26 @@ const Modal = dynamic(
 
 const MenuItemTable = dynamic(
   () => import("@/components/menu/MenuItemTable"),
-  { loading: () => <p>Loading table...</p> }
+  {
+    loading: () => (
+      <div className="rounded-md border border-border bg-surface shadow-sm">
+        <div className="border-b border-border bg-surface-2 px-4 py-3">
+          <Skeleton className="h-3 w-20" />
+        </div>
+        <div className="divide-y divide-border">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="grid grid-cols-[1.4fr_0.6fr_2fr_0.8fr] items-center gap-4 px-4 py-3">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-3 w-12" />
+              <Skeleton className="h-3 w-48" />
+              <Skeleton className="h-7 w-20 rounded-sm" />
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+  }
 );
-
 
 export default function MenuPage() {
   const queryClient = useQueryClient();
@@ -36,7 +54,7 @@ export default function MenuPage() {
   const [editTarget, setEditTarget] = useState<MenuItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MenuItem | null>(null);
 
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [], isLoading: isLoadingCategories } = useQuery({
     queryKey: queryKeys.menuCategories.list(tenantId),
     queryFn: getCategories,
   });
@@ -79,17 +97,34 @@ export default function MenuPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900">Menu</h1>
-        <Button onClick={() => setAddOpen(true)}>Add Item</Button>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg">
+            Menu
+          </h1>
+          <p className="text-[13px] text-fg-muted mt-0.5">
+            Organize dishes into categories and keep prices consistent across channels.
+          </p>
+        </div>
+        <Button
+          onClick={() => setAddOpen(true)}
+          leading={
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          }
+        >
+          Add Item
+        </Button>
       </div>
 
-      {/* Category tabs */}
+      {/* Category tabs + new category input */}
       <div className="space-y-3">
         <CategoryTabs
           categories={categories}
           selected={activeCategory ?? ""}
           onSelect={setSelectedCategory}
+          isLoading={isLoadingCategories}
         />
         <input
           type="text"
@@ -98,7 +133,7 @@ export default function MenuPage() {
           onKeyDown={handleCategoryKeyDown}
           placeholder="New category — press Enter to add"
           aria-label="New category name"
-          className="w-72 rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-72 max-w-full h-[34px] rounded-sm border border-border-strong bg-surface px-3 text-[13px] text-fg placeholder:text-fg-subtle transition-[border-color,box-shadow] duration-150 focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/25"
         />
       </div>
 
@@ -141,24 +176,19 @@ export default function MenuPage() {
         title="Delete item"
       >
         <div className="space-y-5">
-          <p className="text-sm text-zinc-700">
+          <p className="text-[13px] text-fg-muted leading-relaxed">
             Are you sure you want to delete{" "}
-            <span className="font-semibold">{deleteTarget?.name}</span>? This
-            cannot be undone.
+            <span className="font-semibold text-fg">{deleteTarget?.name}</span>?
+            This cannot be undone.
           </p>
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => setDeleteTarget(null)}
-            >
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
             <Button
               variant="danger"
               isLoading={isDeleting}
-              onClick={() =>
-                deleteTarget && doDelete(deleteTarget.id)
-              }
+              onClick={() => deleteTarget && doDelete(deleteTarget.id)}
             >
               Delete
             </Button>

@@ -20,16 +20,15 @@ async function loginAs(page: import('@playwright/test').Page, role: Role) {
 
 // ─── Part A: Keyboard navigation tests ───────────────────────────────────────
 
-// A1 — Tab through /orders/new across all 3 steps
+// A1 — Tab through /orders/new quick-order flow
 //      Verifies every interactive control is keyboard-reachable and operable.
-test('Keyboard A1: /orders/new wizard — all controls accessible via keyboard across all 3 steps', async ({ page }) => {
+test('Keyboard A1: /orders/new quick order — core controls accessible by keyboard', async ({ page }) => {
   await loginAs(page, 'Cashier');
   await page.waitForURL(/\/orders(\/|$)/);
   await page.goto('/orders/new');
   await page.waitForLoadState('networkidle');
-  await expect(page.getByTestId('order-wizard')).toBeVisible();
+  await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
-  // ── Step 1 ──
   // Both radio inputs must accept keyboard focus
   const dineinRadio = page.getByTestId('order-type-dinein');
   const pickupRadio = page.getByTestId('order-type-pickup');
@@ -37,44 +36,26 @@ test('Keyboard A1: /orders/new wizard — all controls accessible via keyboard a
   await dineinRadio.focus();
   await expect(dineinRadio).toBeFocused();
 
-  // Arrow-right switches to pickup (also tested in A4; confirmed here for tab-out)
   await page.keyboard.press('ArrowRight');
   await expect(pickupRadio).toBeChecked();
-  // Pickup selected → table-number field is gone → Tab exits group to Cancel then Next
-  await page.keyboard.press('Tab'); // → Cancel button
-  await page.keyboard.press('Tab'); // → Next button
-  await expect(page.getByTestId('wizard-next')).toBeFocused();
-  await page.keyboard.press('Enter'); // advance to Step 2
 
   await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
 
-  // ── Step 2 ──
-  const firstCheckbox = page.getByTestId('menu-item-card').first().getByRole('checkbox');
-  await firstCheckbox.focus();
-  await expect(firstCheckbox).toBeFocused();
-  // Space selects the item (qty controls appear)
+  const firstItem = page.getByTestId('menu-item-card').first();
+  await firstItem.focus();
+  await expect(firstItem).toBeFocused();
   await page.keyboard.press('Space');
-  await expect(page.getByTestId('menu-item-qty-decrease').first()).toBeVisible();
+  await expect(page.getByText(/in cart: 1/i)).toBeVisible();
 
   // Quantity buttons are keyboard-reachable
-  const qtyDec = page.getByTestId('menu-item-qty-decrease').first();
-  const qtyInc = page.getByTestId('menu-item-qty-increase').first();
+  const qtyDec = page.getByRole('button', { name: /decrease quantity/i }).first();
+  const qtyInc = page.getByRole('button', { name: /increase quantity/i }).first();
   await qtyDec.focus(); await expect(qtyDec).toBeFocused();
   await qtyInc.focus(); await expect(qtyInc).toBeFocused();
 
-  // Back and Next buttons reachable
-  await page.getByRole('button', { name: 'Back' }).focus();
-  await expect(page.getByRole('button', { name: 'Back' })).toBeFocused();
-  await page.getByTestId('wizard-next').focus();
-  await expect(page.getByTestId('wizard-next')).toBeFocused();
-  await page.keyboard.press('Enter'); // advance to Step 3
-
-  await expect(page.getByTestId('order-note-input')).toBeVisible();
-
-  // ── Step 3 ──
   // Notes textarea and submit button reachable
   const notesInput = page.getByTestId('order-note-input');
-  const submitBtn = page.getByTestId('wizard-submit');
+  const submitBtn = page.getByRole('button', { name: /send order/i });
 
   await notesInput.focus();
   await expect(notesInput).toBeFocused();
@@ -114,37 +95,35 @@ test('Keyboard A2: Modal — Tab stays inside dialog, Escape closes it', async (
 });
 
 // A3 — Enter on a focused submit button submits the form.
-test('Keyboard A3: Enter on focused submit button submits the wizard form', async ({ page }) => {
+test('Keyboard A3: Enter on focused submit button submits the quick-order form', async ({ page }) => {
   await loginAs(page, 'Cashier');
   await page.waitForURL(/\/orders(\/|$)/);
   await page.goto('/orders/new');
   await page.waitForLoadState('networkidle');
-  await expect(page.getByTestId('order-wizard')).toBeVisible();
+  await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
-  // Reach Step 3 quickly using mouse (keyboard submit is what we're testing, not full nav)
-  await page.getByTestId('order-type-pickup').click();
-  await page.getByTestId('wizard-next').click();
+  await page.getByTestId('order-type-pickup-option').click();
   await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
-  await page.getByTestId('menu-item-card').first().getByRole('checkbox').click();
-  await page.getByTestId('wizard-next').click();
+  await page.getByTestId('menu-item-card').first().click();
   await expect(page.getByTestId('order-note-input')).toBeVisible();
 
   // Focus the submit button and press Enter — must trigger form submission
-  const submitBtn = page.getByTestId('wizard-submit');
+  const submitBtn = page.getByRole('button', { name: /send order/i });
   await submitBtn.focus();
   await expect(submitBtn).toBeFocused();
   await page.keyboard.press('Enter');
 
-  await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 5000 });
+  await page.waitForURL(/\/orders(\/|$)/);
+  await expect(page.getByTestId('orders-list')).toBeVisible({ timeout: 5000 });
 });
 
 // A4 — Arrow keys navigate radio groups.
-test('Keyboard A4: Arrow keys navigate radio group in /orders/new Step 1', async ({ page }) => {
+test('Keyboard A4: Arrow keys navigate order-type radio group in /orders/new', async ({ page }) => {
   await loginAs(page, 'Cashier');
   await page.waitForURL(/\/orders(\/|$)/);
   await page.goto('/orders/new');
   await page.waitForLoadState('networkidle');
-  await expect(page.getByTestId('order-wizard')).toBeVisible();
+  await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
   const dineinRadio = page.getByTestId('order-type-dinein');
   const pickupRadio = page.getByTestId('order-type-pickup');

@@ -1,26 +1,435 @@
 @import "tailwindcss";
 
+/* ───────────────────────────────────────────────────────────────────
+   dineOS design tokens — ported from the Claude Design handoff bundle.
+   Light + dark themes, plus an ops (warm) vs admin (cool) chrome switch
+   via [data-chrome="admin"]. All primitives consume these variables.
+   ─────────────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand: Ember */
+  --ember-50:  oklch(0.975 0.018 55);
+  --ember-100: oklch(0.945 0.045 50);
+  --ember-200: oklch(0.895 0.085 48);
+  --ember-300: oklch(0.830 0.125 46);
+  --ember-400: oklch(0.760 0.155 44);
+  --ember-500: oklch(0.680 0.172 42);
+  --ember-600: oklch(0.610 0.170 40);
+  --ember-700: oklch(0.520 0.150 38);
+  --ember-800: oklch(0.420 0.120 36);
+  --ember-900: oklch(0.330 0.090 34);
+
+  /* Warm neutrals (hospitality chrome) */
+  --warm-0:    oklch(1 0 0);
+  --warm-25:   oklch(0.990 0.004 70);
+  --warm-50:   oklch(0.980 0.006 70);
+  --warm-100:  oklch(0.965 0.008 70);
+  --warm-150:  oklch(0.945 0.010 70);
+  --warm-200:  oklch(0.920 0.012 70);
+  --warm-300:  oklch(0.870 0.012 68);
+  --warm-400:  oklch(0.760 0.014 65);
+  --warm-500:  oklch(0.620 0.015 60);
+  --warm-600:  oklch(0.500 0.016 55);
+  --warm-700:  oklch(0.390 0.016 50);
+  --warm-800:  oklch(0.275 0.014 45);
+  --warm-900:  oklch(0.185 0.012 45);
+  --warm-950:  oklch(0.135 0.010 45);
+  --warm-1000: oklch(0.095 0.008 45);
+
+  /* Cool neutrals (platform / admin chrome) */
+  --cool-0:    oklch(1 0 0);
+  --cool-50:   oklch(0.985 0.004 260);
+  --cool-100:  oklch(0.970 0.006 260);
+  --cool-150:  oklch(0.950 0.008 260);
+  --cool-200:  oklch(0.925 0.010 260);
+  --cool-300:  oklch(0.870 0.014 260);
+  --cool-400:  oklch(0.740 0.018 260);
+  --cool-500:  oklch(0.590 0.022 260);
+  --cool-600:  oklch(0.470 0.024 260);
+  --cool-700:  oklch(0.360 0.024 260);
+  --cool-800:  oklch(0.260 0.020 260);
+  --cool-900:  oklch(0.185 0.018 260);
+  --cool-950:  oklch(0.135 0.016 260);
+  --cool-1000: oklch(0.090 0.012 260);
+
+  /* Status palette — hierarchical, not just hue-shifted */
+  --status-new-fg:            oklch(0.42 0.12 255);
+  --status-new-bg:            oklch(0.96 0.04 255);
+  --status-new-border:        oklch(0.86 0.08 255);
+  --status-new-solid:         oklch(0.55 0.18 255);
+
+  --status-progress-fg:       oklch(0.42 0.11 65);
+  --status-progress-bg:       oklch(0.96 0.05 75);
+  --status-progress-border:   oklch(0.84 0.11 70);
+  --status-progress-solid:    oklch(0.66 0.16 70);
+
+  --status-ready-fg:          oklch(0.38 0.14 155);
+  --status-ready-bg:          oklch(0.95 0.05 155);
+  --status-ready-border:      oklch(0.82 0.11 155);
+  --status-ready-solid:       oklch(0.62 0.16 155);
+
+  --status-delivered-fg:      oklch(0.38 0.02 260);
+  --status-delivered-bg:      oklch(0.96 0.006 260);
+  --status-delivered-border:  oklch(0.88 0.008 260);
+  --status-delivered-solid:   oklch(0.55 0.02 260);
+
+  --status-cancelled-fg:      oklch(0.42 0.14 25);
+  --status-cancelled-bg:      oklch(0.96 0.04 25);
+  --status-cancelled-border:  oklch(0.86 0.09 25);
+  --status-cancelled-solid:   oklch(0.58 0.18 25);
+
+  --status-stalled-amber-fg:      oklch(0.40 0.14 60);
+  --status-stalled-amber-bg:      oklch(0.95 0.09 75);
+  --status-stalled-amber-border:  oklch(0.78 0.15 70);
+  --status-stalled-amber-solid:   oklch(0.70 0.18 65);
+
+  --status-stalled-red-fg:        oklch(0.42 0.17 25);
+  --status-stalled-red-bg:        oklch(0.95 0.07 25);
+  --status-stalled-red-border:    oklch(0.74 0.17 25);
+  --status-stalled-red-solid:     oklch(0.58 0.22 25);
+
+  /* Semantic */
+  --success: oklch(0.62 0.16 155);
+  --warning: oklch(0.72 0.17 75);
+  --danger:  oklch(0.58 0.22 25);
+  --info:    oklch(0.55 0.18 255);
+
+  /* Light theme — ops default (warm neutrals) */
+  --bg:            var(--warm-50);
+  --bg-elevated:   var(--warm-0);
+  --bg-sunken:     var(--warm-100);
+  --surface:       var(--warm-0);
+  --surface-2:     var(--warm-50);
+  --surface-3:     var(--warm-100);
+  --border:        oklch(0.910 0.012 70);
+  --border-strong: oklch(0.840 0.014 68);
+  --fg:            var(--warm-950);
+  --fg-muted:      var(--warm-700);
+  --fg-subtle:     var(--warm-500);
+  --fg-inverse:    var(--warm-0);
+  --accent:        var(--ember-500);
+  --accent-hover:  var(--ember-600);
+  --accent-fg:     var(--warm-0);
+  --accent-soft:   oklch(0.97 0.025 45);
+
+  /* Typography */
+  --text-display: 44px;
+  --text-h1: 32px;
+  --text-h2: 24px;
+  --text-h3: 18px;
+  --text-h4: 15px;
+  --text-body: 14px;
+  --text-sm:  13px;
+  --text-xs:  12px;
+  --text-label: 11px;
+
+  --tracking-tight: -0.02em;
+  --tracking-snug:  -0.01em;
+  --tracking-wide:   0.04em;
+
+  /* Spacing (4px base) */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* Shadows — layered, physically plausible */
+  --shadow-xs: 0 1px 0 0 rgb(17 12 9 / 0.04);
+  --shadow-sm: 0 1px 2px -1px rgb(17 12 9 / 0.08), 0 1px 0 0 rgb(17 12 9 / 0.04);
+  --shadow-md: 0 4px 8px -2px rgb(17 12 9 / 0.08), 0 2px 4px -2px rgb(17 12 9 / 0.06);
+  --shadow-lg: 0 12px 24px -8px rgb(17 12 9 / 0.14), 0 4px 8px -4px rgb(17 12 9 / 0.08);
+  --shadow-xl: 0 24px 48px -12px rgb(17 12 9 / 0.22);
+  --ring-focus:      0 0 0 3px oklch(0.68 0.17 42 / 0.28);
+  --ring-focus-cool: 0 0 0 3px oklch(0.55 0.18 255 / 0.28);
+
+  /* Motion */
+  --duration-instant: 80ms;
+  --duration-fast:    140ms;
+  --duration-base:    200ms;
+  --duration-slow:    320ms;
+  --duration-slower:  480ms;
+  --ease-out:      cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-standard: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
+/* Dark theme */
+[data-theme="dark"] {
+  --bg:            var(--warm-1000);
+  --bg-elevated:   var(--warm-950);
+  --bg-sunken:     oklch(0.08 0.008 45);
+  --surface:       var(--warm-950);
+  --surface-2:     var(--warm-900);
+  --surface-3:     var(--warm-800);
+  --border:        oklch(0.28 0.014 45);
+  --border-strong: oklch(0.38 0.014 45);
+  --fg:            var(--warm-50);
+  --fg-muted:      oklch(0.72 0.012 60);
+  --fg-subtle:     oklch(0.55 0.014 55);
+  --fg-inverse:    var(--warm-1000);
+  --accent-soft:   oklch(0.28 0.06 40);
+
+  --status-new-bg:         oklch(0.22 0.05 255);
+  --status-new-fg:         oklch(0.85 0.08 255);
+  --status-new-border:     oklch(0.36 0.08 255);
+
+  --status-progress-bg:        oklch(0.24 0.06 70);
+  --status-progress-fg:        oklch(0.88 0.10 75);
+  --status-progress-border:    oklch(0.40 0.10 70);
+
+  --status-ready-bg:           oklch(0.22 0.06 155);
+  --status-ready-fg:           oklch(0.88 0.12 155);
+  --status-ready-border:       oklch(0.40 0.12 155);
+
+  --status-delivered-bg:       oklch(0.22 0.006 260);
+  --status-delivered-fg:       oklch(0.78 0.014 260);
+  --status-delivered-border:   oklch(0.35 0.010 260);
+
+  --status-cancelled-bg:       oklch(0.22 0.06 25);
+  --status-cancelled-fg:       oklch(0.85 0.10 25);
+  --status-cancelled-border:   oklch(0.38 0.10 25);
+
+  --status-stalled-amber-bg:       oklch(0.28 0.08 65);
+  --status-stalled-amber-fg:       oklch(0.90 0.13 75);
+  --status-stalled-amber-border:   oklch(0.52 0.15 65);
+
+  --status-stalled-red-bg:         oklch(0.26 0.12 25);
+  --status-stalled-red-fg:         oklch(0.90 0.12 25);
+  --status-stalled-red-border:     oklch(0.52 0.18 25);
+
+  --shadow-xs: 0 1px 0 0 rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 0.5), 0 1px 0 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 8px -2px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 12px 24px -8px rgb(0 0 0 / 0.6);
+}
+
+/* Admin chrome — cool neutrals; accent stays ember for continuity */
+[data-chrome="admin"] {
+  --bg:            var(--cool-50);
+  --bg-elevated:   var(--cool-0);
+  --bg-sunken:     var(--cool-100);
+  --surface:       var(--cool-0);
+  --surface-2:     var(--cool-50);
+  --surface-3:     var(--cool-100);
+  --border:        oklch(0.92 0.012 260);
+  --border-strong: oklch(0.85 0.014 260);
+  --fg:            var(--cool-1000);
+  --fg-muted:      var(--cool-700);
+  --fg-subtle:     var(--cool-500);
+}
+[data-chrome="admin"][data-theme="dark"] {
+  --bg:            var(--cool-1000);
+  --bg-elevated:   var(--cool-950);
+  --bg-sunken:     oklch(0.07 0.012 260);
+  --surface:       var(--cool-950);
+  --surface-2:     var(--cool-900);
+  --surface-3:     var(--cool-800);
+  --border:        oklch(0.28 0.020 260);
+  --fg:            var(--cool-50);
+  --fg-muted:      oklch(0.72 0.016 260);
+}
+
+/* Tailwind v4 theme — exposes tokens as utilities
+   (bg-surface, text-fg-muted, border-border-strong, animate-shimmer, …) */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-ember-50:  var(--ember-50);
+  --color-ember-100: var(--ember-100);
+  --color-ember-200: var(--ember-200);
+  --color-ember-300: var(--ember-300);
+  --color-ember-400: var(--ember-400);
+  --color-ember-500: var(--ember-500);
+  --color-ember-600: var(--ember-600);
+  --color-ember-700: var(--ember-700);
+  --color-ember-800: var(--ember-800);
+  --color-ember-900: var(--ember-900);
+
+  --color-warm-0:    var(--warm-0);
+  --color-warm-50:   var(--warm-50);
+  --color-warm-100:  var(--warm-100);
+  --color-warm-150:  var(--warm-150);
+  --color-warm-200:  var(--warm-200);
+  --color-warm-300:  var(--warm-300);
+  --color-warm-400:  var(--warm-400);
+  --color-warm-500:  var(--warm-500);
+  --color-warm-600:  var(--warm-600);
+  --color-warm-700:  var(--warm-700);
+  --color-warm-800:  var(--warm-800);
+  --color-warm-900:  var(--warm-900);
+  --color-warm-950:  var(--warm-950);
+  --color-warm-1000: var(--warm-1000);
+
+  --color-cool-0:    var(--cool-0);
+  --color-cool-50:   var(--cool-50);
+  --color-cool-100:  var(--cool-100);
+  --color-cool-200:  var(--cool-200);
+  --color-cool-300:  var(--cool-300);
+  --color-cool-400:  var(--cool-400);
+  --color-cool-500:  var(--cool-500);
+  --color-cool-600:  var(--cool-600);
+  --color-cool-700:  var(--cool-700);
+  --color-cool-800:  var(--cool-800);
+  --color-cool-900:  var(--cool-900);
+  --color-cool-950:  var(--cool-950);
+  --color-cool-1000: var(--cool-1000);
+
+  --color-bg:            var(--bg);
+  --color-bg-elevated:   var(--bg-elevated);
+  --color-bg-sunken:     var(--bg-sunken);
+  --color-surface:       var(--surface);
+  --color-surface-2:     var(--surface-2);
+  --color-surface-3:     var(--surface-3);
+  --color-border:        var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg:            var(--fg);
+  --color-fg-muted:      var(--fg-muted);
+  --color-fg-subtle:     var(--fg-subtle);
+  --color-fg-inverse:    var(--fg-inverse);
+  --color-accent:        var(--accent);
+  --color-accent-hover:  var(--accent-hover);
+  --color-accent-fg:     var(--accent-fg);
+  --color-accent-soft:   var(--accent-soft);
+
+  --color-status-new-bg:     var(--status-new-bg);
+  --color-status-new-fg:     var(--status-new-fg);
+  --color-status-new-border: var(--status-new-border);
+  --color-status-new-solid:  var(--status-new-solid);
+
+  --color-status-progress-bg:     var(--status-progress-bg);
+  --color-status-progress-fg:     var(--status-progress-fg);
+  --color-status-progress-border: var(--status-progress-border);
+  --color-status-progress-solid:  var(--status-progress-solid);
+
+  --color-status-ready-bg:     var(--status-ready-bg);
+  --color-status-ready-fg:     var(--status-ready-fg);
+  --color-status-ready-border: var(--status-ready-border);
+  --color-status-ready-solid:  var(--status-ready-solid);
+
+  --color-status-delivered-bg:     var(--status-delivered-bg);
+  --color-status-delivered-fg:     var(--status-delivered-fg);
+  --color-status-delivered-border: var(--status-delivered-border);
+  --color-status-delivered-solid:  var(--status-delivered-solid);
+
+  --color-status-cancelled-bg:     var(--status-cancelled-bg);
+  --color-status-cancelled-fg:     var(--status-cancelled-fg);
+  --color-status-cancelled-border: var(--status-cancelled-border);
+  --color-status-cancelled-solid:  var(--status-cancelled-solid);
+
+  --color-status-stalled-amber-bg:     var(--status-stalled-amber-bg);
+  --color-status-stalled-amber-fg:     var(--status-stalled-amber-fg);
+  --color-status-stalled-amber-border: var(--status-stalled-amber-border);
+  --color-status-stalled-amber-solid:  var(--status-stalled-amber-solid);
+
+  --color-status-stalled-red-bg:     var(--status-stalled-red-bg);
+  --color-status-stalled-red-fg:     var(--status-stalled-red-fg);
+  --color-status-stalled-red-border: var(--status-stalled-red-border);
+  --color-status-stalled-red-solid:  var(--status-stalled-red-solid);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger:  var(--danger);
+  --color-info:    var(--info);
+
+  --radius-xs:  var(--radius-xs);
+  --radius-sm:  var(--radius-sm);
+  --radius-md:  var(--radius-md);
+  --radius-lg:  var(--radius-lg);
+  --radius-xl:  var(--radius-xl);
+  --radius-pill: var(--radius-pill);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+
+  --animate-shimmer:     dos-shimmer 1.6s ease-in-out infinite;
+  --animate-fade-up:     dos-fade-up var(--duration-base) var(--ease-out) both;
+  --animate-fade-in:     dos-fade-in var(--duration-base) var(--ease-out) both;
+  --animate-pop:         dos-pop var(--duration-base) var(--ease-spring) both;
+  --animate-slide-down:  dos-slide-down var(--duration-base) var(--ease-out) both;
+  --animate-pulse-amber: dos-pulse-amber 1.8s ease-in-out infinite;
+  --animate-pulse-red:   dos-pulse-red 1.4s ease-in-out infinite;
+  --animate-spin-fast:   dos-spin 0.7s linear infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ───── Base ───── */
+html {
+  background: var(--bg);
+  color: var(--fg);
 }
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+  border-radius: var(--radius-sm);
+  transition: box-shadow var(--duration-fast) var(--ease-out);
+}
+[data-chrome="admin"] *:focus-visible { box-shadow: var(--ring-focus-cool); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--fg-subtle); }
+
+/* ───── Keyframes ───── */
+@keyframes dos-shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+@keyframes dos-pulse-amber {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.70 0.18 65 / 0.55); }
+  50%      { box-shadow: 0 0 0 6px oklch(0.70 0.18 65 / 0); }
+}
+@keyframes dos-pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.58 0.22 25 / 0.55); }
+  50%      { box-shadow: 0 0 0 8px oklch(0.58 0.22 25 / 0); }
+}
+@keyframes dos-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes dos-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dos-pop {
+  0%   { opacity: 0; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes dos-slide-down { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes dos-spin { to { transform: rotate(360deg); } }
+
+/* Shimmer background for skeletons (used via a utility class to avoid inline styles) */
+.dos-skel-bg {
+  background-image: linear-gradient(90deg, var(--surface-3) 0%, var(--surface-2) 40%, var(--surface-3) 80%);
+  background-size: 200px 100%;
+  background-repeat: no-repeat;
+}
+
+/* Tabular numerics for order #, prices, timers */
+.dos-num {
+  font-family: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  font-feature-settings: "tnum", "ss01";
+  letter-spacing: -0.01em;
 }
