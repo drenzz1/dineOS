@@ -80,7 +80,7 @@ test('/orders/new with selected item — Cashier', async ({ page }) => {
   await page.waitForLoadState('networkidle');
   await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
-  await page.getByTestId('order-type-pickup').click();
+  await page.getByTestId('order-type-pickup-option').click();
   await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
   await page.getByTestId('menu-item-card').first().click();
   await expect(page.getByText(/in cart: 1/i)).toBeVisible();
@@ -95,7 +95,7 @@ test('/orders/new ready to submit — Cashier', async ({ page }) => {
   await page.waitForLoadState('networkidle');
   await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
-  await page.getByTestId('order-type-pickup').click();
+  await page.getByTestId('order-type-pickup-option').click();
   await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
   await page.getByTestId('menu-item-card').first().click();
   await expect(page.getByTestId('order-note-input')).toBeVisible();

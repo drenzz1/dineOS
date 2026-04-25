@@ -21,7 +21,7 @@ test('Cashier can create a pickup order and see it on the live board', async ({ 
   await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
   // Step 6 — choose pickup and add an item directly from the menu grid
-  await page.getByTestId('order-type-pickup').click();
+  await page.getByTestId('order-type-pickup-option').click();
   await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
   await page.getByTestId('menu-item-card').first().click();
   await expect(page.getByText(/in cart: 1/i)).toBeVisible();

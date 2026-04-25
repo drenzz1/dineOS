@@ -102,7 +102,7 @@ test('Keyboard A3: Enter on focused submit button submits the quick-order form',
   await page.waitForLoadState('networkidle');
   await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
-  await page.getByTestId('order-type-pickup').click();
+  await page.getByTestId('order-type-pickup-option').click();
   await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
   await page.getByTestId('menu-item-card').first().click();
   await expect(page.getByTestId('order-note-input')).toBeVisible();

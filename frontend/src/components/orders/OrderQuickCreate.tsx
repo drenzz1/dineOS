@@ -161,6 +161,7 @@ export default function OrderQuickCreate() {
               {(["dine-in", "pickup"] as const).map((type) => (
                 <label
                   key={type}
+                  data-testid={type === "dine-in" ? "order-type-dinein-option" : "order-type-pickup-option"}
                   className={`cursor-pointer rounded px-3 py-1.5 text-[13px] font-semibold capitalize transition ${
                     orderType === type
                       ? "bg-surface text-fg shadow-xs"
