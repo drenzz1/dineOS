@@ -64,45 +64,44 @@ test('/orders — Cashier', async ({ page }) => {
   await audit(page, '03-orders', '/orders');
 });
 
-test('/orders/new Step 1 — Cashier', async ({ page }) => {
+test('/orders/new empty quick order — Cashier', async ({ page }) => {
   await loginAs(page, 'Cashier');
   await page.waitForURL(/\/orders(\/|$)/);
   await page.goto('/orders/new');
   await page.waitForLoadState('networkidle');
-  await expect(page.getByTestId('order-wizard')).toBeVisible();
-  await audit(page, '04-orders-new-step1', '/orders/new — Step 1');
+  await expect(page.getByTestId('quick-order-form')).toBeVisible();
+  await audit(page, '04-orders-new-empty', '/orders/new — Empty quick order');
 });
 
-test('/orders/new Step 2 — Cashier', async ({ page }) => {
+test('/orders/new with selected item — Cashier', async ({ page }) => {
   await loginAs(page, 'Cashier');
   await page.waitForURL(/\/orders(\/|$)/);
   await page.goto('/orders/new');
   await page.waitForLoadState('networkidle');
-  await expect(page.getByTestId('order-wizard')).toBeVisible();
+  await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
   await page.getByTestId('order-type-pickup').click();
-  await page.getByTestId('wizard-next').click();
   await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
+  await page.getByTestId('menu-item-card').first().click();
+  await expect(page.getByText(/in cart: 1/i)).toBeVisible();
   await page.waitForLoadState('networkidle');
-  await audit(page, '05-orders-new-step2', '/orders/new — Step 2');
+  await audit(page, '05-orders-new-selected', '/orders/new — Item selected');
 });
 
-test('/orders/new Step 3 — Cashier', async ({ page }) => {
+test('/orders/new ready to submit — Cashier', async ({ page }) => {
   await loginAs(page, 'Cashier');
   await page.waitForURL(/\/orders(\/|$)/);
   await page.goto('/orders/new');
   await page.waitForLoadState('networkidle');
-  await expect(page.getByTestId('order-wizard')).toBeVisible();
+  await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
   await page.getByTestId('order-type-pickup').click();
-  await page.getByTestId('wizard-next').click();
   await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
-  await page.getByTestId('menu-item-card').first().getByRole('checkbox').click();
-  await expect(page.getByTestId('menu-item-qty-increase').first()).toBeVisible();
-  await page.getByTestId('wizard-next').click();
+  await page.getByTestId('menu-item-card').first().click();
   await expect(page.getByTestId('order-note-input')).toBeVisible();
+  await page.getByTestId('order-note-input').fill('Extra napkins');
   await page.waitForLoadState('networkidle');
-  await audit(page, '06-orders-new-step3', '/orders/new — Step 3');
+  await audit(page, '06-orders-new-ready', '/orders/new — Ready to submit');
 });
 
 test('/kitchen — KitchenStaff', async ({ page }) => {

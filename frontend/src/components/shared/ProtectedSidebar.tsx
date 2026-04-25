@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
@@ -53,10 +54,27 @@ function getCookieRole(): Role | null {
   return null;
 }
 
+function subscribeClientReady(): () => void {
+  return () => {};
+}
+
+function getClientSnapshot(): boolean {
+  return true;
+}
+
+function getServerSnapshot(): boolean {
+  return false;
+}
+
 export default function ProtectedSidebar() {
   const pathname = usePathname();
   const storedRole = useAuthStore((state) => state.role);
-  const role = storedRole ?? getCookieRole();
+  const isClient = useSyncExternalStore(
+    subscribeClientReady,
+    getClientSnapshot,
+    getServerSnapshot
+  );
+  const role = isClient ? (storedRole ?? getCookieRole() ?? "Manager") : null;
   const visibleNavItems =
     role && role !== "SuperAdmin" ? ROLE_NAV_ITEMS[role] : [];
 

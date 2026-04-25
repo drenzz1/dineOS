@@ -137,7 +137,11 @@ export default function OrderQuickCreate() {
   const itemsError = form.formState.errors.items?.message;
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-5 xl:grid-cols-[1fr_380px]">
+    <form
+      onSubmit={form.handleSubmit(onSubmit)}
+      data-testid="quick-order-form"
+      className="grid gap-5 xl:grid-cols-[1fr_380px]"
+    >
       <section className="space-y-5">
         <div className="rounded-lg border border-border bg-surface p-4 shadow-sm">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
@@ -166,6 +170,7 @@ export default function OrderQuickCreate() {
                   <input
                     type="radio"
                     value={type}
+                    data-testid={type === "dine-in" ? "order-type-dinein" : "order-type-pickup"}
                     {...form.register("orderType")}
                     className="sr-only"
                   />
@@ -270,6 +275,7 @@ export default function OrderQuickCreate() {
                 <button
                   key={item.id}
                   type="button"
+                  data-testid="menu-item-card"
                   onClick={() => addItem(item)}
                   aria-pressed={quantity > 0}
                   className={`group rounded-lg border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
@@ -377,6 +383,7 @@ export default function OrderQuickCreate() {
             </label>
             <textarea
               id="order-notes"
+              data-testid="order-note-input"
               rows={3}
               maxLength={300}
               placeholder="Allergies, modifiers, guest requests..."
