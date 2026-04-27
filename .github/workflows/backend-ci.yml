@@ -1,0 +1,75 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+      - feat/be-13-testing-foundation
+  pull_request:
+    branches:
+      - main
+      - feat/be-13-testing-foundation
+
+jobs:
+  backend-test:
+    name: Build & Test (.NET 10)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        working-directory: backend
+        run: dotnet restore
+
+      - name: Build
+        working-directory: backend
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run tests with coverage
+        working-directory: backend
+        run: |
+          dotnet test tests/DineOS.Tests/DineOS.Tests.csproj \
+            --no-build \
+            --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults \
+            --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/TestResults/**/coverage.cobertura.xml
+          retention-days: 14
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: backend/TestResults/**/*.trx
+          retention-days: 14
+
+      - name: Check coverage threshold (≥ 70%)
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, glob, sys
+          files = glob.glob('backend/TestResults/**/coverage.cobertura.xml', recursive=True)
+          if not files:
+              print('::error::No coverage file found — tests may have failed before collection')
+              sys.exit(1)
+          rate = float(ET.parse(files[0]).getroot().get('line-rate', '0')) * 100
+          print(f'Line coverage: {rate:.1f}%')
+          if rate < 70:
+              print(f'::error::Coverage {rate:.1f}% is below the 70% threshold')
+              sys.exit(1)
+          print('Coverage check passed ✓')
+          EOF
