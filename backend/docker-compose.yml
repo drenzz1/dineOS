@@ -1,0 +1,61 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/DineOS.Api/Dockerfile
+    container_name: dineos-api
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dineos;Username=dineos;Password=dineos_dev
+      - AllowedOrigins__0=http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: dineos-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: dineos
+      POSTGRES_USER: dineos
+      POSTGRES_PASSWORD: dineos_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dineos -d dineos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dineos-pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@dineos.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      - postgres
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+
+networks:
+  dineos-net:
+    driver: bridge
