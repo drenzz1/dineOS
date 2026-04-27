@@ -63,6 +63,10 @@ Thumbs.db
 test-results/
 playwright-report/
 
+# .NET test results and coverage
+TestResults/
+TestResults2/
+
 # Backend / infrastructure artifacts
 bin/
 obj/

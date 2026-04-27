@@ -31,7 +31,7 @@ public class ApiIntegrationTests(CustomWebApplicationFactory factory)
 
         Assert.NotNull(result);
         Assert.True(result.Success);
-        Assert.NotNull(result.Data);
+        Assert.Equal(JsonValueKind.Object, result.Data.ValueKind);
     }
 
     // ── Test 2 ──────────────────────────────────────────────────────────────
