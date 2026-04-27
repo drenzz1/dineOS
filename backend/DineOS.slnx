@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DineOS.Api/DineOS.Api.csproj" />
+    <Project Path="src/DineOS.Application/DineOS.Application.csproj" />
+    <Project Path="src/DineOS.Domain/DineOS.Domain.csproj" />
+    <Project Path="src/DineOS.Infrastructure/DineOS.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DineOS.Tests/DineOS.Tests.csproj" />
+  </Folder>
+</Solution>
