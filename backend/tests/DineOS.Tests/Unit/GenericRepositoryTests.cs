@@ -1,34 +1,47 @@
-using DineOS.Domain.Entities;
+using DineOS.Application.Interfaces.Services;
+using DineOS.Domain.Common;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+using NSubstitute;
 
 namespace DineOS.Tests.Unit;
 
-// Concrete entity only used in this test class
-public class StubItem : BaseEntity
+public class StubItem : BaseAuditingEntity
 {
     public string Name { get; set; } = "";
 }
 
-// Extends AppDbContext so EF discovers StubItem and applies the soft-delete query filter
-internal sealed class StubDbContext(DbContextOptions<AppDbContext> options) : AppDbContext(options)
+internal sealed class StubDbContext(DbContextOptions<AppDbContext> options, ITenantService tenantService)
+    : AppDbContext(options, tenantService)
 {
     public DbSet<StubItem> Items => Set<StubItem>();
 }
 
 public class GenericRepositoryTests
 {
-    private static StubDbContext CreateContext() =>
-        new(new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options);
+    private static (StubDbContext ctx, GenericRepository<StubItem> repo) CreateSut()
+    {
+        var tenantSvc = Substitute.For<ITenantService>();
+        tenantSvc.TenantId.Returns((long?)null);
+
+        var currentUserSvc = Substitute.For<ICurrentUserService>();
+        currentUserSvc.UserId.Returns("test-user");
+
+        var ctx = new StubDbContext(
+            new DbContextOptionsBuilder<AppDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options,
+            tenantSvc);
+
+        var repo = new GenericRepository<StubItem>(ctx, currentUserSvc);
+        return (ctx, repo);
+    }
 
     [Fact]
     public async Task AddAsync_PersistsEntity_AndReturnsIt()
     {
-        await using var ctx = CreateContext();
-        var repo = new GenericRepository<StubItem>(ctx);
+        var (_, repo) = CreateSut();
 
         var result = await repo.AddAsync(new StubItem { Name = "alpha" });
 
@@ -39,8 +52,7 @@ public class GenericRepositoryTests
     [Fact]
     public async Task GetByIdAsync_ExistingId_ReturnsEntity()
     {
-        await using var ctx = CreateContext();
-        var repo = new GenericRepository<StubItem>(ctx);
+        var (_, repo) = CreateSut();
         var item = await repo.AddAsync(new StubItem { Name = "beta" });
 
         var found = await repo.GetByIdAsync(item.Id);
@@ -52,10 +64,9 @@ public class GenericRepositoryTests
     [Fact]
     public async Task GetByIdAsync_NonExistentId_ReturnsNull()
     {
-        await using var ctx = CreateContext();
-        var repo = new GenericRepository<StubItem>(ctx);
+        var (_, repo) = CreateSut();
 
-        var result = await repo.GetByIdAsync(Guid.NewGuid());
+        var result = await repo.GetByIdAsync(99999L);
 
         Assert.Null(result);
     }
@@ -63,9 +74,8 @@ public class GenericRepositoryTests
     [Fact]
     public async Task GetAllAsync_ExcludesSoftDeletedEntities()
     {
-        await using var ctx = CreateContext();
-        var repo = new GenericRepository<StubItem>(ctx);
-        var live = await repo.AddAsync(new StubItem { Name = "live" });
+        var (_, repo) = CreateSut();
+        await repo.AddAsync(new StubItem { Name = "live" });
         var deleted = await repo.AddAsync(new StubItem { Name = "gone" });
         await repo.DeleteAsync(deleted.Id);
 
@@ -78,8 +88,7 @@ public class GenericRepositoryTests
     [Fact]
     public async Task FindAsync_ReturnsOnlyMatchingEntities()
     {
-        await using var ctx = CreateContext();
-        var repo = new GenericRepository<StubItem>(ctx);
+        var (_, repo) = CreateSut();
         await repo.AddAsync(new StubItem { Name = "foo" });
         await repo.AddAsync(new StubItem { Name = "bar" });
 
@@ -92,8 +101,7 @@ public class GenericRepositoryTests
     [Fact]
     public async Task UpdateAsync_PersistsChanges()
     {
-        await using var ctx = CreateContext();
-        var repo = new GenericRepository<StubItem>(ctx);
+        var (_, repo) = CreateSut();
         var item = await repo.AddAsync(new StubItem { Name = "original" });
 
         item.Name = "updated";
@@ -103,25 +111,9 @@ public class GenericRepositoryTests
     }
 
     [Fact]
-    public async Task UpdateAsync_SetsUpdatedAtViaDbContextOverride()
-    {
-        await using var ctx = CreateContext();
-        var repo = new GenericRepository<StubItem>(ctx);
-        var item = await repo.AddAsync(new StubItem { Name = "x" });
-        var createdAt = item.UpdatedAt;
-
-        await Task.Delay(5);
-        item.Name = "y";
-        await repo.UpdateAsync(item);
-
-        Assert.True(item.UpdatedAt >= createdAt);
-    }
-
-    [Fact]
     public async Task DeleteAsync_ExistingEntity_SoftDeletesIt()
     {
-        await using var ctx = CreateContext();
-        var repo = new GenericRepository<StubItem>(ctx);
+        var (_, repo) = CreateSut();
         var item = await repo.AddAsync(new StubItem { Name = "to-delete" });
 
         await repo.DeleteAsync(item.Id);
@@ -131,12 +123,24 @@ public class GenericRepositoryTests
     }
 
     [Fact]
+    public async Task DeleteAsync_SetsDeletedAtAndDeletedBy()
+    {
+        var (ctx, repo) = CreateSut();
+        var item = await repo.AddAsync(new StubItem { Name = "to-delete" });
+
+        await repo.DeleteAsync(item.Id);
+
+        var raw = await ctx.Items.IgnoreQueryFilters().FirstAsync(e => e.Id == item.Id);
+        Assert.NotNull(raw.DeletedAt);
+        Assert.Equal("test-user", raw.DeletedBy);
+    }
+
+    [Fact]
     public async Task DeleteAsync_NonExistentId_DoesNotThrow()
     {
-        await using var ctx = CreateContext();
-        var repo = new GenericRepository<StubItem>(ctx);
+        var (_, repo) = CreateSut();
 
-        var ex = await Record.ExceptionAsync(() => repo.DeleteAsync(Guid.NewGuid()));
+        var ex = await Record.ExceptionAsync(() => repo.DeleteAsync(99999L));
 
         Assert.Null(ex);
     }

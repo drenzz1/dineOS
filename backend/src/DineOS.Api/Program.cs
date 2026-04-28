@@ -1,7 +1,9 @@
 using DineOS.Application;
 using DineOS.Infrastructure;
+using DineOS.Infrastructure.Persistence;
 using DineOS.Api.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Reflection;
@@ -54,6 +56,13 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Auto-apply pending migrations on startup (development-safe; production should use explicit migration steps)
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 app.UseMiddleware<ExceptionMiddleware>();
 
