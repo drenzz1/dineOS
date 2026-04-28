@@ -1,16 +1,18 @@
 using DineOS.Application.Interfaces.Repositories;
-using DineOS.Domain.Entities;
+using DineOS.Application.Interfaces.Services;
+using DineOS.Domain.Common;
 using DineOS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
 namespace DineOS.Infrastructure.Repositories;
 
-public class GenericRepository<T>(AppDbContext db) : IRepository<T> where T : BaseEntity
+public class GenericRepository<T>(AppDbContext db, ICurrentUserService currentUser) : IRepository<T>
+    where T : BaseAuditingEntity
 {
     private readonly DbSet<T> _set = db.Set<T>();
 
-    public async Task<T?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
+    public async Task<T?> GetByIdAsync(long id, CancellationToken ct = default) =>
         await _set.FirstOrDefaultAsync(e => e.Id == id, ct);
 
     public async Task<IEnumerable<T>> GetAllAsync(CancellationToken ct = default) =>
@@ -32,11 +34,13 @@ public class GenericRepository<T>(AppDbContext db) : IRepository<T> where T : Ba
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    public async Task DeleteAsync(long id, CancellationToken ct = default)
     {
         var entity = await GetByIdAsync(id, ct);
         if (entity is null) return;
-        entity.IsDeleted = true;
+        entity.DeletedAt = DateTime.UtcNow;
+        entity.DeletedBy = currentUser.UserId;
+        _set.Update(entity);
         await db.SaveChangesAsync(ct);
     }
 }
