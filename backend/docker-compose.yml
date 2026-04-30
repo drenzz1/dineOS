@@ -10,12 +10,34 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dineos;Username=dineos;Password=dineos_dev
       - AllowedOrigins__0=http://localhost:3000
+      - Keycloak__Authority=http://localhost:8080/realms/dineos
+      - Keycloak__MetadataAddress=http://keycloak:8080/realms/dineos/.well-known/openid-configuration
+      - Keycloak__Audience=dineos-api
     depends_on:
       postgres:
         condition: service_healthy
+      keycloak:
+        condition: service_started
     networks:
       - dineos-net
     restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: dineos-keycloak
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_URL: "http://localhost:8080"
+    command: start-dev --import-realm
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    networks:
+      - dineos-net
 
   postgres:
     image: postgres:16-alpine

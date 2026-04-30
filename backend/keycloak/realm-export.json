@@ -1,0 +1,98 @@
+{
+  "realm": "dineos",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": false,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "realm": [
+      { "name": "SuperAdmin",   "composite": false, "clientRole": false },
+      { "name": "Manager",      "composite": false, "clientRole": false },
+      { "name": "Cashier",      "composite": false, "clientRole": false },
+      { "name": "KitchenStaff", "composite": false, "clientRole": false }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "dineos-api",
+      "name": "DineOS API",
+      "description": "Backend resource server — accepts bearer tokens only",
+      "enabled": true,
+      "bearerOnly": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "dineos-frontend",
+      "name": "DineOS Frontend",
+      "description": "Public SPA client — used by the frontend and for local dev token fetching",
+      "enabled": true,
+      "publicClient": true,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@dineos.dev",
+      "email": "admin@dineos.dev",
+      "firstName": "Admin",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["SuperAdmin"]
+    },
+    {
+      "username": "manager@dineos.dev",
+      "email": "manager@dineos.dev",
+      "firstName": "Manager",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["Manager"]
+    },
+    {
+      "username": "cashier@dineos.dev",
+      "email": "cashier@dineos.dev",
+      "firstName": "Cashier",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["Cashier"]
+    },
+    {
+      "username": "kitchen@dineos.dev",
+      "email": "kitchen@dineos.dev",
+      "firstName": "Kitchen",
+      "lastName": "Staff",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["KitchenStaff"]
+    }
+  ]
+}
