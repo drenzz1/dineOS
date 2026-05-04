@@ -1,11 +1,14 @@
 using DineOS.Application;
 using DineOS.Infrastructure;
 using DineOS.Infrastructure.Persistence;
+using DineOS.Api.Auth;
 using DineOS.Api.Middleware;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using System.Reflection;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +26,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         if (!string.IsNullOrEmpty(metadataAddress))
             options.MetadataAddress = metadataAddress;
     });
-builder.Services.AddAuthorization();
+builder.Services.AddTransient<IClaimsTransformation, KeycloakRolesTransformation>();
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("SuperAdminOnly",   p => p.RequireRole("SuperAdmin"));
+    options.AddPolicy("ManagerAndAbove",  p => p.RequireRole("SuperAdmin", "Manager"));
+    options.AddPolicy("CashierAndAbove",  p => p.RequireRole("SuperAdmin", "Manager", "Cashier"));
+    options.AddPolicy("KitchenStaffOnly", p => p.RequireRole("KitchenStaff"));
+});
 
 builder.Services.AddControllers();
 
@@ -84,8 +95,30 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
+
+// Intercepts 401/403 responses that have no body (JWT auth/authz failures)
+// and returns a structured JSON error payload.
+// Must be placed before UseAuthentication so it wraps those responses.
+app.UseStatusCodePages(async statusCodeContext =>
+{
+    var ctx = statusCodeContext.HttpContext;
+    if (ctx.Response.StatusCode is not (401 or 403))
+        return;
+
+    var code = ctx.Response.StatusCode;
+    ctx.Response.ContentType = "application/json";
+    await ctx.Response.WriteAsync(JsonSerializer.Serialize(new
+    {
+        status = code,
+        error = code == 401 ? "Unauthorized" : "Forbidden",
+        correlationId = ctx.TraceIdentifier ?? Guid.NewGuid().ToString(),
+        timestamp = DateTime.UtcNow
+    }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<TenantIsolationMiddleware>();
 app.MapControllers();
 
 app.Run();

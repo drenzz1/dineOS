@@ -109,7 +109,17 @@ public class ApiIntegrationTests(CustomWebApplicationFactory factory)
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
-    private static string GenerateTestJwt(string userId = "test-user", string email = "test@dineos.dev")
+
+    /// <summary>
+    /// Builds a signed JWT for integration tests.
+    /// - realm_access: parsed by KeycloakRolesTransformation into ClaimTypes.Role.
+    /// - tenant_id: required by TenantIsolationMiddleware for non-SuperAdmin users.
+    /// </summary>
+    private static string GenerateTestJwt(
+        string userId   = "test-user",
+        string email    = "test@dineos.dev",
+        string role     = "Manager",
+        string tenantId = "1")
     {
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(CustomWebApplicationFactory.TestJwtSecret));
@@ -117,10 +127,12 @@ public class ApiIntegrationTests(CustomWebApplicationFactory factory)
         var token = new JwtSecurityToken(
             claims:
             [
-                new Claim("sub", userId),
-                new Claim("email", email),
+                new Claim("sub",                userId),
+                new Claim("email",              email),
                 new Claim("preferred_username", email),
-                new Claim(ClaimTypes.Name, email)
+                new Claim(ClaimTypes.Name,      email),
+                new Claim("tenant_id",          tenantId),
+                new Claim("realm_access",       JsonSerializer.Serialize(new { roles = new[] { role } }))
             ],
             expires: DateTime.UtcNow.AddHours(1),
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
