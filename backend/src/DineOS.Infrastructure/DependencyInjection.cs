@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ICurrentTenantService, HttpContextTenantService>();
+        services.AddSingleton<IPinHasher, PinHasher>();
 
         services.AddScoped<AuditInterceptor>();
         services.AddScoped<SoftDeleteInterceptor>();

@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -81,7 +82,7 @@ public class AppDbContext : DbContext
         var deletedAt = Expression.Property(param, nameof(BaseAuditingEntity.DeletedAt));
         var notDeleted = Expression.Equal(deletedAt, Expression.Constant(null, typeof(DateTime?)));
 
-        var contextConst = Expression.Constant(this);
+        var contextConst = Expression.Constant(this, typeof(AppDbContext));
         var tenantIdField = Expression.Field(contextConst, nameof(_currentTenantId));
         var tenantIdHasValue = Expression.Property(tenantIdField, nameof(Nullable<long>.HasValue));
         var tenantIdValue = Expression.Property(tenantIdField, nameof(Nullable<long>.Value));
