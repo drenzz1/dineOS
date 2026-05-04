@@ -80,3 +80,9 @@ __pycache__/
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Windows-style build output (directory with literal backslash in name, created on Windows)
+backend/src/*/bin\\Debug/
+backend/src/*/bin\\Release/
+backend/tests/*/bin\\Debug/
+backend/tests/*/bin\\Release/

@@ -77,14 +77,51 @@ public class ApiIntegrationTests(CustomWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    // ── Test 4a ─────────────────────────────────────────────────────────────
+    [Fact]
+    public async Task GetMe_NoToken_Returns401()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    // ── Test 4b ─────────────────────────────────────────────────────────────
+    [Fact]
+    public async Task GetMe_ValidBearerToken_Returns200WithUserInfo()
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateTestJwt("user-123", "test@dineos.dev"));
+
+        var response = await client.GetAsync("/api/v1/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<ApiResponse<JsonElement>>(body, JsonOpts);
+
+        Assert.NotNull(result);
+        Assert.True(result.Success);
+        Assert.Equal(JsonValueKind.Object, result.Data.ValueKind);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
-    private static string GenerateTestJwt()
+    private static string GenerateTestJwt(string userId = "test-user", string email = "test@dineos.dev")
     {
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(CustomWebApplicationFactory.TestJwtSecret));
 
         var token = new JwtSecurityToken(
-            claims: [new Claim(ClaimTypes.Name, "test-user")],
+            claims:
+            [
+                new Claim("sub", userId),
+                new Claim("email", email),
+                new Claim("preferred_username", email),
+                new Claim(ClaimTypes.Name, email)
+            ],
             expires: DateTime.UtcNow.AddHours(1),
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
 
