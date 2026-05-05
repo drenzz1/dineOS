@@ -1,14 +1,18 @@
+using Asp.Versioning;
 using DineOS.Application.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DineOS.Api.Controllers;
 
 /// <summary>Restaurant operations endpoints — Manager and above.</summary>
 [ApiController]
-[Route("api/v1/restaurant")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/restaurant")]
 [Produces("application/json")]
 [Authorize(Policy = "ManagerAndAbove")]
+[EnableRateLimiting("authenticated")]
 public class RestaurantController : ControllerBase
 {
     /// <summary>Gets the restaurant's profile and settings.</summary>
@@ -16,6 +20,7 @@ public class RestaurantController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult GetRestaurant() =>
         Ok(ApiResponse<object>.Ok(new { }, "Restaurant info"));
 
@@ -24,6 +29,7 @@ public class RestaurantController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult UpdateRestaurant() =>
         Ok(ApiResponse.Ok("Restaurant updated"));
 
@@ -32,6 +38,7 @@ public class RestaurantController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult GetTables() =>
         Ok(ApiResponse<object>.Ok(Array.Empty<object>(), "Table list"));
 
@@ -40,6 +47,7 @@ public class RestaurantController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult AddTable() =>
         StatusCode(StatusCodes.Status201Created, ApiResponse.Ok("Table added"));
 
@@ -48,6 +56,7 @@ public class RestaurantController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult UpdateTable(Guid id) =>
         Ok(ApiResponse.Ok($"Table {id} updated"));
 }
