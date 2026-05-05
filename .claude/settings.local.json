@@ -15,7 +15,11 @@
       "Read(//tmp/**)",
       "Bash(cp \"/Users/pacenzur/.claude/projects/-Users-pacenzur-Desktop-gjirafa-perioda-3-project-dineOS/93a043fe-9fc8-4a82-93d1-5df3e3e947b8/tool-results/webfetch-1777146940886-238dpm.bin\" /tmp/design.tar.gz)",
       "Bash(mkdir -p /tmp/design_extracted)",
-      "Bash(tar -xzf /tmp/design.tar.gz -C /tmp/design_extracted)"
+      "Bash(tar -xzf /tmp/design.tar.gz -C /tmp/design_extracted)",
+      "Bash(dotnet build *)",
+      "Bash(git rebase *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(GIT_EDITOR=true git rebase *)"
     ]
   }
 }

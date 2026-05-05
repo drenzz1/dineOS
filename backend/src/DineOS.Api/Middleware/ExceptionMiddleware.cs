@@ -23,19 +23,27 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
     {
         var (status, message) = ex switch
         {
-            KeyNotFoundException => (HttpStatusCode.NotFound, ex.Message),
-            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized"),
-            ArgumentException => (HttpStatusCode.BadRequest, ex.Message),
-            _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred")
+            KeyNotFoundException      => (HttpStatusCode.NotFound,            ex.Message),
+            UnauthorizedAccessException => (HttpStatusCode.Unauthorized,      "Unauthorized"),
+            ArgumentException         => (HttpStatusCode.BadRequest,          ex.Message),
+            _                         => (HttpStatusCode.InternalServerError, "An unexpected error occurred")
         };
 
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)status;
 
-        var response = ApiResponse.Fail(message);
-        return context.Response.WriteAsync(JsonSerializer.Serialize(response, new JsonSerializerOptions
+        var correlationId = context.Items[CorrelationIdMiddleware.ItemKey]?.ToString()
+            ?? context.TraceIdentifier;
+
+        var payload = new
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        }));
+            success = false,
+            message,
+            correlationId,
+            timestamp = DateTime.UtcNow
+        };
+
+        return context.Response.WriteAsync(JsonSerializer.Serialize(payload,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
     }
 }
