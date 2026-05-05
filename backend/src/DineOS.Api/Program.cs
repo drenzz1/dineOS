@@ -42,6 +42,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("KitchenStaffOnly", p => p.RequireRole("KitchenStaff"));
 });
 
+builder.Services.AddHttpClient();
 // ── API Versioning ────────────────────────────────────────────────────────────
 builder.Services.AddApiVersioning(options =>
 {
