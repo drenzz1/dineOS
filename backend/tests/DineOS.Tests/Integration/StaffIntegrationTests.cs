@@ -16,8 +16,8 @@ namespace DineOS.Tests.Integration;
 /// Each test uses a unique tenant ID to avoid inter-test state coupling; xUnit
 /// does not guarantee intra-class ordering, so no test assumes another has run first.
 /// </summary>
+[Collection("IntegrationTests")]
 public class StaffIntegrationTests(CustomWebApplicationFactory factory)
-    : IClassFixture<CustomWebApplicationFactory>
 {
     private static readonly JsonSerializerOptions JsonOpts =
         new() { PropertyNameCaseInsensitive = true };

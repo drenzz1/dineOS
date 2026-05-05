@@ -10,8 +10,8 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace DineOS.Tests.Integration;
 
+[Collection("IntegrationTests")]
 public class ApiIntegrationTests(CustomWebApplicationFactory factory)
-    : IClassFixture<CustomWebApplicationFactory>
 {
     private static readonly JsonSerializerOptions JsonOpts =
         new() { PropertyNameCaseInsensitive = true };

@@ -9,8 +9,8 @@ using System.Text.Json;
 
 namespace DineOS.Tests.Integration;
 
+[Collection("IntegrationTests")]
 public class AuthErrorResponseTests(CustomWebApplicationFactory factory)
-    : IClassFixture<CustomWebApplicationFactory>
 {
     // ── Test 1: Missing token → 401 with structured JSON ──────────────────
     [Fact]

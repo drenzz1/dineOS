@@ -15,8 +15,8 @@ namespace DineOS.Tests.Integration;
 ///   - Tenant isolation (TenantIsolationMiddleware)
 ///   - Structured 401/403 error bodies (UseStatusCodePages)
 /// </summary>
+[Collection("IntegrationTests")]
 public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
-    : IClassFixture<CustomWebApplicationFactory>
 {
     private static readonly JsonSerializerOptions JsonOpts =
         new() { PropertyNameCaseInsensitive = true };
