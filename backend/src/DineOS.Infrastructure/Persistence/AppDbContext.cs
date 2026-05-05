@@ -60,6 +60,11 @@ public class AppDbContext : DbContext
                 Name = "Demo Restaurant",
                 Slug = "demo-restaurant",
                 IsActive = true,
+                OwnerName = "Demo Owner",
+                OwnerEmail = "owner@demo-restaurant.com",
+                Phone = "+1 555 000 0000",
+                City = "Tirana",
+                Plan = DineOS.Domain.Enums.SubscriptionPlan.Pro,
                 CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
         );
