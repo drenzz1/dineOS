@@ -13,11 +13,14 @@ services:
       - Keycloak__Authority=http://localhost:8080/realms/dineos
       - Keycloak__MetadataAddress=http://keycloak:8080/realms/dineos/.well-known/openid-configuration
       - Keycloak__Audience=dineos-api
+      - Redis__ConnectionString=redis:6379
     depends_on:
       postgres:
         condition: service_healthy
       keycloak:
         condition: service_started
+      redis:
+        condition: service_healthy
     networks:
       - dineos-net
     restart: unless-stopped
@@ -59,6 +62,22 @@ services:
       - dineos-net
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: dineos-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: dineos-pgadmin
@@ -77,6 +96,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   dineos-net:

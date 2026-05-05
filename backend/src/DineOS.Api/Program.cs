@@ -36,6 +36,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("KitchenStaffOnly", p => p.RequireRole("KitchenStaff"));
 });
 
+builder.Services.AddHttpClient();
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
