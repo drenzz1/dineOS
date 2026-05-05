@@ -1,20 +1,25 @@
+using Asp.Versioning;
 using DineOS.Application.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace DineOS.Api.Controllers;
 
 [ApiController]
-[Route("api/v1")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}")]
 [Produces("application/json")]
 [Authorize]
+[EnableRateLimiting("authenticated")]
 public class MeController : ControllerBase
 {
     /// <summary>Returns the authenticated user's profile decoded from the JWT.</summary>
     [HttpGet("me")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult GetMe()
     {
         var roles = User.Claims
