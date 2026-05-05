@@ -19,7 +19,11 @@
       "Bash(dotnet build *)",
       "Bash(git rebase *)",
       "Bash(grep -v \"^$\")",
-      "Bash(GIT_EDITOR=true git rebase *)"
+      "Bash(GIT_EDITOR=true git rebase *)",
+      "Bash(gh issue *)",
+      "Bash(git checkout *)",
+      "Bash(dotnet ef *)",
+      "Bash(dotnet test *)"
     ]
   }
 }
