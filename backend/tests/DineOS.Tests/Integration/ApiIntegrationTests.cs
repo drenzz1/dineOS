@@ -22,7 +22,7 @@ public class ApiIntegrationTests(CustomWebApplicationFactory factory)
     {
         var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/api/health");
+        var response = await client.GetAsync("/api/v1/health");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 

@@ -1,14 +1,18 @@
+using Asp.Versioning;
 using DineOS.Application.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DineOS.Api.Controllers;
 
 /// <summary>Platform administration endpoints — SuperAdmin only.</summary>
 [ApiController]
-[Route("api/v1/admin")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/admin")]
 [Produces("application/json")]
 [Authorize(Policy = "SuperAdminOnly")]
+[EnableRateLimiting("authenticated")]
 public class AdminController : ControllerBase
 {
     /// <summary>Lists all tenants registered on the platform.</summary>
@@ -16,6 +20,7 @@ public class AdminController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult GetTenants() =>
         Ok(ApiResponse<object>.Ok(Array.Empty<object>(), "Tenant list"));
 
@@ -24,6 +29,7 @@ public class AdminController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult CreateTenant() =>
         StatusCode(StatusCodes.Status201Created, ApiResponse.Ok("Tenant created"));
 
@@ -32,6 +38,7 @@ public class AdminController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult DeleteTenant(Guid id) =>
         Ok(ApiResponse.Ok($"Tenant {id} deleted"));
 
@@ -40,6 +47,7 @@ public class AdminController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult GetUsers() =>
         Ok(ApiResponse<object>.Ok(Array.Empty<object>(), "User list"));
 }

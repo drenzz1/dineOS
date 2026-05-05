@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
@@ -7,15 +8,18 @@ using DineOS.Infrastructure.Persistence;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace DineOS.Api.Controllers;
 
 /// <summary>Staff management endpoints — Manager and above.</summary>
 [ApiController]
-[Route("api/v1/staff")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/staff")]
 [Produces("application/json")]
 [Authorize(Policy = "ManagerAndAbove")]
+[EnableRateLimiting("authenticated")]
 public class StaffController(
     AppDbContext db,
     ITenantService tenantService,
