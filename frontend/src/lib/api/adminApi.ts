@@ -1,3 +1,4 @@
+// TODO: wire to real admin users endpoint — see GitHub issue #121
 import type { AdminUser } from "@/types";
 
 const MOCK_USERS: AdminUser[] = [

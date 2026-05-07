@@ -2,7 +2,7 @@ export type RestaurantPlan = "Free" | "Pro";
 export type RestaurantStatus = "Active" | "Suspended";
 
 export interface Restaurant {
-  id: string;
+  id: number;
   name: string;
   ownerName: string;
   ownerEmail: string;
@@ -14,4 +14,5 @@ export interface Restaurant {
   staffCount: number;
   revenue: number;
   createdAt: string;
+  tenantId: number;
 }

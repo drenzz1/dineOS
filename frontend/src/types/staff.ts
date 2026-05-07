@@ -1,10 +1,10 @@
-export type Role = "Manager" | "Cashier" | "KitchenStaff" | "SuperAdmin";
+export type Role = "Manager" | "Cashier" | "KitchenStaff";
 
 export interface StaffMember {
-  id: string;
+  id: number;
   fullName: string;
   email: string;
   role: Role;
-  pin: string;
   isActive: boolean;
+  tenantId: number;
 }

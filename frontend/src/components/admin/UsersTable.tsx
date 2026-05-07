@@ -1,7 +1,7 @@
 import type { Role, UserStatus } from "@/types";
 import type { AdminUser } from "@/types/admin";
 
-const ROLE_BADGE: Record<Role, string> = {
+const ROLE_BADGE: Record<Role | "SuperAdmin", string> = {
   Manager: "bg-violet-100 text-violet-700",
   Cashier: "bg-sky-100 text-sky-700",
   KitchenStaff: "bg-orange-100 text-orange-700",
@@ -27,7 +27,7 @@ function relativeTime(iso: string): string {
   return rtf.format(Math.round(diffHr / 24), "day");
 }
 
-function RoleBadge({ role }: { role: Role }) {
+function RoleBadge({ role }: { role: Role | "SuperAdmin" }) {
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${ROLE_BADGE[role]}`}

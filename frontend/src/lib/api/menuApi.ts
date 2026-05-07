@@ -1,3 +1,4 @@
+// TODO: wire to real backend menu API — see GitHub issue #105
 import type { MenuItem } from "@/types";
 import type { MenuItemFormValues } from "@/lib/validations/menuItem";
 import { MenuCategory } from "@/types";

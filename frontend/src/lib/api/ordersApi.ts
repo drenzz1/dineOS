@@ -1,3 +1,5 @@
+// TODO: wire to real backend orders API — see GitHub issue #104
+// TODO: wire to real backend payments API — see GitHub issue #103
 import { OrderStatus, MenuCategory } from "@/types";
 import type { MenuItem, Order } from "@/types";
 import type { OrderFormValues } from "@/lib/validations/order";

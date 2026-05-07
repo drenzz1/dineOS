@@ -1,84 +1,28 @@
-// TODO: replace with real API call when backend is ready
+import apiClient from "@/lib/api/apiClient";
 import type { StaffMember } from "@/types";
-import type { StaffMemberFormValues } from "@/lib/validations/staffMember";
+import type { StaffMemberFormValues } from "@/lib/validations";
 
-let mockStaff: StaffMember[] = [
-  {
-    id: "staff-001",
-    fullName: "Ana Berisha",
-    email: "ana@dineos.com",
-    role: "Manager",
-    pin: "1234",
-    isActive: true,
-  },
-  {
-    id: "staff-002",
-    fullName: "Luan Krasniqi",
-    email: "luan@dineos.com",
-    role: "Cashier",
-    pin: "5678",
-    isActive: true,
-  },
-  {
-    id: "staff-003",
-    fullName: "Bjorn Haxhiu",
-    email: "bjorn@dineos.com",
-    role: "KitchenStaff",
-    pin: "9012",
-    isActive: true,
-  },
-  {
-    id: "staff-004",
-    fullName: "Drita Morina",
-    email: "drita@dineos.com",
-    role: "Cashier",
-    pin: "3456",
-    isActive: true,
-  },
-  {
-    id: "staff-005",
-    fullName: "Valdrin Gashi",
-    email: "valdrin@dineos.com",
-    role: "KitchenStaff",
-    pin: "7890",
-    isActive: false,
-  },
-];
-
+// GET /api/v1/staff
 export async function getStaff(): Promise<StaffMember[]> {
-  await new Promise<void>((resolve) => setTimeout(resolve, 300));
-  return [...mockStaff];
+  const res = await apiClient.get<{ data: StaffMember[] }>("/v1/staff");
+  return res.data.data;
 }
 
+// POST /api/v1/staff (create) or PUT /api/v1/staff/:id (update)
 export async function saveStaffMember(
   data: StaffMemberFormValues,
-  id?: string
+  id?: number
 ): Promise<StaffMember> {
-  await new Promise<void>((resolve) => setTimeout(resolve, 500));
-  if (id) {
-    const existing = mockStaff.find((s) => s.id === id);
-    const updated: StaffMember = {
-      id,
-      isActive: existing?.isActive ?? true,
-      ...data,
-    };
-    mockStaff = mockStaff.map((s) => (s.id === id ? updated : s));
-    return updated;
+  if (id !== undefined) {
+    const res = await apiClient.put<{ data: StaffMember }>(`/v1/staff/${id}`, data);
+    return res.data.data;
   }
-  const created: StaffMember = {
-    id: crypto.randomUUID(),
-    isActive: true,
-    ...data,
-  };
-  mockStaff = [...mockStaff, created];
-  return created;
+  const res = await apiClient.post<{ data: StaffMember }>("/v1/staff", data);
+  return res.data.data;
 }
 
-export async function toggleStaffActive(id: string): Promise<StaffMember> {
-  await new Promise<void>((resolve) => setTimeout(resolve, 300));
-  const member = mockStaff.find((s) => s.id === id);
-  if (!member) throw new Error(`Staff member ${id} not found`);
-  const updated: StaffMember = { ...member, isActive: !member.isActive };
-  mockStaff = mockStaff.map((s) => (s.id === id ? updated : s));
-  return updated;
+// PATCH /api/v1/staff/:id/active
+export async function toggleStaffActive(id: number): Promise<StaffMember> {
+  const res = await apiClient.patch<{ data: StaffMember }>(`/v1/staff/${id}/active`);
+  return res.data.data;
 }
