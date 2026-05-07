@@ -83,9 +83,9 @@ export default function StaffPage() {
   const { staff, isLoading, isError } = useStaff();
 
   const { mutate: doToggle, isPending: isToggling } = useMutation({
-    mutationFn: (id: string) => toggleStaffActive(id),
+    mutationFn: (id: number) => toggleStaffActive(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.staff.list(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.staff.all });
       setDeactivateTarget(null);
     },
   });
@@ -183,7 +183,6 @@ export default function StaffPage() {
                   fullName: editTarget.fullName,
                   email: editTarget.email,
                   role: editTarget.role as "Manager" | "Cashier" | "KitchenStaff",
-                  pin: editTarget.pin,
                 }
               : undefined
           }

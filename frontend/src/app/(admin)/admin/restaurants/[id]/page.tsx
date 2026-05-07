@@ -36,14 +36,14 @@ export default function RestaurantDetailPage() {
   const [pendingPlan, setPendingPlan] = useState<RestaurantPlan | "">("");
 
   const { data: restaurant, isLoading } = useQuery({
-    queryKey: queryKeys.adminRestaurants.detail(id),
-    queryFn: () => getRestaurant(id),
+    queryKey: queryKeys.adminRestaurants.detail(Number(id)),
+    queryFn: () => getRestaurant(Number(id)),
   });
 
   const { mutate: toggleStatus, isPending: isStatusPending } = useMutation({
     mutationFn: () =>
       updateRestaurantStatus(
-        id,
+        Number(id),
         restaurant!.status === "Active" ? "Suspended" : "Active"
       ),
     onSuccess: () => {
@@ -53,7 +53,7 @@ export default function RestaurantDetailPage() {
   });
 
   const { mutate: changePlan, isPending: isPlanPending } = useMutation({
-    mutationFn: (plan: RestaurantPlan) => updateRestaurantPlan(id, plan),
+    mutationFn: (plan: RestaurantPlan) => updateRestaurantPlan(Number(id), plan),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.adminRestaurants.all });
       setPendingPlan("");

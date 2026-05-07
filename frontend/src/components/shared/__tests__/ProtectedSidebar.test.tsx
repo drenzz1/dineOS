@@ -23,8 +23,8 @@ function renderForRole(role: Role) {
     useAuthStore.setState({
       userId: "test-user",
       role,
-      tenantId: role === "SuperAdmin" ? null : "demo-tenant",
-      restaurantName: role === "SuperAdmin" ? null : "Olio & Sale",
+      tenantId: "demo-tenant",
+      restaurantName: "Olio & Sale",
     });
   });
 

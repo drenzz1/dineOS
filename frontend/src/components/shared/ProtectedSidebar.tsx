@@ -34,7 +34,7 @@ function mergeClasses(...classes: Array<string | undefined | false>): string {
   return classes.filter(Boolean).join(" ");
 }
 
-function getCookieRole(): Role | null {
+function getCookieRole(): Role | "SuperAdmin" | null {
   if (typeof document === "undefined") return null;
 
   const roleCookie = document.cookie

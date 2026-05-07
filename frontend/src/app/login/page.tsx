@@ -9,20 +9,22 @@ import { useTenant } from "@/hooks/useTenant";
 import { useAuthStore } from "@/stores/authStore";
 import type { Priority, Role } from "@/types";
 
+type AppRole = Role | "SuperAdmin";
+
 const BANNER: Record<Priority, string> = {
   info: "border-blue-200 bg-blue-50 text-blue-800",
   warning: "border-amber-200 bg-amber-50 text-amber-800",
   urgent: "border-red-200 bg-red-50 text-red-800",
 };
 
-const ROLE_DEFAULTS: Record<Role, string> = {
+const ROLE_DEFAULTS: Record<AppRole, string> = {
   Manager: "/dashboard",
   Cashier: "/orders",
   KitchenStaff: "/kitchen",
   SuperAdmin: "/admin/dashboard",
 };
 
-function setDevAuthCookies(role: Role): void {
+function setDevAuthCookies(role: AppRole): void {
   document.cookie = "access_token=dev; path=/";
   document.cookie = `role=${role}; path=/`;
 }
@@ -42,9 +44,9 @@ export default function LoginPage() {
     b.createdAt.localeCompare(a.createdAt)
   )[0];
 
-  function handleDevLogin(role: Role) {
+  function handleDevLogin(role: AppRole) {
     setDevAuthCookies(role);
-    setAuth("dev-user", role, role === "SuperAdmin" ? null : "demo-tenant", "Olio & Sale");
+    setAuth("dev-user", role, role === "SuperAdmin" ? null : "demo-tenant", "Olio & Sale", "dev");
     const from = searchParams.get("from");
     const destination =
       role === "SuperAdmin"
@@ -53,7 +55,7 @@ export default function LoginPage() {
     router.push(destination);
   }
 
-  const tenantRoles: Role[] = ["Manager", "Cashier", "KitchenStaff"];
+  const tenantRoles: AppRole[] = ["Manager", "Cashier", "KitchenStaff"];
 
   return (
     <main id="main-content" className="flex min-h-screen items-center justify-center bg-zinc-50">

@@ -7,7 +7,7 @@ import { queryKeys } from "@/lib/api/queryKeys";
 import UsersTable from "@/components/admin/UsersTable";
 import type { Role } from "@/types";
 
-type RoleFilter = Role | "All";
+type RoleFilter = Role | "SuperAdmin" | "All";
 
 const ROLE_OPTIONS: RoleFilter[] = [
   "All",
