@@ -3,149 +3,73 @@ using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using NSubstitute;
-using System.Net;
-using System.Text;
-using System.Text.Json;
 
 namespace DineOS.Tests.Unit;
 
 public class AuthControllerTests
 {
-    private readonly ITokenBlacklistService _blacklist = Substitute.For<ITokenBlacklistService>();
-    private readonly IHttpClientFactory     _factory   = Substitute.For<IHttpClientFactory>();
-    private readonly IConfiguration         _config    = Substitute.For<IConfiguration>();
-    private readonly AuthController         _controller;
+    private readonly IKeycloakAuthService _authService = Substitute.For<IKeycloakAuthService>();
+    private readonly AuthController _controller;
 
     public AuthControllerTests()
     {
-        _config["Keycloak:Authority"].Returns("http://localhost:8080/realms/dineos");
-        _controller = new AuthController(_blacklist, _factory, _config);
-    }
-
-    // Creates a minimal unsigned JWT with the given jti and exp claims.
-    private static string MakeJwt(string jti, long exp)
-    {
-        var header  = B64Url("{\"alg\":\"none\",\"typ\":\"JWT\"}");
-        var payload = B64Url($"{{\"jti\":\"{jti}\",\"exp\":{exp}}}");
-        return $"{header}.{payload}.";
-    }
-
-    private static string B64Url(string s)
-        => Convert.ToBase64String(Encoding.UTF8.GetBytes(s))
-                  .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-
-    private static HttpClient FakeKeycloak(HttpStatusCode status, object? body = null)
-    {
-        var json    = body is null ? string.Empty : JsonSerializer.Serialize(body);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-        return new HttpClient(new StubHandler(new HttpResponseMessage(status) { Content = content }));
-    }
-
-    private sealed class StubHandler(HttpResponseMessage response) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-            => Task.FromResult(response);
+        _controller = new AuthController(_authService);
     }
 
     [Fact]
-    public async Task RefreshToken_WithValidKeycloakResponse_Returns200WithNewTokenPair()
+    public async Task Login_WithValidCredentials_Returns200WithTokenPair()
     {
-        var jti      = Guid.NewGuid().ToString();
-        var exp      = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
-        var oldToken = MakeJwt(jti, exp);
+        var request = new LoginRequest("admin@dineos.dev", "Test1234!");
+        var response = new RefreshTokenResponse("access", "refresh", 300, 1800);
 
-        _blacklist.IsBlacklistedAsync(jti).Returns(false);
-        _factory.CreateClient(Arg.Any<string>()).Returns(FakeKeycloak(HttpStatusCode.OK, new
-        {
-            access_token  = "new-access",
-            refresh_token = "new-refresh",
-            expires_in    = 300
-        }));
+        _authService.LoginAsync(request, Arg.Any<CancellationToken>())
+            .Returns(Result<RefreshTokenResponse>.Success(response));
 
-        var result   = await _controller.Refresh(new RefreshTokenRequest(oldToken));
-        var ok       = Assert.IsType<OkObjectResult>(result);
+        var result = await _controller.Login(request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
         var envelope = Assert.IsType<ApiResponse<RefreshTokenResponse>>(ok.Value);
-
         Assert.True(envelope.Success);
-        Assert.Equal("new-access",  envelope.Data!.AccessToken);
-        Assert.Equal("new-refresh", envelope.Data.RefreshToken);
-        await _blacklist.Received(1).BlacklistAsync(jti, Arg.Any<TimeSpan>());
+        Assert.Equal("access", envelope.Data!.AccessToken);
     }
 
     [Fact]
-    public async Task RefreshToken_WhenKeycloakReturnsError_ExpiredToken_Returns401()
+    public async Task Login_WithInvalidCredentials_Returns401()
     {
-        var jti      = Guid.NewGuid().ToString();
-        var exp      = DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds();
-        var oldToken = MakeJwt(jti, exp);
+        var request = new LoginRequest("admin@dineos.dev", "wrong");
 
-        _blacklist.IsBlacklistedAsync(jti).Returns(false);
-        _factory.CreateClient(Arg.Any<string>()).Returns(FakeKeycloak(HttpStatusCode.BadRequest));
+        _authService.LoginAsync(request, Arg.Any<CancellationToken>())
+            .Returns(Result<RefreshTokenResponse>.Failure("Invalid username or password."));
 
-        var result = await _controller.Refresh(new RefreshTokenRequest(oldToken));
+        var result = await _controller.Login(request, CancellationToken.None);
 
         Assert.IsType<UnauthorizedObjectResult>(result);
-        await _blacklist.DidNotReceive().BlacklistAsync(Arg.Any<string>(), Arg.Any<TimeSpan>());
     }
 
     [Fact]
-    public async Task RefreshToken_WithRevokedToken_Returns401()
+    public async Task Refresh_WithRevokedToken_Returns401()
     {
-        var jti          = Guid.NewGuid().ToString();
-        var exp          = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
-        var revokedToken = MakeJwt(jti, exp);
+        var request = new RefreshTokenRequest("old-refresh");
 
-        _blacklist.IsBlacklistedAsync(jti).Returns(true);
+        _authService.RefreshAsync(request, Arg.Any<CancellationToken>())
+            .Returns(Result<RefreshTokenResponse>.Failure("Refresh token has been revoked."));
 
-        var result = await _controller.Refresh(new RefreshTokenRequest(revokedToken));
+        var result = await _controller.Refresh(request, CancellationToken.None);
 
         Assert.IsType<UnauthorizedObjectResult>(result);
-        _factory.DidNotReceive().CreateClient(Arg.Any<string>());
-        await _blacklist.DidNotReceive().BlacklistAsync(Arg.Any<string>(), Arg.Any<TimeSpan>());
     }
 
     [Fact]
-    public async Task Logout_WithValidAuthenticatedRequest_Returns204AndRevokesToken()
+    public async Task Logout_WithValidAuthenticatedRequest_Returns204()
     {
-        var jti   = Guid.NewGuid().ToString();
-        var exp   = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
-        var token = MakeJwt(jti, exp);
+        var request = new LogoutRequest("refresh");
 
-        var result = await _controller.Logout(new LogoutRequest(token));
+        _authService.LogoutAsync(request, Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+
+        var result = await _controller.Logout(request, CancellationToken.None);
 
         Assert.IsType<NoContentResult>(result);
-        await _blacklist.Received(1).BlacklistAsync(
-            jti,
-            Arg.Is<TimeSpan>(t => t > TimeSpan.Zero));
-    }
-
-    [Fact]
-    public async Task Logout_WithAlreadyRevokedToken_StillReturns204()
-    {
-        var jti   = Guid.NewGuid().ToString();
-        var exp   = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
-        var token = MakeJwt(jti, exp);
-
-        _blacklist.IsBlacklistedAsync(jti).Returns(true);
-
-        var result = await _controller.Logout(new LogoutRequest(token));
-
-        Assert.IsType<NoContentResult>(result);
-        await _blacklist.Received(1).BlacklistAsync(jti, Arg.Any<TimeSpan>());
-    }
-
-    [Fact]
-    public async Task Logout_WithExpiredToken_StillRevokesAndReturns204()
-    {
-        var jti   = Guid.NewGuid().ToString();
-        var exp   = DateTimeOffset.UtcNow.AddHours(-2).ToUnixTimeSeconds();
-        var token = MakeJwt(jti, exp);
-
-        var result = await _controller.Logout(new LogoutRequest(token));
-
-        Assert.IsType<NoContentResult>(result);
-        await _blacklist.Received(1).BlacklistAsync(jti, TimeSpan.Zero);
     }
 }

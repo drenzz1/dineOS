@@ -95,7 +95,7 @@ Controller map:
 | Controller | Route | Policy | Current state |
 |---|---|---|---|
 | `HealthController` | `/api/v1/health` | public rate limit | Implemented health response |
-| `AuthController` | `/api/v1/auth/refresh`, `/api/v1/auth/logout` | refresh is anonymous, logout is authenticated | Implemented Keycloak refresh/logout with Redis blacklist |
+| `AuthController` | `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout` | login/refresh are anonymous, logout is authenticated | Thin controller over `IKeycloakAuthService`; service handles Keycloak login/refresh/revoke plus Redis blacklist |
 | `MeController` | `/api/v1/me` | authenticated | Implemented JWT profile projection |
 | `AdminRestaurantsController` | `/api/v1/admin/restaurants` | `SuperAdminOnly` | Implemented tenant/restaurant listing, create, status, plan |
 | `StaffController` | `/api/v1/staff` | `ManagerAndAbove` | Implemented tenant-scoped staff CRUD-style operations |
@@ -238,6 +238,7 @@ Tenant isolation:
 Token revocation:
 
 - Access-token validation stays stateless on normal API calls.
+- Login, refresh, and logout are implemented through `IKeycloakAuthService`; controllers should not contain direct Keycloak HTTP calls.
 - Refresh/logout paths use Redis to blacklist refresh-token `jti` values until their natural expiry.
 - See `../docs/backend/auth.md` for the rationale and trade-offs.
 
@@ -349,4 +350,3 @@ When adding backend behavior:
 7. Apply the correct role policy and rate limit attributes on new endpoints.
 8. Add tests at the smallest level that proves the behavior, plus integration coverage for cross-layer behavior.
 9. Run `dotnet test DineOS.slnx` from `backend/` before considering the backend change complete.
-

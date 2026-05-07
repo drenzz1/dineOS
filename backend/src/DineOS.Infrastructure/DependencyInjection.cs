@@ -1,5 +1,6 @@
 using DineOS.Application.Interfaces.Repositories;
 using DineOS.Application.Interfaces.Services;
+using DineOS.Application.Authentication;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Persistence.Interceptors;
 using DineOS.Infrastructure.Repositories;
@@ -22,6 +23,9 @@ public static class DependencyInjection
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ICurrentTenantService, HttpContextTenantService>();
         services.AddSingleton<IPinHasher, PinHasher>();
+        services.Configure<KeycloakOptions>(configuration.GetSection(KeycloakOptions.SectionName));
+        services.AddHttpClient(KeycloakAuthService.HttpClientName);
+        services.AddScoped<IKeycloakAuthService, KeycloakAuthService>();
 
         services.AddScoped<AuditInterceptor>();
         services.AddScoped<SoftDeleteInterceptor>();

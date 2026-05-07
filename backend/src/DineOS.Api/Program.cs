@@ -2,6 +2,7 @@ using Asp.Versioning;
 using DineOS.Api.Auth;
 using DineOS.Api.Middleware;
 using DineOS.Application;
+using DineOS.Application.Authentication;
 using DineOS.Application.Common;
 using DineOS.Infrastructure;
 using DineOS.Infrastructure.Persistence;
@@ -61,16 +62,19 @@ try
     builder.Services.AddInfrastructure(builder.Configuration);
 
     // ── Authentication ────────────────────────────────────────────────────────────
+    var keycloakOptions = builder.Configuration
+        .GetSection(KeycloakOptions.SectionName)
+        .Get<KeycloakOptions>() ?? new KeycloakOptions();
+
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
         {
-            options.Authority = builder.Configuration["Keycloak:Authority"];
-            options.Audience = builder.Configuration["Keycloak:Audience"];
-            options.RequireHttpsMetadata = false;
+            options.Authority = keycloakOptions.GetIssuerAuthority();
+            options.Audience = keycloakOptions.Audience;
+            options.RequireHttpsMetadata = keycloakOptions.RequireHttpsMetadata;
 
-            var metadataAddress = builder.Configuration["Keycloak:MetadataAddress"];
-            if (!string.IsNullOrEmpty(metadataAddress))
-                options.MetadataAddress = metadataAddress;
+            if (!string.IsNullOrEmpty(keycloakOptions.MetadataAddress))
+                options.MetadataAddress = keycloakOptions.MetadataAddress;
         });
     builder.Services.AddTransient<IClaimsTransformation, KeycloakRolesTransformation>();
 
@@ -151,7 +155,7 @@ try
                 Current stable version: **v1**
 
                 ### Authentication
-                Obtain a JWT access token from Keycloak and supply it as:
+                Obtain a JWT access token from `POST /api/v1/auth/login` and supply it as:
                 `Authorization: Bearer <token>`
 
                 ### Correlation IDs

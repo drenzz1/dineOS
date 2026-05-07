@@ -19,17 +19,15 @@ cd backend/src/DineOS.Api
 dotnet run
 ```
 
-## Get a token
+## Login through the backend
 
-Use Direct Access Grant with the `dineos-frontend` public client:
+The API exposes a backend auth endpoint for frontend login:
 
 ```bash
-curl -s -X POST http://localhost:8080/realms/dineos/protocol/openid-connect/token \
-  -d "grant_type=password" \
-  -d "client_id=dineos-frontend" \
-  -d "username=admin@dineos.dev" \
-  -d "password=Test1234!" \
-  | jq -r '.access_token'
+curl -s -X POST http://localhost:5000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin@dineos.dev","password":"Test1234!"}' \
+  | jq -r '.data.accessToken'
 ```
 
 ## Seeded users
@@ -44,9 +42,10 @@ curl -s -X POST http://localhost:8080/realms/dineos/protocol/openid-connect/toke
 ## Test a protected endpoint
 
 ```bash
-TOKEN=$(curl -s -X POST http://localhost:8080/realms/dineos/protocol/openid-connect/token \
-  -d "grant_type=password&client_id=dineos-frontend&username=admin@dineos.dev&password=Test1234!" \
-  | jq -r '.access_token')
+TOKEN=$(curl -s -X POST http://localhost:5000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin@dineos.dev","password":"Test1234!"}' \
+  | jq -r '.data.accessToken')
 
 # Who am I?
 curl -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/me
@@ -65,3 +64,5 @@ Open http://localhost:5000/swagger, click **Authorize**, paste the access token,
 |-----------|------|---------|
 | `dineos-api` | Bearer-only | Backend resource server |
 | `dineos-frontend` | Public | SPA + local dev token fetching |
+
+For deployed environments, configure the backend with a confidential client and set `Keycloak__ClientSecret` through the deployment secret store.
