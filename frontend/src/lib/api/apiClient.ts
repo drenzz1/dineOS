@@ -5,6 +5,18 @@ const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "/api",
 });
 
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const cookie = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${name}=`));
+
+  return cookie ? decodeURIComponent(cookie.split("=")[1] ?? "") : null;
+}
+
 apiClient.interceptors.request.use((config) => {
   const tenantId = useAuthStore.getState().tenantId;
   if (tenantId !== null) {
@@ -14,15 +26,7 @@ apiClient.interceptors.request.use((config) => {
 });
 
 apiClient.interceptors.request.use((config) => {
-  // Token lives in the "access_token" cookie set by the login page.
-  // When Keycloak replaces dev auth (see middleware.ts TODO), this reads the real JWT.
-  const token =
-    typeof document !== "undefined"
-      ? document.cookie
-          .split("; ")
-          .find((row) => row.startsWith("access_token="))
-          ?.split("=")[1]
-      : null;
+  const token = getCookie("access_token");
   if (token && token !== "dev") {
     config.headers["Authorization"] = `Bearer ${token}`;
   }

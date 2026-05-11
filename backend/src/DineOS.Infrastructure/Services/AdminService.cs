@@ -32,15 +32,17 @@ public class AdminService(AppDbContext db) : IAdminService
         var query = from s in staff
                     join t in tenants on s.TenantId equals t.Id into tj
                     from t in tj.DefaultIfEmpty()
-                    select new PlatformUserDto(
+                    select new
+                    {
                         s.Id,
                         s.TenantId,
-                        t != null ? t.Name : "(unknown)",
+                        TenantName = t != null ? t.Name : "(unknown)",
                         s.FullName,
                         s.Email,
                         s.Role,
                         s.IsActive,
-                        s.CreatedAt);
+                        s.CreatedAt
+                    };
 
         var total = await query.CountAsync(ct);
         var items = await query
@@ -48,6 +50,15 @@ public class AdminService(AppDbContext db) : IAdminService
             .ThenBy(u => u.FullName)
             .Skip(pagination.Skip)
             .Take(pagination.PageSize)
+            .Select(u => new PlatformUserDto(
+                u.Id,
+                u.TenantId,
+                u.TenantName,
+                u.FullName,
+                u.Email,
+                u.Role,
+                u.IsActive,
+                u.CreatedAt))
             .ToListAsync(ct);
 
         return ServiceResult<PagedResponse<PlatformUserDto>>.Ok(

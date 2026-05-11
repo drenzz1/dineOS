@@ -40,7 +40,7 @@ public class AuthErrorResponseTests(CustomWebApplicationFactory factory)
             new AuthenticationHeaderValue("Bearer", GenerateJwtWithRole("Manager"));
 
         // AdminController requires "SuperAdminOnly" policy
-        var response = await client.GetAsync("/api/v1/admin/tenants");
+        var response = await client.GetAsync("/api/v1/admin/users");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
@@ -62,11 +62,11 @@ public class AuthErrorResponseTests(CustomWebApplicationFactory factory)
             new AuthenticationHeaderValue("Bearer", GenerateJwtWithRole("Cashier"));
 
         var r1 = JsonDocument.Parse(
-            await (await client.GetAsync("/api/v1/admin/tenants")).Content.ReadAsStringAsync()
+            await (await client.GetAsync("/api/v1/admin/users")).Content.ReadAsStringAsync()
         ).RootElement;
 
         var r2 = JsonDocument.Parse(
-            await (await client.GetAsync("/api/v1/admin/tenants")).Content.ReadAsStringAsync()
+            await (await client.GetAsync("/api/v1/admin/users")).Content.ReadAsStringAsync()
         ).RootElement;
 
         var id1 = r1.GetProperty("correlationId").GetString();

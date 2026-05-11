@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using DineOS.Application.Common;
 using DineOS.Application.Interfaces.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -10,6 +11,7 @@ namespace DineOS.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/health")]
 [Produces("application/json")]
+[AllowAnonymous]
 [EnableRateLimiting("public")]
 public class HealthController(IHealthService healthService) : ControllerBase
 {

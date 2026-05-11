@@ -11,6 +11,7 @@ using DineOS.Infrastructure;
 using DineOS.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
@@ -78,6 +79,8 @@ try
     var keycloakOptions = builder.Configuration
         .GetSection(KeycloakOptions.SectionName)
         .Get<KeycloakOptions>() ?? new KeycloakOptions();
+    var keycloakAuthorizationEndpoint = keycloakOptions.GetAuthorizationEndpoint();
+    var keycloakTokenEndpoint = keycloakOptions.GetTokenEndpoint();
 
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
@@ -111,6 +114,10 @@ try
     // ── Authorization ─────────────────────────────────────────────────────────────
     builder.Services.AddAuthorization(options =>
     {
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+
         options.AddPolicy("SuperAdminOnly",   p => p.RequireRole("SuperAdmin"));
         options.AddPolicy("ManagerAndAbove",  p => p.RequireRole("SuperAdmin", "Manager"));
         options.AddPolicy("CashierAndAbove",  p => p.RequireRole("SuperAdmin", "Manager", "Cashier"));
@@ -185,8 +192,9 @@ try
                 Current stable version: **v1**
 
                 ### Authentication
-                Obtain a JWT access token from `POST /api/v1/auth/login` and supply it as:
-                `Authorization: Bearer <token>`
+                Use **Authorize** in Swagger to sign in through Keycloak with OAuth2 Authorization Code + PKCE.
+                For scripts, obtain a JWT access token from `POST /api/v1/auth/login` and supply it as:
+                `Authorization: Bearer <token>`.
 
                 ### Correlation IDs
                 Every request receives a unique `X-Correlation-ID` response header.
@@ -239,6 +247,35 @@ try
             [new OpenApiSecuritySchemeReference("Bearer")] = []
         });
 
+        if (!string.IsNullOrWhiteSpace(keycloakAuthorizationEndpoint) &&
+            !string.IsNullOrWhiteSpace(keycloakTokenEndpoint))
+        {
+            options.AddSecurityDefinition("Keycloak", new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.OAuth2,
+                Description = "Sign in with Keycloak using Authorization Code + PKCE.",
+                Flows = new OpenApiOAuthFlows
+                {
+                    AuthorizationCode = new OpenApiOAuthFlow
+                    {
+                        AuthorizationUrl = new Uri(keycloakAuthorizationEndpoint),
+                        TokenUrl = new Uri(keycloakTokenEndpoint),
+                        Scopes = new Dictionary<string, string>
+                        {
+                            ["openid"] = "OpenID Connect sign-in",
+                            ["profile"] = "User profile claims",
+                            ["email"] = "User email claim"
+                        }
+                    }
+                }
+            });
+
+            options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Keycloak")] = ["openid", "profile", "email"]
+            });
+        }
+
         var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
         var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
         if (File.Exists(xmlPath))
@@ -285,7 +322,19 @@ try
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
-        app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "DineOS API v1"));
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "DineOS API v1");
+
+            var swaggerClientId = keycloakOptions.GetClientId();
+            if (!string.IsNullOrWhiteSpace(swaggerClientId))
+            {
+                c.OAuthClientId(swaggerClientId);
+                c.OAuthAppName("dineOS API Swagger");
+                c.OAuthScopes("openid", "profile", "email");
+                c.OAuthUsePkce();
+            }
+        });
     }
 
     app.UseCors("AllowFrontend");
