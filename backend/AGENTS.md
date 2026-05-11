@@ -94,20 +94,88 @@ Controller map:
 
 | Controller | Route | Policy | Current state |
 |---|---|---|---|
-| `HealthController` | `/api/v1/health` | public rate limit | Implemented health response |
-| `AuthController` | `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout` | login/refresh are anonymous, logout is authenticated | Thin controller over `IKeycloakAuthService`; service handles Keycloak login/refresh/revoke plus Redis blacklist |
-| `MeController` | `/api/v1/me` | authenticated | Implemented JWT profile projection |
-| `AdminRestaurantsController` | `/api/v1/admin/restaurants` | `SuperAdminOnly` | Implemented tenant/restaurant listing, create, status, plan |
-| `StaffController` | `/api/v1/staff` | `ManagerAndAbove` | Implemented tenant-scoped staff CRUD-style operations |
+| `HealthController` | `/api/v1/health` | public rate limit | Thin controller over `IHealthService` |
+| `AuthController` | `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout` | login/refresh are anonymous, logout is authenticated | Thin controller over `IKeycloakAuthService` |
+| `MeController` | `/api/v1/me` | authenticated | Reads JWT claims directly — no service |
+| `AdminRestaurantsController` | `/api/v1/admin/restaurants` | `SuperAdminOnly` | Thin controller over `IAdminRestaurantService` |
+| `StaffController` | `/api/v1/staff` | `ManagerAndAbove` | Thin controller over `IStaffService` |
+| `MenuController` | `/api/v1/menu...` | mixed (read: authenticated, write: `ManagerAndAbove`) | Thin controller over `IMenuService` |
+| `OrdersController` | `/api/v1/orders...` | `CashierAndAbove` | Thin controller over `IOrderService` |
+| `PaymentsController` | `/api/v1/payments...` | `CashierAndAbove` | Thin controller over `IPaymentService` |
+| `ShiftNotesController` | `/api/v1/shifts/notes` | mixed (read: authenticated, write: `ManagerAndAbove`) | Thin controller over `IShiftNoteService` |
 | `AdminController` | `/api/v1/admin/...` | `SuperAdminOnly` | Placeholder/simple responses |
 | `RestaurantController` | `/api/v1/restaurant...` | `ManagerAndAbove` | Placeholder/simple responses |
-| `MenuController` | `/api/v1/menu...` | `ManagerAndAbove` | Placeholder/simple responses |
-| `OrdersController` | `/api/v1/orders...` | `CashierAndAbove` | Placeholder/simple responses |
 | `KitchenController` | `/api/v1/kitchen...` | `KitchenStaffOnly` | Placeholder/simple responses |
 | `ReportsController` | `/api/v1/reports...` | `ManagerAndAbove` | Placeholder/simple responses |
-| `ShiftsController` | `/api/v1/shifts...` | `ManagerAndAbove` | Placeholder/simple responses |
+| `ShiftsController` | `/api/v1/shifts` | `ManagerAndAbove` | Placeholder/simple responses |
 
-When adding real behavior to placeholder controllers, add proper entities/DTOs/validators/tests instead of expanding anonymous-object stubs.
+When adding real behavior to placeholder controllers, follow the service-layer convention below: define an application interface, implement it in Infrastructure, register it in DI, and keep the controller thin.
+
+## Service-Layer Convention
+
+All endpoint logic (persistence, validation orchestration, DTO mapping, business rules) lives in application services. Controllers are thin: bind the request, call the service, translate the result.
+
+Per-feature layout:
+
+```text
+DineOS.Application/Interfaces/Services/I<Feature>Service.cs   contract
+DineOS.Infrastructure/Services/<Feature>Service.cs            implementation
+DineOS.Api/Controllers/<Feature>Controller.cs                 thin entry point
+DineOS.Infrastructure/DependencyInjection.cs                  AddScoped<I…, …>()
+```
+
+Services return `ServiceResult<T>` (in `DineOS.Application.Common`) instead of throwing or returning `IActionResult`. The result carries:
+
+- `IsSuccess` and `IsCreated` (for 200 vs 201)
+- `Value` payload
+- `Error` (`ServiceErrorKind`: `NotFound`, `ValidationFailed`, `BadRequest`, `Conflict`, `Unauthorized`, `UnprocessableEntity`)
+- `Message` and optional `Errors` list
+
+Controllers translate the result with `ServiceResult<T>.ToActionResult()` (the extension method in `DineOS.Api.Controllers.ServiceResultExtensions`). The extension wraps successes in `ApiResponse<T>` and failures in `ApiResponse.Fail(...)` with the correct status code, preserving the existing API envelope.
+
+A typical controller action collapses to a single expression:
+
+```csharp
+public async Task<IActionResult> Create([FromBody] CreateXRequest req, CancellationToken ct) =>
+    (await xService.CreateAsync(req, ct)).ToActionResult();
+```
+
+Inside a service:
+
+- Run FluentValidation via injected `IValidator<TRequest>`. On failure, return `ServiceResult<T>.ValidationFailed("Validation failed", errors)`.
+- For tenant-scoped writes, read `ITenantService.TenantId` and return `BadRequest("Tenant context is required.")` if null.
+- Do persistence directly on `AppDbContext` (or `IRepository<T>` where appropriate); tenant + soft-delete filters are applied by `AppDbContext`.
+- Project to DTOs inside the service. Do not return entities.
+
+## Business Logging Convention
+
+Services emit `ILogger<TService>.LogInformation(...)` for important state-changing actions (creates, status changes, deletes, role/plan transitions). Reads usually do not log — request logging already covers them.
+
+Log message + property names should be stable and queryable in Loki/Grafana:
+
+```csharp
+logger.LogInformation(
+    "Staff created: StaffId={StaffId} TenantId={TenantId} ActorUserId={ActorUserId} Role={Role}",
+    staff.Id, tenantId, currentUserService.UserId, staff.Role);
+```
+
+Required structured properties when available:
+
+- `TenantId` (from `ITenantService`)
+- `ActorUserId` (from `ICurrentUserService.UserId`)
+- The primary entity id (`StaffId`, `OrderId`, `RestaurantId`, …)
+- Domain-specific context that helps future debugging (e.g. `Previous`/`Current` for status changes)
+
+Correlation IDs flow into every log line automatically via `CorrelationIdMiddleware` and Serilog enrichers — services do not need to read or attach them.
+
+Currently emitted business logs:
+
+- `Staff created`, `Staff updated`, `Staff active-status changed`
+- `Restaurant created`, `Restaurant status changed`, `Restaurant plan changed`
+- `Menu item created/updated/deleted`, `Menu category created`
+- `Order created`, `Order status changed`
+- `Payment processed`
+- `Shift note created`, `Shift note deleted`
 
 ## Application Project
 
@@ -136,7 +204,7 @@ Validation conventions:
 
 - Validators live beside request models in the Application project.
 - Validators are registered by `AddValidatorsFromAssembly(...)` in `AddApplication()`.
-- Controllers currently call validators manually and return `ApiResponse.Fail(...)` on validation errors.
+- Application services (not controllers) call validators and translate failures into `ServiceResult<T>.ValidationFailed(...)`. See the Service-Layer Convention section below.
 
 ## Domain Project
 
@@ -335,7 +403,7 @@ When adding backend behavior:
 - Several operational controllers exist primarily to define route shape and auth policy; many return placeholder `ApiResponse` objects with anonymous data.
 - EF query filters are central to tenant isolation. Be careful with `IgnoreQueryFilters()` because it can bypass soft-delete and tenant filtering.
 - SuperAdmin is intentionally platform-wide. Tenant-scoped staff/restaurant users require a valid `tenant_id` claim.
-- Controllers currently use `AppDbContext` directly for implemented features. A generic repository exists, but the codebase has not fully moved all controller persistence through it.
+- Controllers no longer access `AppDbContext`. Persistence and business orchestration live in application services under `DineOS.Infrastructure/Services/`. A generic repository exists but services currently use `AppDbContext` directly.
 - API versioning uses URL segments. New controllers should include `[ApiVersion("1.0")]` and routes like `api/v{version:apiVersion}/resource`.
 - Keep endpoint resource names kebab-case/plural where possible, matching the Swagger guidance in `Program.cs`.
 
@@ -346,7 +414,9 @@ When adding backend behavior:
 3. Add or update request models and validators in Application before controller wiring.
 4. Add entities to Domain and DbSets/migrations in Infrastructure for persisted data.
 5. Use tenant-aware base types for tenant-owned data.
-6. Return `ApiResponse` envelopes consistently.
-7. Apply the correct role policy and rate limit attributes on new endpoints.
-8. Add tests at the smallest level that proves the behavior, plus integration coverage for cross-layer behavior.
-9. Run `dotnet test DineOS.slnx` from `backend/` before considering the backend change complete.
+6. Define an `I<Feature>Service` contract in Application, implement it in Infrastructure, and register it in DI. Keep controllers thin (bind → call → `ToActionResult()`).
+7. Emit structured `LogInformation` for state-changing operations with `TenantId`, `ActorUserId`, and the entity id (see Business Logging Convention).
+8. Return `ApiResponse` envelopes consistently — `ServiceResult<T>.ToActionResult()` handles this for service-backed endpoints.
+9. Apply the correct role policy and rate limit attributes on new endpoints.
+10. Add tests at the smallest level that proves the behavior, plus integration coverage for cross-layer behavior.
+11. Run `dotnet test DineOS.slnx` from `backend/` before considering the backend change complete.
