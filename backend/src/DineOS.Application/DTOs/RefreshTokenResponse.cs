@@ -1,3 +1,7 @@
 namespace DineOS.Application.DTOs;
 
-public record RefreshTokenResponse(string AccessToken, string RefreshToken, int ExpiresIn);
+public record RefreshTokenResponse(
+    string AccessToken,
+    string RefreshToken,
+    int ExpiresIn,
+    int? RefreshExpiresIn = null);

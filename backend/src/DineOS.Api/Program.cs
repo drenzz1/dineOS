@@ -4,6 +4,7 @@ using DineOS.Api.Hubs;
 using DineOS.Api.Middleware;
 using DineOS.Api.Services;
 using DineOS.Application;
+using DineOS.Application.Authentication;
 using DineOS.Application.Common;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Infrastructure;
@@ -74,13 +75,19 @@ try
         });
 
     // ── Authentication ────────────────────────────────────────────────────────────
+    var keycloakOptions = builder.Configuration
+        .GetSection(KeycloakOptions.SectionName)
+        .Get<KeycloakOptions>() ?? new KeycloakOptions();
+
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
         {
-            options.Authority = builder.Configuration["Keycloak:Authority"];
-            options.Audience = builder.Configuration["Keycloak:Audience"];
-            options.RequireHttpsMetadata = false;
+            options.Authority = keycloakOptions.GetIssuerAuthority();
+            options.Audience = keycloakOptions.Audience;
+            options.RequireHttpsMetadata = keycloakOptions.RequireHttpsMetadata;
 
+            if (!string.IsNullOrEmpty(keycloakOptions.MetadataAddress))
+                options.MetadataAddress = keycloakOptions.MetadataAddress;
             var metadataAddress = builder.Configuration["Keycloak:MetadataAddress"];
             if (!string.IsNullOrEmpty(metadataAddress))
                 options.MetadataAddress = metadataAddress;
@@ -178,7 +185,7 @@ try
                 Current stable version: **v1**
 
                 ### Authentication
-                Obtain a JWT access token from Keycloak and supply it as:
+                Obtain a JWT access token from `POST /api/v1/auth/login` and supply it as:
                 `Authorization: Bearer <token>`
 
                 ### Correlation IDs
