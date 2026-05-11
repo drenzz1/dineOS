@@ -26,4 +26,6 @@ public interface IAdminRestaurantService
         long id,
         UpdateRestaurantPlanRequest request,
         CancellationToken ct = default);
+
+    Task<ServiceResult<RestaurantDto>> DeleteAsync(long id, CancellationToken ct = default);
 }

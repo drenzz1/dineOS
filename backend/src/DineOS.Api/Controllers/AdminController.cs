@@ -1,5 +1,7 @@
 using Asp.Versioning;
 using DineOS.Application.Common;
+using DineOS.Application.DTOs;
+using DineOS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -7,47 +9,30 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace DineOS.Api.Controllers;
 
 /// <summary>Platform administration endpoints — SuperAdmin only.</summary>
+/// <remarks>
+/// Tenant/restaurant CRUD lives under <c>/api/v1/admin/restaurants</c>
+/// (see <see cref="AdminRestaurantsController"/>); this controller exposes
+/// platform-level views that aren't restaurant-specific.
+/// </remarks>
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/admin")]
 [Produces("application/json")]
 [Authorize(Policy = "SuperAdminOnly")]
 [EnableRateLimiting("authenticated")]
-public class AdminController : ControllerBase
+public class AdminController(IAdminService adminService) : ControllerBase
 {
-    /// <summary>Lists all tenants registered on the platform.</summary>
-    [HttpGet("tenants")]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public IActionResult GetTenants() =>
-        Ok(ApiResponse<object>.Ok(Array.Empty<object>(), "Tenant list"));
-
-    /// <summary>Creates a new tenant on the platform.</summary>
-    [HttpPost("tenants")]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public IActionResult CreateTenant() =>
-        StatusCode(StatusCodes.Status201Created, ApiResponse.Ok("Tenant created"));
-
-    /// <summary>Deletes a tenant from the platform.</summary>
-    [HttpDelete("tenants/{id:guid}")]
-    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public IActionResult DeleteTenant(Guid id) =>
-        Ok(ApiResponse.Ok($"Tenant {id} deleted"));
-
-    /// <summary>Lists all platform users.</summary>
+    /// <summary>Lists platform staff users across all tenants. Note: this is the
+    /// internal staff/PIN account list. Keycloak login-account management is a
+    /// separate, future integration.</summary>
     [HttpGet("users")]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<PlatformUserDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public IActionResult GetUsers() =>
-        Ok(ApiResponse<object>.Ok(Array.Empty<object>(), "User list"));
+    public async Task<IActionResult> GetUsers(
+        [FromQuery] string? search,
+        [FromQuery] PagedRequest pagination,
+        CancellationToken ct) =>
+        (await adminService.ListUsersAsync(search, pagination, ct)).ToActionResult();
 }

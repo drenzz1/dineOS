@@ -166,6 +166,25 @@ public class AdminRestaurantService(
         return ServiceResult<RestaurantDto>.Ok(ToDto(tenant));
     }
 
+    public async Task<ServiceResult<RestaurantDto>> DeleteAsync(long id, CancellationToken ct = default)
+    {
+        var tenant = await db.Tenants.FindAsync([id], ct);
+        if (tenant is null)
+            return ServiceResult<RestaurantDto>.NotFound($"Restaurant {id} not found.");
+
+        var dto = ToDto(tenant);
+
+        // Soft delete — AuditInterceptor + query filters keep deleted tenants out of listings.
+        db.Tenants.Remove(tenant);
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation(
+            "Restaurant deleted: RestaurantId={RestaurantId} Slug={Slug} ActorUserId={ActorUserId}",
+            tenant.Id, tenant.Slug, currentUserService.UserId);
+
+        return ServiceResult<RestaurantDto>.Ok(dto, $"Restaurant {id} deleted.");
+    }
+
     private static RestaurantDto ToDto(Tenant t) => new(
         t.Id,
         t.Name,

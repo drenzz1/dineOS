@@ -79,4 +79,14 @@ public class AdminRestaurantsController(IAdminRestaurantService restaurantServic
         [FromBody] UpdateRestaurantPlanRequest request,
         CancellationToken ct) =>
         (await restaurantService.UpdatePlanAsync(id, request, ct)).ToActionResult();
+
+    /// <summary>Soft-deletes a restaurant (tenant).</summary>
+    [HttpDelete("{id:long}")]
+    [ProducesResponseType(typeof(ApiResponse<RestaurantDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> DeleteRestaurant(long id, CancellationToken ct) =>
+        (await restaurantService.DeleteAsync(id, ct)).ToActionResult();
 }

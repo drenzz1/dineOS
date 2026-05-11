@@ -24,6 +24,8 @@ public class AppDbContext : DbContext
     public DbSet<ShiftNote> ShiftNotes => Set<ShiftNote>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
     public DbSet<MenuCategory> MenuCategories => Set<MenuCategory>();
+    public DbSet<RestaurantTable> RestaurantTables => Set<RestaurantTable>();
+    public DbSet<Shift> Shifts => Set<Shift>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,6 +65,15 @@ public class AppDbContext : DbContext
             .HasIndex(sn => new { sn.TenantId, sn.CreatedAt });
         modelBuilder.Entity<MenuItem>()
             .HasIndex(mi => new { mi.TenantId, mi.Category });
+
+        modelBuilder.Entity<RestaurantTable>()
+            .HasIndex(t => new { t.TenantId, t.Number })
+            .IsUnique();
+
+        modelBuilder.Entity<Shift>()
+            .HasIndex(s => new { s.TenantId, s.StartTime });
+        modelBuilder.Entity<Shift>()
+            .HasIndex(s => s.StaffMemberId);
 
         SeedData(modelBuilder);
 
