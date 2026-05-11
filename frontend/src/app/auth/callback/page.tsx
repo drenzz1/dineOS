@@ -1,30 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { exchangeKeycloakCode } from "@/lib/auth/keycloak";
 import { useAuthStore } from "@/stores/authStore";
 
-export default function AuthCallbackPage() {
+function AuthCallback() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setAuth = useAuthStore((state) => state.setAuth);
-  const [error, setError] = useState<string | null>(null);
+
+  const keycloakError = searchParams.get("error");
+  const code = searchParams.get("code");
+  const state = searchParams.get("state");
+
+  const initialError = keycloakError
+    ? "Keycloak sign-in was cancelled."
+    : !code || !state
+      ? "Keycloak did not return a valid authorization response."
+      : null;
+
+  const [asyncError, setAsyncError] = useState<string | null>(null);
+  const error = initialError ?? asyncError;
 
   useEffect(() => {
-    const keycloakError = searchParams.get("error");
-    const code = searchParams.get("code");
-    const state = searchParams.get("state");
-
-    if (keycloakError) {
-      setError("Keycloak sign-in was cancelled.");
-      return;
-    }
-
-    if (!code || !state) {
-      setError("Keycloak did not return a valid authorization response.");
-      return;
-    }
+    if (initialError || !code || !state) return;
 
     let cancelled = false;
 
@@ -44,13 +44,15 @@ export default function AuthCallbackPage() {
       .catch((err: unknown) => {
         if (cancelled) return;
 
-        setError(err instanceof Error ? err.message : "Keycloak sign-in failed.");
+        setAsyncError(
+          err instanceof Error ? err.message : "Keycloak sign-in failed."
+        );
       });
 
     return () => {
       cancelled = true;
     };
-  }, [router, searchParams, setAuth]);
+  }, [code, state, initialError, router, setAuth]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4">
@@ -72,5 +74,13 @@ export default function AuthCallbackPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthCallback />
+    </Suspense>
   );
 }
