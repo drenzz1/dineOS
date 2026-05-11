@@ -65,6 +65,11 @@ public class AppDbContext : DbContext
             .HasIndex(sn => new { sn.TenantId, sn.CreatedAt });
         modelBuilder.Entity<MenuItem>()
             .HasIndex(mi => new { mi.TenantId, mi.Category });
+        // Supports the daily/period revenue queries the reports & admin
+        // dashboards run. See docs/backend/sql-optimization.md (Q4) for the
+        // EXPLAIN ANALYZE proof.
+        modelBuilder.Entity<Payment>()
+            .HasIndex(p => new { p.TenantId, p.CreatedAt });
 
         modelBuilder.Entity<RestaurantTable>()
             .HasIndex(t => new { t.TenantId, t.Number })
