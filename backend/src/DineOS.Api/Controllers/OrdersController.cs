@@ -25,7 +25,8 @@ public class OrdersController(
     AppDbContext db,
     ITenantService tenantService,
     IValidator<CreateOrderRequest> createValidator,
-    IValidator<UpdateOrderStatusRequest> statusValidator) : ControllerBase
+    IValidator<UpdateOrderStatusRequest> statusValidator,
+    IOrderNotificationService notificationService) : ControllerBase
 {
     /// <summary>Lists orders for the current tenant, with optional date and status filters.</summary>
     /// <param name="date">Filter by creation date (ISO format: yyyy-MM-dd). Defaults to today when omitted.</param>
@@ -127,8 +128,11 @@ public class OrdersController(
         db.Orders.Add(order);
         await db.SaveChangesAsync(ct);
 
+        var dto = ToDto(order);
+        await notificationService.BroadcastOrderCreatedAsync(tenantId, dto, ct);
+
         return StatusCode(StatusCodes.Status201Created,
-            ApiResponse<OrderDto>.Ok(ToDto(order), "Order created."));
+            ApiResponse<OrderDto>.Ok(dto, "Order created."));
     }
 
     /// <summary>Updates the status of an order.</summary>
@@ -156,8 +160,12 @@ public class OrdersController(
         if (order is null)
             return NotFound(ApiResponse.Fail($"Order {id} not found."));
 
+        var oldStatus = order.Status.ToString();
         order.Status = Enum.Parse<OrderStatus>(request.Status);
         await db.SaveChangesAsync(ct);
+
+        await notificationService.BroadcastOrderStatusChangedAsync(
+            order.TenantId, order.Id, oldStatus, request.Status, ct);
 
         return Ok(ApiResponse<OrderDto>.Ok(ToDto(order),
             $"Order {id} status updated to {request.Status}."));

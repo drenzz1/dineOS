@@ -1,3 +1,5 @@
+using DineOS.Application.DTOs;
+using DineOS.Application.Interfaces.Services;
 using DineOS.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -66,7 +68,24 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             // Register test-only controllers defined in this assembly
             services.AddControllers()
                 .AddApplicationPart(typeof(CustomWebApplicationFactory).Assembly);
+
+            // Replace SignalR-backed notification service with a no-op — Redis is not
+            // available in CI and notifications are not under test here.
+            var notifDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(IOrderNotificationService));
+            if (notifDescriptor is not null)
+                services.Remove(notifDescriptor);
+            services.AddSingleton<IOrderNotificationService, NoOpOrderNotificationService>();
         });
+    }
+
+    private sealed class NoOpOrderNotificationService : IOrderNotificationService
+    {
+        public Task BroadcastOrderCreatedAsync(long tenantId, OrderDto order, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task BroadcastOrderStatusChangedAsync(long tenantId, long orderId, string oldStatus, string newStatus, CancellationToken ct = default)
+            => Task.CompletedTask;
     }
 
     async Task IAsyncLifetime.DisposeAsync()
