@@ -55,6 +55,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     public async Task Cashier_CreateOrder_Returns201()
     {
         var client = ClientWith(GenerateTestJwt("Cashier", "1"));
+        client.DefaultRequestHeaders.Add("X-Tenant-ID", "1");
 
         var payload = JsonSerializer.Serialize(new
         {
