@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<ShiftNote> ShiftNotes => Set<ShiftNote>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -56,6 +57,8 @@ public class AppDbContext : DbContext
             .HasIndex(o => new { o.TenantId, o.CreatedAt });
         modelBuilder.Entity<OrderItem>()
             .HasIndex(i => i.OrderId);
+        modelBuilder.Entity<ShiftNote>()
+            .HasIndex(sn => new { sn.TenantId, sn.CreatedAt });
 
         SeedData(modelBuilder);
 
