@@ -10,4 +10,5 @@ public class OrderDto
     public string? Notes { get; set; }
     public long TenantId { get; set; }
     public DateTime CreatedAt { get; set; }
+    public List<OrderItemDto> Items { get; set; } = [];
 }

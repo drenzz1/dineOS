@@ -1,6 +1,7 @@
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Domain.Entities;
+using DineOS.Domain.Enums;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Tests.Fixtures;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,7 +32,7 @@ public class PaymentsIntegrationTests(CustomWebApplicationFactory factory)
     public async Task GetOpenOrders_Cashier_Returns200_WithOpenOrder()
     {
         var client = ClientWith(Jwt("Cashier", "801"));
-        await SeedOrderAsync("801", total: 25.50m, status: "Ready");
+        await SeedOrderAsync("801", total: 25.50m, status: OrderStatus.Ready);
 
         var response = await client.GetAsync("/api/v1/payments/open-orders");
 
@@ -64,8 +65,8 @@ public class PaymentsIntegrationTests(CustomWebApplicationFactory factory)
     public async Task GetOpenOrders_ExcludesDeliveredAndCancelledOrders()
     {
         var client = ClientWith(Jwt("Cashier", "803"));
-        await SeedOrderAsync("803", total: 10.00m, status: "Delivered");
-        await SeedOrderAsync("803", total: 10.00m, status: "Cancelled");
+        await SeedOrderAsync("803", total: 10.00m, status: OrderStatus.Delivered);
+        await SeedOrderAsync("803", total: 10.00m, status: OrderStatus.Cancelled);
 
         var response = await client.GetAsync("/api/v1/payments/open-orders");
 
@@ -80,7 +81,7 @@ public class PaymentsIntegrationTests(CustomWebApplicationFactory factory)
     public async Task ProcessPayment_CashPayment_Returns201_AndOrderMarkedDelivered()
     {
         var client = ClientWith(Jwt("Cashier", "804"));
-        var orderId = await SeedOrderAsync("804", total: 32.00m, status: "Ready");
+        var orderId = await SeedOrderAsync("804", total: 32.00m, status: OrderStatus.Ready);
 
         var response = await client.PostAsync("/api/v1/payments", Json(new
         {
@@ -111,7 +112,7 @@ public class PaymentsIntegrationTests(CustomWebApplicationFactory factory)
     public async Task ProcessPayment_CardPayment_Returns201()
     {
         var client = ClientWith(Jwt("Manager", "805"));
-        var orderId = await SeedOrderAsync("805", total: 15.75m, status: "New");
+        var orderId = await SeedOrderAsync("805", total: 15.75m, status: OrderStatus.New);
 
         var response = await client.PostAsync("/api/v1/payments", Json(new
         {
@@ -130,7 +131,7 @@ public class PaymentsIntegrationTests(CustomWebApplicationFactory factory)
     public async Task ProcessPayment_AmountMismatch_Returns422()
     {
         var client = ClientWith(Jwt("Cashier", "806"));
-        var orderId = await SeedOrderAsync("806", total: 20.00m, status: "Ready");
+        var orderId = await SeedOrderAsync("806", total: 20.00m, status: OrderStatus.Ready);
 
         var response = await client.PostAsync("/api/v1/payments", Json(new
         {
@@ -150,7 +151,7 @@ public class PaymentsIntegrationTests(CustomWebApplicationFactory factory)
     public async Task ProcessPayment_OrderAlreadyDelivered_Returns422()
     {
         var client = ClientWith(Jwt("Cashier", "807"));
-        var orderId = await SeedOrderAsync("807", total: 18.00m, status: "Delivered");
+        var orderId = await SeedOrderAsync("807", total: 18.00m, status: OrderStatus.Delivered);
 
         var response = await client.PostAsync("/api/v1/payments", Json(new
         {
@@ -167,7 +168,7 @@ public class PaymentsIntegrationTests(CustomWebApplicationFactory factory)
     public async Task ProcessPayment_OrderCancelled_Returns422()
     {
         var client = ClientWith(Jwt("Cashier", "808"));
-        var orderId = await SeedOrderAsync("808", total: 12.00m, status: "Cancelled");
+        var orderId = await SeedOrderAsync("808", total: 12.00m, status: OrderStatus.Cancelled);
 
         var response = await client.PostAsync("/api/v1/payments", Json(new
         {
@@ -238,7 +239,7 @@ public class PaymentsIntegrationTests(CustomWebApplicationFactory factory)
     public async Task TenantIsolation_CrossTenantOrder_Returns404()
     {
         // Seed an order belonging to tenant 813
-        var orderId = await SeedOrderAsync("813", total: 50.00m, status: "Ready");
+        var orderId = await SeedOrderAsync("813", total: 50.00m, status: OrderStatus.Ready);
 
         // Cashier of tenant 812 attempts to pay it
         var client = ClientWith(Jwt("Cashier", "812"));
@@ -289,7 +290,7 @@ public class PaymentsIntegrationTests(CustomWebApplicationFactory factory)
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private async Task<long> SeedOrderAsync(string tenantId, decimal total, string status)
+    private async Task<long> SeedOrderAsync(string tenantId, decimal total, OrderStatus status)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
