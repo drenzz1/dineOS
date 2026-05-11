@@ -27,6 +27,36 @@ public class MenuController(
     IValidator<UpdateMenuItemRequest> updateItemValidator,
     IValidator<CreateMenuCategoryRequest> createCategoryValidator) : ControllerBase
 {
+    // ── Base route (ManagerAndAbove) ─────────────────────────────────────────
+
+    /// <summary>Lists all menu items for the current tenant (base route, Manager and above).</summary>
+    [HttpGet]
+    [Authorize(Policy = "ManagerAndAbove")]
+    [ProducesResponseType(typeof(ApiResponse<List<MenuItemDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> GetMenu(CancellationToken ct)
+    {
+        var items = await db.MenuItems
+            .AsNoTracking()
+            .OrderBy(mi => mi.Category)
+            .ThenBy(mi => mi.Name)
+            .Select(mi => new MenuItemDto
+            {
+                Id          = mi.Id,
+                Name        = mi.Name,
+                Price       = mi.Price,
+                Category    = mi.Category,
+                Description = mi.Description,
+                ImageUrl    = mi.ImageUrl,
+                TenantId    = mi.TenantId,
+            })
+            .ToListAsync(ct);
+
+        return Ok(ApiResponse<List<MenuItemDto>>.Ok(items, "Menu items"));
+    }
+
     // ── Menu Items ────────────────────────────────────────────────────────────
 
     /// <summary>Lists all menu items for the current tenant, ordered by category then name.</summary>
