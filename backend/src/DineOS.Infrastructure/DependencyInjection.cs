@@ -42,6 +42,13 @@ public static class DependencyInjection
         services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
         services.AddScoped<IHealthService, HealthService>();
 
+        services.AddScoped<IStaffService, StaffService>();
+        services.AddScoped<IAdminRestaurantService, AdminRestaurantService>();
+        services.AddScoped<IMenuService, MenuService>();
+        services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<IShiftNoteService, ShiftNoteService>();
+
         services.AddSingleton<IConnectionMultiplexer>(sp =>
         {
             var connString = configuration["Redis:ConnectionString"] ?? "localhost:6379";
