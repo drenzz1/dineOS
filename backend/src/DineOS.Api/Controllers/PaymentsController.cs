@@ -36,13 +36,13 @@ public class PaymentsController(
     {
         var orders = await db.Orders
             .AsNoTracking()
-            .Where(o => o.Status != "Delivered" && o.Status != "Cancelled")
+            .Where(o => o.Status != OrderStatus.Delivered && o.Status != OrderStatus.Cancelled)
             .Select(o => new OrderDto
             {
                 Id = o.Id,
                 OrderType = o.OrderType,
                 TableNumber = o.TableNumber,
-                Status = o.Status,
+                Status = o.Status.ToString(),
                 Total = o.Total,
                 Notes = o.Notes,
                 TenantId = o.TenantId,
@@ -78,9 +78,9 @@ public class PaymentsController(
         if (order is null)
             return NotFound(ApiResponse.Fail($"Order {request.OrderId} not found."));
 
-        if (order.Status is "Delivered" or "Cancelled")
+        if (order.Status is OrderStatus.Delivered or OrderStatus.Cancelled)
             return UnprocessableEntity(ApiResponse.Fail(
-                $"Order {request.OrderId} is already {order.Status.ToLower()} and cannot be paid."));
+                $"Order {request.OrderId} is already {order.Status.ToString().ToLower()} and cannot be paid."));
 
         if (request.Amount != order.Total)
             return UnprocessableEntity(ApiResponse.Fail(
@@ -100,7 +100,7 @@ public class PaymentsController(
 
         db.Payments.Add(payment);
 
-        order.Status = "Delivered";
+        order.Status = OrderStatus.Delivered;
 
         await db.SaveChangesAsync(ct);
 

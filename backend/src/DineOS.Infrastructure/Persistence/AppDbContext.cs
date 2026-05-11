@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Payment> Payments => Set<Payment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -47,6 +48,14 @@ public class AppDbContext : DbContext
                     .HasQueryFilter(BuildSoftDeleteFilter(clrType));
             }
         }
+
+        // Indexes for common order query patterns (tenant/date/status)
+        modelBuilder.Entity<Order>()
+            .HasIndex(o => new { o.TenantId, o.Status });
+        modelBuilder.Entity<Order>()
+            .HasIndex(o => new { o.TenantId, o.CreatedAt });
+        modelBuilder.Entity<OrderItem>()
+            .HasIndex(i => i.OrderId);
 
         SeedData(modelBuilder);
 
