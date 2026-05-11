@@ -55,9 +55,19 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     public async Task Cashier_CreateOrder_Returns201()
     {
         var client = ClientWith(GenerateTestJwt("Cashier", "1"));
+        client.DefaultRequestHeaders.Add("X-Tenant-ID", "1");
 
+        var payload = JsonSerializer.Serialize(new
+        {
+            orderType = "pickup",
+            notes = (string?)null,
+            items = new[]
+            {
+                new { name = "Burger", quantity = 1, unitPrice = 9.99m, notes = (string?)null }
+            }
+        });
         var response = await client.PostAsync("/api/v1/orders",
-            new StringContent("{}", Encoding.UTF8, "application/json"));
+            new StringContent(payload, Encoding.UTF8, "application/json"));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }

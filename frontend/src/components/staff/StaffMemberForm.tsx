@@ -14,7 +14,7 @@ const ROLES = ["Manager", "Cashier", "KitchenStaff"] as const;
 
 interface StaffMemberFormProps {
   onClose: () => void;
-  defaultValues?: Partial<StaffMemberFormValues> & { id?: string };
+  defaultValues?: Partial<StaffMemberFormValues> & { id?: number };
 }
 
 export default function StaffMemberForm({
@@ -33,7 +33,6 @@ export default function StaffMemberForm({
     defaultValues: {
       fullName: "",
       email: "",
-      pin: "",
       ...defaultValues,
     },
   });
@@ -42,7 +41,7 @@ export default function StaffMemberForm({
     mutationFn: (data: StaffMemberFormValues) =>
       saveStaffMember(data, defaultValues?.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.staff.list(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.staff.all });
       onClose();
     },
   });
@@ -115,29 +114,6 @@ export default function StaffMemberForm({
         </select>
         {errors.role && (
           <p className="text-sm text-red-600">{errors.role.message}</p>
-        )}
-      </div>
-
-      {/* PIN */}
-      <div className="space-y-1">
-        <label
-          htmlFor="sm-pin"
-          className="block text-sm font-medium text-zinc-700"
-        >
-          PIN{" "}
-          <span className="font-normal text-zinc-600">(4 digits)</span>
-        </label>
-        <input
-          id="sm-pin"
-          type="password"
-          inputMode="numeric"
-          maxLength={4}
-          {...register("pin")}
-          placeholder="••••"
-          className="block w-24 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 tracking-widest focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-        {errors.pin && (
-          <p className="text-sm text-red-600">{errors.pin.message}</p>
         )}
       </div>
 

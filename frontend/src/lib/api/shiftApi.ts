@@ -1,3 +1,4 @@
+// TODO: wire to real backend shift notes API — see GitHub issue #107
 import type { ShiftSummary } from "@/types";
 import type { ShiftNoteFormValues } from "@/lib/validations/shiftNote";
 

@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/api/queryKeys";
 import { restaurantSchema } from "@/lib/validations/restaurant";
 import type { RestaurantFormValues } from "@/lib/validations/restaurant";
 import { createRestaurant } from "@/lib/api/restaurantApi";
@@ -24,6 +25,7 @@ const PLAN_FEATURES: Record<"Free" | "Pro", string[]> = {
 
 export default function RestaurantOnboardForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -37,6 +39,7 @@ export default function RestaurantOnboardForm() {
   const { mutate, isPending } = useMutation({
     mutationFn: createRestaurant,
     onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminRestaurants.all });
       router.push(`/admin/restaurants/${result.id}`);
     },
   });

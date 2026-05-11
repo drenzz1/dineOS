@@ -1,9 +1,12 @@
 using Asp.Versioning;
 using DineOS.Api.Auth;
+using DineOS.Api.Hubs;
 using DineOS.Api.Middleware;
+using DineOS.Api.Services;
 using DineOS.Application;
 using DineOS.Application.Authentication;
 using DineOS.Application.Common;
+using DineOS.Application.Interfaces.Services;
 using DineOS.Infrastructure;
 using DineOS.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
@@ -61,6 +64,16 @@ try
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
 
+    builder.Services.AddSingleton<IOrderNotificationService, OrderNotificationService>();
+
+    var redisConnStr = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";
+    builder.Services.AddSignalR()
+        .AddStackExchangeRedis(options =>
+        {
+            options.Configuration = StackExchange.Redis.ConfigurationOptions.Parse(redisConnStr);
+            options.Configuration.AbortOnConnectFail = false;
+        });
+
     // ── Authentication ────────────────────────────────────────────────────────────
     var keycloakOptions = builder.Configuration
         .GetSection(KeycloakOptions.SectionName)
@@ -75,6 +88,23 @@ try
 
             if (!string.IsNullOrEmpty(keycloakOptions.MetadataAddress))
                 options.MetadataAddress = keycloakOptions.MetadataAddress;
+            var metadataAddress = builder.Configuration["Keycloak:MetadataAddress"];
+            if (!string.IsNullOrEmpty(metadataAddress))
+                options.MetadataAddress = metadataAddress;
+
+            // SignalR: browsers can't set Authorization headers on WebSocket connections,
+            // so the JS client passes the JWT as ?access_token=<token> on hub URLs.
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var token = context.Request.Query["access_token"];
+                    if (!string.IsNullOrEmpty(token) &&
+                        context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                        context.Token = token;
+                    return Task.CompletedTask;
+                }
+            };
         });
     builder.Services.AddTransient<IClaimsTransformation, KeycloakRolesTransformation>();
 
@@ -221,17 +251,18 @@ try
         options.AddPolicy("AllowFrontend", policy =>
             policy.WithOrigins(builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? ["http://localhost:3000"])
                   .AllowAnyHeader()
-                  .AllowAnyMethod());
+                  .AllowAnyMethod()
+                  .AllowCredentials()); // Required for SignalR WebSocket connections from browsers
     });
 
     var app = builder.Build();
 
     // Auto-apply pending migrations on startup
-    using (var scope = app.Services.CreateScope())
-    {
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Database.Migrate();
-    }
+     using (var scope = app.Services.CreateScope())
+     {
+         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+         db.Database.Migrate();
+     }
 
     // ── Middleware pipeline ───────────────────────────────────────────────────────
     app.UseMiddleware<CorrelationIdMiddleware>();
@@ -286,6 +317,7 @@ try
     app.UseAuthorization();
     app.UseMiddleware<TenantIsolationMiddleware>();
     app.MapControllers();
+    app.MapHub<OrderUpdatesHub>("/hubs/orders");
 
     app.Run();
 }

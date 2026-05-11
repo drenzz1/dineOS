@@ -5,14 +5,16 @@ import { queryClient } from "@/lib/queryClient";
 
 interface AuthState {
   userId: string | null;
-  role: Role | null;
+  role: Role | "SuperAdmin" | null;
   tenantId: string | null;
   restaurantName: string | null;
+  accessToken: string | null;
   setAuth: (
     userId: string,
-    role: Role,
+    role: Role | "SuperAdmin",
     tenantId: string | null,
-    restaurantName?: string | null
+    restaurantName?: string | null,
+    accessToken?: string | null
   ) => void;
   clearAuth: () => void;
 }
@@ -24,10 +26,11 @@ export const useAuthStore = create<AuthState>()(
       role: null,
       tenantId: null,
       restaurantName: null,
-      setAuth: (userId, role, tenantId, restaurantName = null) =>
-        set({ userId, role, tenantId, restaurantName }),
+      accessToken: null,
+      setAuth: (userId, role, tenantId, restaurantName = null, accessToken = null) =>
+        set({ userId, role, tenantId, restaurantName, accessToken }),
       clearAuth: () => {
-        set({ userId: null, role: null, tenantId: null, restaurantName: null });
+        set({ userId: null, role: null, tenantId: null, restaurantName: null, accessToken: null });
         queryClient.clear();
       },
     }),

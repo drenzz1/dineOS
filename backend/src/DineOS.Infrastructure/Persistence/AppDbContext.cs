@@ -18,6 +18,12 @@ public class AppDbContext : DbContext
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<ShiftNote> ShiftNotes => Set<ShiftNote>();
+    public DbSet<MenuItem> MenuItems => Set<MenuItem>();
+    public DbSet<MenuCategory> MenuCategories => Set<MenuCategory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,6 +51,18 @@ public class AppDbContext : DbContext
                     .HasQueryFilter(BuildSoftDeleteFilter(clrType));
             }
         }
+
+        // Indexes for common order query patterns (tenant/date/status)
+        modelBuilder.Entity<Order>()
+            .HasIndex(o => new { o.TenantId, o.Status });
+        modelBuilder.Entity<Order>()
+            .HasIndex(o => new { o.TenantId, o.CreatedAt });
+        modelBuilder.Entity<OrderItem>()
+            .HasIndex(i => i.OrderId);
+        modelBuilder.Entity<ShiftNote>()
+            .HasIndex(sn => new { sn.TenantId, sn.CreatedAt });
+        modelBuilder.Entity<MenuItem>()
+            .HasIndex(mi => new { mi.TenantId, mi.Category });
 
         SeedData(modelBuilder);
 

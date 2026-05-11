@@ -15,7 +15,7 @@ const INPUT =
 
 export default function AdminRestaurantsPage() {
   const { data: restaurants = [], isLoading } = useQuery({
-    queryKey: queryKeys.adminRestaurants.list(),
+    queryKey: queryKeys.adminRestaurants.list(null),
     queryFn: getRestaurants,
   });
 
