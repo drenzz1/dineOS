@@ -204,13 +204,13 @@ public sealed class KeycloakAuthService(
 
     private HttpClient CreateClient() => httpClientFactory.CreateClient(HttpClientName);
 
-    private string GetTokenEndpoint() => $"{GetBackchannelAuthority()}/protocol/openid-connect/token";
+    private string GetTokenEndpoint() =>
+        _options.GetBackchannelTokenEndpoint()
+        ?? throw new InvalidOperationException("Keycloak token endpoint is not configured.");
 
-    private string GetRevocationEndpoint() => $"{GetBackchannelAuthority()}/protocol/openid-connect/revoke";
-
-    private string GetBackchannelAuthority() =>
-        _options.GetBackchannelAuthority()
-        ?? throw new InvalidOperationException("Keycloak authority is not configured.");
+    private string GetRevocationEndpoint() =>
+        _options.GetBackchannelRevocationEndpoint()
+        ?? throw new InvalidOperationException("Keycloak revocation endpoint is not configured.");
 
     private static RefreshTokenInfo DecodeRefreshToken(string refreshToken)
     {

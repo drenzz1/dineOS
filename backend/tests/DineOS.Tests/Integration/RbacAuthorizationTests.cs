@@ -27,7 +27,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     {
         var client = ClientWith(GenerateTestJwt("SuperAdmin"));
 
-        var response = await client.GetAsync("/api/v1/admin/tenants");
+        var response = await client.GetAsync("/api/v1/admin/users");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
@@ -38,7 +38,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     {
         var client = ClientWith(GenerateTestJwt("Manager", "1"));
 
-        var response = await client.GetAsync("/api/v1/admin/tenants");
+        var response = await client.GetAsync("/api/v1/admin/users");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
 
@@ -96,7 +96,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
 
     // ── 4b. KitchenStaff rejected from all other role-scoped endpoints ────
     [Theory]
-    [InlineData("GET",  "/api/v1/admin/tenants")]   // SuperAdminOnly
+    [InlineData("GET",  "/api/v1/admin/users")]     // SuperAdminOnly
     [InlineData("GET",  "/api/v1/staff")]            // ManagerAndAbove
     [InlineData("GET",  "/api/v1/menu")]             // ManagerAndAbove
     [InlineData("GET",  "/api/v1/shifts")]           // ManagerAndAbove

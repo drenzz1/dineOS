@@ -42,5 +42,22 @@ public sealed class KeycloakOptions
     public string? GetClientId() =>
         !string.IsNullOrWhiteSpace(ClientId) ? ClientId : Audience;
 
+    public string? GetAuthorizationEndpoint() =>
+        BuildOpenIdConnectEndpoint(GetIssuerAuthority(), "auth");
+
+    public string? GetTokenEndpoint() =>
+        BuildOpenIdConnectEndpoint(GetIssuerAuthority(), "token");
+
+    public string? GetBackchannelTokenEndpoint() =>
+        BuildOpenIdConnectEndpoint(GetBackchannelAuthority(), "token");
+
+    public string? GetBackchannelRevocationEndpoint() =>
+        BuildOpenIdConnectEndpoint(GetBackchannelAuthority(), "revoke");
+
+    private static string? BuildOpenIdConnectEndpoint(string? authority, string endpoint) =>
+        string.IsNullOrWhiteSpace(authority)
+            ? null
+            : $"{TrimTrailingSlash(authority)}/protocol/openid-connect/{endpoint}";
+
     private static string TrimTrailingSlash(string value) => value.Trim().TrimEnd('/');
 }

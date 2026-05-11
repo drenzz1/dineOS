@@ -12,6 +12,7 @@ public class TestController : ControllerBase
     public record ValidateRequest(string? Name);
 
     // Throws ArgumentException on bad input so ExceptionMiddleware returns ApiResponse.Fail + 400
+    [AllowAnonymous]
     [HttpPost("validate")]
     public IActionResult Validate([FromBody] ValidateRequest? request)
     {
@@ -25,4 +26,8 @@ public class TestController : ControllerBase
     [Authorize]
     [HttpGet("secure")]
     public IActionResult Secure() => Ok(new { message = "authorized" });
+
+    // No auth attributes by design. Program.cs fallback policy should still protect it.
+    [HttpGet("fallback-protected")]
+    public IActionResult FallbackProtected() => Ok(new { message = "fallback authorized" });
 }

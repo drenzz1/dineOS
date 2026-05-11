@@ -64,6 +64,16 @@ public class ApiIntegrationTests(CustomWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GetFallbackProtected_NoToken_Returns401()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/test/fallback-protected");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     // ── Test 3b ─────────────────────────────────────────────────────────────
     [Fact]
     public async Task GetSecure_ValidBearerToken_Returns200()

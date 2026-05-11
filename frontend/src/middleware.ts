@@ -1,4 +1,3 @@
-// TODO: Replace cookie-based auth with Keycloak session validation.
 import { NextRequest, NextResponse } from "next/server";
 
 type Role = "Manager" | "Cashier" | "KitchenStaff" | "SuperAdmin";
@@ -11,7 +10,7 @@ function isValidRole(value: string): value is Role {
 
 const CASHIER_ALLOWED = ["/orders", "/payments", "/kitchen"];
 const KITCHEN_STAFF_ALLOWED = ["/kitchen"];
-const PUBLIC_PATHS = ["/", "/login"];
+const PUBLIC_PATHS = ["/", "/login", "/auth/callback"];
 
 function isAllowed(pathname: string, allowed: string[]): boolean {
   return allowed.some(

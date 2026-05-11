@@ -44,6 +44,21 @@ If dineOS later introduces higher-risk operations (e.g., payment authorisation, 
 
 Token responses and errors use the standard `ApiResponse` envelope. Successful logout returns `204 No Content`.
 
+The API is secure by default: `Program.cs` registers an authorization fallback
+policy that requires an authenticated user for any endpoint without an explicit
+authorization attribute. Public endpoints must opt out with `[AllowAnonymous]`
+and should use the `public` rate-limit policy. Current anonymous endpoints are:
+
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `GET /api/v1/health`
+
+Browser clients should prefer Keycloak's Authorization Code + PKCE flow through
+the public `dineos-frontend` client. The backend validates the resulting access
+token as a JWT resource server. The backend `/auth/login` endpoint remains
+available for scriptable local testing and controlled clients that intentionally
+use the backend as the token broker.
+
 ### Login
 
 ```http
@@ -142,9 +157,47 @@ Keycloak__RequireHttpsMetadata=true
 
 The Keycloak client used for backend login must allow direct access grants and must issue `dineos-api` as an access-token audience.
 
+## Swagger OAuth2 Reviewer Flow
+
+In Development, Swagger exposes two authorization options:
+
+- **Keycloak**: Authorization Code + PKCE against the configured public realm.
+- **Bearer**: manual paste of an access token returned from `POST /api/v1/auth/login`.
+
+The Keycloak Swagger flow derives its URLs from `KeycloakOptions`:
+
+```text
+Authorization URL: {Authority}/protocol/openid-connect/auth
+Token URL:         {Authority}/protocol/openid-connect/token
+Client ID:         Keycloak__ClientId
+Scopes:            openid profile email
+```
+
+For local Docker, open `http://localhost:5000/swagger`, click **Authorize**,
+select the **Keycloak** entry, and sign in with a seeded user. Swagger uses
+PKCE, so the public client does not need a client secret.
+
 ## Frontend Contract
 
-The frontend should call the backend auth endpoints, not Keycloak directly:
+The production browser flow should use Keycloak Authorization Code + PKCE:
+
+1. Redirect the user to the public Keycloak realm.
+2. Keycloak redirects back to the frontend callback route.
+3. The frontend stores the access/refresh token pair according to the agreed auth storage policy.
+4. API calls send `Authorization: Bearer <accessToken>`.
+5. The backend validates issuer, audience, signature, expiry, tenant claims, and roles.
+
+The frontend implementation uses:
+
+```text
+NEXT_PUBLIC_KEYCLOAK_AUTHORITY=http://localhost:8080/realms/dineos
+NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=dineos-frontend
+```
+
+The local callback route is `/auth/callback`, covered by the `http://localhost:3000/*`
+redirect URI in the development realm export.
+
+The backend token endpoints remain available for local/dev and controlled-client flows:
 
 - `NEXT_PUBLIC_API_URL` should point at the backend API base URL.
 - Store `accessToken`, `refreshToken`, `expiresIn`, and `refreshExpiresIn`.
