@@ -48,6 +48,11 @@ public static class DependencyInjection
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IShiftNoteService, ShiftNoteService>();
+        services.AddScoped<IKitchenService, KitchenService>();
+        services.AddScoped<IReportsService, ReportsService>();
+        services.AddScoped<IAdminService, AdminService>();
+        services.AddScoped<IRestaurantService, RestaurantService>();
+        services.AddScoped<IShiftService, ShiftService>();
 
         services.AddSingleton<IConnectionMultiplexer>(sp =>
         {

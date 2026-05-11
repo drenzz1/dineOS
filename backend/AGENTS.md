@@ -103,13 +103,13 @@ Controller map:
 | `OrdersController` | `/api/v1/orders...` | `CashierAndAbove` | Thin controller over `IOrderService` |
 | `PaymentsController` | `/api/v1/payments...` | `CashierAndAbove` | Thin controller over `IPaymentService` |
 | `ShiftNotesController` | `/api/v1/shifts/notes` | mixed (read: authenticated, write: `ManagerAndAbove`) | Thin controller over `IShiftNoteService` |
-| `AdminController` | `/api/v1/admin/...` | `SuperAdminOnly` | Placeholder/simple responses |
-| `RestaurantController` | `/api/v1/restaurant...` | `ManagerAndAbove` | Placeholder/simple responses |
-| `KitchenController` | `/api/v1/kitchen...` | `KitchenStaffOnly` | Placeholder/simple responses |
-| `ReportsController` | `/api/v1/reports...` | `ManagerAndAbove` | Placeholder/simple responses |
-| `ShiftsController` | `/api/v1/shifts` | `ManagerAndAbove` | Placeholder/simple responses |
+| `AdminController` | `/api/v1/admin/users` | `SuperAdminOnly` | Thin controller over `IAdminService` — cross-tenant staff listing. Keycloak login-account management is a future, separate integration |
+| `RestaurantController` | `/api/v1/restaurant...` | `ManagerAndAbove` | Thin controller over `IRestaurantService` — tenant profile + tables CRUD |
+| `KitchenController` | `/api/v1/kitchen...` | `KitchenStaffOnly` | Thin controller over `IKitchenService` |
+| `ReportsController` | `/api/v1/reports...` | `ManagerAndAbove` | Thin controller over `IReportsService` |
+| `ShiftsController` | `/api/v1/shifts` | `ManagerAndAbove` | Thin controller over `IShiftService` — shift CRUD |
 
-When adding real behavior to placeholder controllers, follow the service-layer convention below: define an application interface, implement it in Infrastructure, register it in DI, and keep the controller thin.
+All controllers now follow the service-layer convention below. When adding new endpoints, define an application interface, implement it in Infrastructure, register it in DI, and keep the controller thin.
 
 ## Service-Layer Convention
 
@@ -171,11 +171,13 @@ Correlation IDs flow into every log line automatically via `CorrelationIdMiddlew
 Currently emitted business logs:
 
 - `Staff created`, `Staff updated`, `Staff active-status changed`
-- `Restaurant created`, `Restaurant status changed`, `Restaurant plan changed`
+- `Restaurant created`, `Restaurant status changed`, `Restaurant plan changed`, `Restaurant deleted`, `Restaurant profile updated`
+- `Restaurant table created`, `Restaurant table updated`
 - `Menu item created/updated/deleted`, `Menu category created`
-- `Order created`, `Order status changed`
+- `Order created`, `Order status changed`, `Kitchen order status changed`
 - `Payment processed`
 - `Shift note created`, `Shift note deleted`
+- `Shift created`, `Shift updated`, `Shift deleted`
 
 ## Application Project
 
@@ -222,10 +224,19 @@ Entities:
 
 - `Tenant`: platform restaurant/tenant record. Fields include name, slug, active status, owner/contact info, city, subscription plan, order/staff/revenue metrics.
 - `StaffMember`: tenant-scoped staff member with full name, email, role, hashed PIN, and active status.
+- `Order` + `OrderItem`: tenant-scoped POS order with line items, type (DineIn/Takeaway), status, total, optional notes.
+- `Payment`: tenant-scoped payment record linked to an order, with method and status.
+- `MenuItem` + `MenuCategory`: tenant-scoped menu data (category is a denormalized string on `MenuItem`).
+- `ShiftNote`: tenant-scoped manager handoff note with priority and author.
+- `RestaurantTable`: tenant-scoped table definition (number, capacity, optional location, active flag). Unique on `(TenantId, Number)`.
+- `Shift`: tenant-scoped staff shift with `StaffMemberId` FK, start/end time, optional notes.
 
 Enums:
 
 - `SubscriptionPlan`: `Free`, `Pro`.
+- `OrderStatus`: `New`, `InProgress`, `Ready`, `Delivered`, `Cancelled`.
+- `PaymentMethod`: `Cash`, `Card`. `PaymentStatus`: status of the payment record.
+- `ShiftNotePriority`: priority for a shift handoff note.
 
 Entity rules:
 
@@ -250,7 +261,7 @@ Important folders:
 
 Persistence details:
 
-- DbSets currently include `Tenants` and `StaffMembers`.
+- DbSets currently include `Tenants`, `StaffMembers`, `Orders`, `OrderItems`, `Payments`, `ShiftNotes`, `MenuItems`, `MenuCategories`, `RestaurantTables`, and `Shifts`.
 - `AppDbContext` reads the current tenant once per scoped DbContext from `ITenantService`.
 - Query filters:
   - `BaseAuditingEntity`: excludes rows where `DeletedAt` is not null.

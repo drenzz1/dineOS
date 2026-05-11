@@ -1,5 +1,8 @@
 using Asp.Versioning;
 using DineOS.Application.Common;
+using DineOS.Application.DTOs;
+using DineOS.Application.Interfaces.Services;
+using DineOS.Application.Shifts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -13,41 +16,52 @@ namespace DineOS.Api.Controllers;
 [Produces("application/json")]
 [Authorize(Policy = "ManagerAndAbove")]
 [EnableRateLimiting("authenticated")]
-public class ShiftsController : ControllerBase
+public class ShiftsController(IShiftService shiftService) : ControllerBase
 {
-    /// <summary>Lists all shifts.</summary>
+    /// <summary>Lists shifts for the current tenant, optionally filtered to those overlapping the given date.</summary>
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<List<ShiftDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public IActionResult GetShifts() =>
-        Ok(ApiResponse<object>.Ok(Array.Empty<object>(), "Shift list"));
+    public async Task<IActionResult> GetShifts(
+        [FromQuery] DateOnly? date,
+        CancellationToken ct) =>
+        (await shiftService.GetShiftsAsync(date, ct)).ToActionResult();
 
     /// <summary>Creates a new shift.</summary>
     [HttpPost]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<ShiftDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public IActionResult CreateShift() =>
-        StatusCode(StatusCodes.Status201Created, ApiResponse.Ok("Shift created"));
+    public async Task<IActionResult> CreateShift(
+        [FromBody] CreateShiftRequest request,
+        CancellationToken ct) =>
+        (await shiftService.CreateShiftAsync(request, ct)).ToActionResult();
 
     /// <summary>Updates a shift.</summary>
-    [HttpPut("{id:guid}")]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [HttpPut("{id:long}")]
+    [ProducesResponseType(typeof(ApiResponse<ShiftDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public IActionResult UpdateShift(Guid id) =>
-        Ok(ApiResponse.Ok($"Shift {id} updated"));
+    public async Task<IActionResult> UpdateShift(
+        long id,
+        [FromBody] UpdateShiftRequest request,
+        CancellationToken ct) =>
+        (await shiftService.UpdateShiftAsync(id, request, ct)).ToActionResult();
 
-    /// <summary>Deletes a shift.</summary>
-    [HttpDelete("{id:guid}")]
-    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    /// <summary>Soft-deletes a shift.</summary>
+    [HttpDelete("{id:long}")]
+    [ProducesResponseType(typeof(ApiResponse<ShiftDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public IActionResult DeleteShift(Guid id) =>
-        Ok(ApiResponse.Ok($"Shift {id} deleted"));
+    public async Task<IActionResult> DeleteShift(long id, CancellationToken ct) =>
+        (await shiftService.DeleteShiftAsync(id, ct)).ToActionResult();
 }
