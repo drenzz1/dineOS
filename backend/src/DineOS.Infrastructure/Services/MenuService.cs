@@ -14,14 +14,33 @@ public class MenuService(
     AppDbContext db,
     ITenantService tenantService,
     ICurrentUserService currentUserService,
+    ICacheService cache,
     IValidator<CreateMenuItemRequest> createItemValidator,
     IValidator<UpdateMenuItemRequest> updateItemValidator,
     IValidator<CreateMenuCategoryRequest> createCategoryValidator,
     ILogger<MenuService> logger) : IMenuService
 {
+    private static readonly TimeSpan MenuItemsCacheTtl = TimeSpan.FromMinutes(5);
+    private static string MenuItemsCacheKey(long tenantId) => $"menu:items:tenant:{tenantId}";
+
     public async Task<ServiceResult<List<MenuItemDto>>> GetMenuItemsAsync(CancellationToken ct = default)
     {
-        var items = await db.MenuItems
+        // No tenant context (e.g. SuperAdmin) -> bypass cache entirely so we
+        // never serve cross-tenant data from a tenant-scoped key.
+        if (tenantService.TenantId is not { } tenantId)
+            return ServiceResult<List<MenuItemDto>>.Ok(await LoadMenuItemsAsync(ct), "Menu items");
+
+        var items = await cache.GetOrSetAsync(
+            MenuItemsCacheKey(tenantId),
+            LoadMenuItemsAsync,
+            MenuItemsCacheTtl,
+            ct);
+
+        return ServiceResult<List<MenuItemDto>>.Ok(items, "Menu items");
+    }
+
+    private Task<List<MenuItemDto>> LoadMenuItemsAsync(CancellationToken ct) =>
+        db.MenuItems
             .AsNoTracking()
             .OrderBy(mi => mi.Category)
             .ThenBy(mi => mi.Name)
@@ -36,9 +55,6 @@ public class MenuService(
                 TenantId    = mi.TenantId,
             })
             .ToListAsync(ct);
-
-        return ServiceResult<List<MenuItemDto>>.Ok(items, "Menu items");
-    }
 
     public async Task<ServiceResult<MenuItemDto>> CreateMenuItemAsync(
         CreateMenuItemRequest request,
@@ -67,6 +83,7 @@ public class MenuService(
 
         db.MenuItems.Add(item);
         await db.SaveChangesAsync(ct);
+        await cache.RemoveAsync(MenuItemsCacheKey(tenantId), ct);
 
         logger.LogInformation(
             "Menu item created: MenuItemId={MenuItemId} TenantId={TenantId} ActorUserId={ActorUserId} Category={Category}",
@@ -99,6 +116,7 @@ public class MenuService(
         item.ImageUrl    = request.ImageUrl;
 
         await db.SaveChangesAsync(ct);
+        await cache.RemoveAsync(MenuItemsCacheKey(item.TenantId), ct);
 
         logger.LogInformation(
             "Menu item updated: MenuItemId={MenuItemId} TenantId={TenantId} ActorUserId={ActorUserId}",
@@ -115,6 +133,7 @@ public class MenuService(
 
         db.MenuItems.Remove(item);
         await db.SaveChangesAsync(ct);
+        await cache.RemoveAsync(MenuItemsCacheKey(item.TenantId), ct);
 
         logger.LogInformation(
             "Menu item deleted: MenuItemId={MenuItemId} TenantId={TenantId} ActorUserId={ActorUserId}",

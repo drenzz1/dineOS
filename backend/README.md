@@ -187,6 +187,7 @@ ERD and schema reference (tables, columns, foreign keys, audit/soft-delete colum
 - `../docs/database/ERD.md` — Mermaid ERD of all tables and relationships
 - `../docs/database/SCHEMA.md` — column-level schema, indexes, and migration list
 - `../docs/backend/sql-optimization.md` — EXPLAIN ANALYZE proof for the indexes added through `AppDbContext` (orders board, menu by category, recent shift notes, period revenue)
+- `../docs/backend/redis-caching.md` — Redis cache-aside on `GET /api/v1/menu/items`: contract, invalidation, and cold-vs-warm benchmark
 
 ## Testing
 

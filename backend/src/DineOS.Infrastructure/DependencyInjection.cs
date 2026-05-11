@@ -71,6 +71,7 @@ public static class DependencyInjection
             }
         });
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
+        services.AddSingleton<ICacheService, RedisCacheService>();
 
         return services;
     }
