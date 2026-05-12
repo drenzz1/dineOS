@@ -76,6 +76,19 @@ public static class DependencyInjection
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
         services.AddSingleton<ICacheService, RedisCacheService>();
 
+        // ── AI (Anthropic) ─────────────────────────────────────────────────
+        services.Configure<AnthropicOptions>(configuration.GetSection(AnthropicOptions.SectionName));
+        services.AddHttpClient<IAiClient, AnthropicAiClient>(AnthropicAiClient.HttpClientName, (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AnthropicOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout     = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+            client.DefaultRequestHeaders.Add("anthropic-version", opts.ApiVersion);
+            if (!string.IsNullOrWhiteSpace(opts.ApiKey))
+                client.DefaultRequestHeaders.Add("x-api-key", opts.ApiKey);
+        });
+        services.AddScoped<IAiMenuService, AiMenuService>();
+
         return services;
     }
 }

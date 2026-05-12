@@ -161,6 +161,16 @@ try
             policy.QueueLimit = 20;
         });
 
+        // AI endpoints — much tighter cap to bound LLM cost per tenant.
+        // Each call typically uses 300–600 input tokens + ≤400 output tokens.
+        options.AddFixedWindowLimiter("ai-expensive", policy =>
+        {
+            policy.PermitLimit = 10;
+            policy.Window = TimeSpan.FromMinutes(1);
+            policy.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+            policy.QueueLimit = 0;
+        });
+
         options.OnRejected = async (context, cancellationToken) =>
         {
             context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
