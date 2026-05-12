@@ -8,6 +8,7 @@ The backend is an ASP.NET Core API for the dineOS restaurant management platform
 - EF Core 10 with PostgreSQL via Npgsql
 - Keycloak JWT bearer auth
 - Redis for refresh-token blacklist and SignalR scale-out
+- RabbitMQ for the order-created event flow
 - SignalR order update hub
 - Serilog console logging with optional Grafana Loki
 - xUnit, WebApplicationFactory, EF InMemory, and Testcontainers PostgreSQL
@@ -59,6 +60,7 @@ Useful ports:
 | Keycloak | http://localhost:8080 |
 | PostgreSQL | localhost:5432 |
 | Redis | localhost:6379 |
+| RabbitMQ | http://localhost:15672 |
 | Loki | http://localhost:3100 |
 | Grafana | http://localhost:4000 |
 | pgAdmin | http://localhost:5050 |
@@ -67,7 +69,7 @@ Run only dependencies and start the API with the SDK:
 
 ```bash
 cd backend
-docker compose up postgres keycloak redis loki -d
+docker compose up postgres keycloak redis rabbitmq loki -d
 cd src/DineOS.Api
 dotnet run
 ```
@@ -101,6 +103,9 @@ Important settings:
 | `Keycloak__ClientId` | Client used by backend auth endpoints |
 | `Keycloak__ClientSecret` | Confidential client secret for non-local deployments |
 | `Redis__ConnectionString` | Redis endpoint |
+| `RabbitMq__HostName` | RabbitMQ AMQP host (`rabbitmq` in Docker, `localhost` locally) |
+| `RabbitMq__UserName` / `RabbitMq__Password` | RabbitMQ credentials |
+| `RabbitMq__OrderCreatedQueueName` | Queue used by the order-created notification consumer |
 | `Loki__Uri` | Optional Loki sink URL |
 | `FileStorage__RootPath` | Filesystem path where uploads are written (`/app/uploads` in Docker) |
 | `FileStorage__UrlBasePath` | URL prefix for returned image paths (default `/uploads`) |
@@ -193,6 +198,7 @@ ERD and schema reference (tables, columns, foreign keys, audit/soft-delete colum
 - `../docs/backend/sql-optimization.md` — EXPLAIN ANALYZE proof for the indexes added through `AppDbContext` (orders board, menu by category, recent shift notes, period revenue)
 - `../docs/backend/redis-caching.md` — Redis cache-aside on `GET /api/v1/menu/items`: contract, invalidation, and cold-vs-warm benchmark
 - `../docs/backend/file-uploads.md` — file upload endpoint: storage path, config keys, validation error codes, filename strategy, static-file serving in dev, Docker volume, and follow-up items
+- `../docs/backend/rabbitmq-event-flow.md` — RabbitMQ management UI, topology, queue names, retry/dead-letter behavior, and the order-created event flow
 
 ## Testing
 
