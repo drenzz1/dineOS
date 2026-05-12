@@ -162,6 +162,17 @@ See `../docs/backend/auth.md` for refresh-token rotation and Redis blacklist det
 - Swagger is enabled in Development.
 - The SignalR order hub is mapped at `/hubs/orders`.
 
+## AI Assistant Rules
+
+Backend Cursor / AI rules live in `./.cursorrules` and cover .NET 10, Clean
+Architecture, EF Core + tenant isolation, FluentValidation, Swagger / XML doc
+conventions, testing, and structured logging. Read these (and `./AGENTS.md`
+for the deeper architectural reference) before generating backend code.
+
+The Swagger enrichment proof for M3.14 lives at
+`../docs/backend/ai-assisted-swagger.md` — it documents what AI generated,
+what humans reviewed, and what changed on `PaymentsController`.
+
 ## Database
 
 Local connection string:

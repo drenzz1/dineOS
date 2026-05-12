@@ -1,0 +1,229 @@
+# DineOS — Cursor Rules for Backend
+
+Use these rules whenever an AI assistant edits anything under `backend/`. They sit
+alongside `backend/AGENTS.md` (deeper architecture reference) — read both before
+generating .NET code.
+
+## Stack
+
+ASP.NET Core on **.NET 10**, C# with nullable + implicit usings on. EF Core 10 +
+PostgreSQL (Npgsql). Keycloak JWT bearer auth. Redis (refresh-token blacklist +
+SignalR backplane). RabbitMQ (event flow). Serilog → console + optional Loki.
+xUnit + WebApplicationFactory + Testcontainers for PostgreSQL.
+
+## Solution layout & dependency direction
+
+```
+backend/src/
+  DineOS.Api/             HTTP host, controllers, middleware, auth, SignalR, appsettings
+  DineOS.Application/     DTOs, requests, validators, service & repository interfaces, ServiceResult
+  DineOS.Domain/          Entities, base entity types, enums
+  DineOS.Infrastructure/  EF DbContext, migrations, repositories, service implementations
+```
+
+Dependencies flow inward:
+
+```
+DineOS.Api           -> Application + Infrastructure
+DineOS.Infrastructure-> Application + Domain
+DineOS.Application   -> Domain
+DineOS.Domain        -> no project deps
+```
+
+Rules:
+
+- **Do not** add a reference from `Domain` or `Application` to `Infrastructure` or `Api`.
+- **Do not** import `Microsoft.EntityFrameworkCore`, `Microsoft.AspNetCore.*`, or
+  Keycloak/Redis types from `Domain` or `Application`. They are framework-light.
+- Service interfaces live in `Application/Interfaces/Services`. Implementations
+  live in `Infrastructure/Services` and are registered in
+  `Infrastructure/DependencyInjection.cs`.
+
+## Clean Architecture — adding a feature
+
+When adding a new endpoint or feature, follow this order:
+
+1. Update or add entities + enums in `Domain`.
+2. Add request models, DTOs, and FluentValidation validators in `Application`.
+3. Add the service interface in `Application/Interfaces/Services/I<Feature>Service.cs`.
+4. Implement the service in `Infrastructure/Services/<Feature>Service.cs`.
+5. Register it in `Infrastructure/DependencyInjection.cs` with the right lifetime
+   (`AddScoped` for per-request, `AddSingleton` only for stateless infra adapters).
+6. Add an EF migration via `dotnet ef migrations add … --project src/DineOS.Infrastructure --startup-project src/DineOS.Api --output-dir Persistence/Migrations`.
+7. Add a thin controller in `Api/Controllers/`. The controller binds the request,
+   calls the service, and translates the result.
+8. Add unit tests (services, validators) + integration tests (controller routes,
+   auth policies, tenant isolation).
+
+## Controllers (thin)
+
+```csharp
+[ApiController]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/feature")]
+[Produces("application/json")]
+[Authorize(Policy = "ManagerAndAbove")]
+[EnableRateLimiting("authenticated")]
+public class FeatureController(IFeatureService svc) : ControllerBase
+{
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateRequest req, CancellationToken ct) =>
+        (await svc.CreateAsync(req, ct)).ToActionResult();
+}
+```
+
+- Routes use **URL-segment versioning** (`api/v{version:apiVersion}/…`) — never
+  the date or header version style.
+- Decorate every controller with `[ApiVersion("1.0")]`, `[Produces("application/json")]`,
+  the appropriate `[Authorize(Policy = …)]`, and `[EnableRateLimiting("authenticated")]`
+  (or `"public"` for anonymous, `"ai-expensive"` for AI endpoints).
+- Controllers must not reference `AppDbContext`, `HttpClient`, Keycloak, Redis,
+  or RabbitMQ types directly. That logic belongs in services.
+- Return through `ServiceResult<T>.ToActionResult()` — do not construct
+  `Ok(...)`/`NotFound(...)` by hand.
+- Resource names: **kebab-case plural** (`/staff-members`, `/menu-items`).
+- Sub-resources are nested: `/orders/{id}/items`.
+
+## ServiceResult pattern
+
+- Services return `ServiceResult<T>` from `DineOS.Application.Common`, never raw
+  entities, never `IActionResult`, and never `throw` for control flow.
+- Use the right factory: `Ok`, `Created`, `NotFound`, `BadRequest`, `Conflict`,
+  `Unauthorized`, `UnprocessableEntity`, `ValidationFailed(message, errors)`.
+- `ValidationFailed` is for FluentValidation output. `UnprocessableEntity` is for
+  **business rule** violations (e.g. order already paid, plan limit reached) that
+  pass schema validation but are semantically rejected.
+- The `ToActionResult()` extension on the controller side maps these to the
+  correct HTTP status and wraps the payload in an `ApiResponse<T>` envelope.
+
+## EF Core
+
+- `AppDbContext` (`Infrastructure/Persistence/AppDbContext.cs`) holds DbSets,
+  global query filters, seed data, and reads the current tenant once per scoped
+  request from `ITenantService`.
+- Migrations live in `Infrastructure/Persistence/Migrations`. **Always** generate
+  them via `dotnet ef migrations add` — never hand-edit the snapshot.
+- Auditing + soft-delete are handled centrally by `AuditInterceptor` and
+  `SoftDeleteInterceptor`. Do not stamp `CreatedAt`/`UpdatedAt`/`DeletedAt` by
+  hand in services; do not call `db.Remove(...)` expecting a hard delete on an
+  audited entity — the interceptor rewrites it to a soft delete.
+- Prefer projection (`Select(... => new Dto { ... })`) inside the query for
+  read endpoints. Do not return entities from services. Do not project to a DTO
+  in a helper method that hides the LINQ — EF cannot translate the helper.
+- Avoid `IgnoreQueryFilters()`. If a SuperAdmin-only platform query genuinely
+  needs to span tenants, call it explicitly and re-apply the soft-delete
+  predicate (`Where(x => x.DeletedAt == null)`) manually.
+
+## Tenant isolation — do not leak tenant data
+
+- Tenant-owned entities **must** inherit `TenantAuditingEntity` (gives
+  `TenantId` + audit + soft-delete). Platform-wide audited entities inherit
+  `BaseAuditingEntity`. Never declare a `TenantId` column manually on an entity
+  that already inherits `TenantAuditingEntity`.
+- The JWT `tenant_id` claim is **authoritative**. `X-Tenant-ID` headers and
+  route values are only hints and are validated against the JWT by
+  `TenantIsolationMiddleware`.
+- For tenant-scoped writes, services must read `ITenantService.TenantId` and
+  fail with `ServiceResult<T>.BadRequest("Tenant context is required.")` when
+  null. Never assume the tenant from request bodies.
+- Never expose another tenant's data in:
+  - logs (use `TenantId` as a property, not in the message body),
+  - error messages (don't echo IDs of records the user can't see),
+  - DTOs (don't include unrelated cross-tenant fields).
+- SuperAdmin queries that intentionally span tenants must be guarded by the
+  `SuperAdminOnly` policy, named so it's obvious (`/admin/...`), and documented
+  in the controller summary.
+
+## FluentValidation
+
+- Validators live **beside the request model** in `Application/<Feature>/…`.
+- Registered automatically via
+  `services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly)` —
+  do not add `services.AddScoped<IValidator<...>, ...>` by hand.
+- Services call validators (controllers do not). Translate the failure with
+  `ServiceResult<T>.ValidationFailed("Validation failed", errors)`.
+- Use `When(x => x.Field is not null, …)` for optional-but-validated fields on
+  update requests.
+
+## Swagger / OpenAPI
+
+- XML doc generation is on for `DineOS.Api` and **must be on** for
+  `DineOS.Application` so DTO + request properties surface in schemas.
+- Every controller action needs:
+  - `///<summary>` (one line, present-tense, describes outcome)
+  - `///<remarks>` for business rules, idempotency, side effects, tenant
+    scoping, examples — anything an API consumer would otherwise have to read
+    the source to learn.
+  - `///<param name="…">` for every binding parameter (path, query, body).
+  - `///<response code="…">` for every status the action can return.
+  - `[ProducesResponseType]` with the response type for success codes and at
+    minimum 400/401/403/404/422/429 where applicable. The pair (XML tag +
+    attribute) is what produces good Swagger output — neither alone is enough.
+- Every request/DTO property in `Application/` should have a `<summary>`. These
+  feed the schema description column in Swagger UI.
+- Controllers, request models, and DTOs are public surfaces — keep them stable.
+  If you rename a property, treat it as a breaking change.
+
+## Logging (Serilog, structured)
+
+- Inject `ILogger<TService>`. Do **not** create static loggers.
+- Read-only endpoints generally do not log — Serilog request logging covers
+  them. Log information for every state-changing action.
+- Use **stable structured properties** so Grafana/Loki queries don't drift:
+
+```csharp
+logger.LogInformation(
+    "Payment processed: PaymentId={PaymentId} OrderId={OrderId} TenantId={TenantId} ActorUserId={ActorUserId} Amount={Amount} Method={Method}",
+    payment.Id, order.Id, tenantId, currentUserService.UserId, payment.Amount, payment.Method);
+```
+
+- Required properties when available: `TenantId`, `ActorUserId`, the primary
+  entity id, and any `Previous`/`Current` for status transitions.
+- **Never log secrets or PII**: no access tokens, no refresh tokens, no
+  passwords, no PIN values, no Keycloak client secrets, no email bodies. Log
+  metadata (e.g. `EmailMessageId`) instead of content.
+- Correlation IDs flow automatically via `CorrelationIdMiddleware` + Serilog
+  enrichers. Don't read or attach them yourself.
+
+## Testing
+
+- Project: `tests/DineOS.Tests` — split into `Unit/`, `Integration/`,
+  `Fixtures/`, `Common/`.
+- Unit tests: pure services, validators, middleware, repository, auth
+  transformations. Use NSubstitute for collaborators; install
+  `NSubstitute.Analyzers.CSharp` alongside it.
+- Integration tests: anything that crosses Api ↔ Infrastructure ↔ EF. Use
+  `CustomWebApplicationFactory` + the shared `ICollectionFixture`
+  (`IntegrationTestCollection`) — do **not** instantiate the factory per class,
+  it races on Serilog's `ReloadableLogger`.
+- Tenant-scoped seeding from a direct `CreateAsyncScope()` (outside an HTTP
+  request) leaves `TenantId` null in `ITenantService`; manually set
+  `entity.TenantId` and call `IgnoreQueryFilters()` only on the seed read-back.
+- Assign **unique tenant IDs per test** (e.g. 701, 702, 703…) so order-
+  independence is guaranteed.
+- New external dependencies (Redis, RabbitMQ, SMTP, AI providers, file storage)
+  must be replaceable in the factory — provide a stub via `Replace(...)` or by
+  flipping a `<Service>:Enabled=false` config key.
+- Run `dotnet test backend/DineOS.slnx` before marking a backend task done. CI
+  coverage threshold is **70%** (line coverage, Cobertura).
+
+## Configuration
+
+- All settings live under typed config in `appsettings.json` /
+  `appsettings.Development.json`. Bind them with `IOptions<TOptions>` —
+  do not read `IConfiguration` from services.
+- Secrets do **not** belong in `appsettings.json`. Use environment variables
+  (Docker compose) or user-secrets locally.
+- New config sections must be documented in `backend/README.md` under
+  "Configuration".
+
+## General
+
+- No commented-out code in commits.
+- One controller per file, one service per file, one validator per file.
+- `using` directives go at the top of the file, no namespace-scoped usings.
+- Don't introduce new NuGet packages without checking they target .NET 10 and
+  are actively maintained.
+- When a feature requires a new external service, add it to
+  `backend/docker-compose.yml` with a sensible local default and document it
+  in `backend/README.md` (port, credentials, purpose).
