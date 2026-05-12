@@ -1,6 +1,8 @@
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
+using DineOS.Application.Interfaces.Messaging;
 using DineOS.Application.Interfaces.Services;
+using DineOS.Application.Messaging.Contracts;
 using DineOS.Application.Orders;
 using DineOS.Domain.Entities;
 using DineOS.Domain.Enums;
@@ -17,6 +19,7 @@ public class OrderService(
     ICurrentUserService currentUserService,
     IValidator<CreateOrderRequest> createValidator,
     IValidator<UpdateOrderStatusRequest> statusValidator,
+    IMessagePublisher messagePublisher,
     IOrderNotificationService notificationService,
     ILogger<OrderService> logger) : IOrderService
 {
@@ -101,7 +104,20 @@ public class OrderService(
         await db.SaveChangesAsync(ct);
 
         var dto = ToDto(order);
-        await notificationService.BroadcastOrderCreatedAsync(tenantId, dto, ct);
+        try
+        {
+            await messagePublisher.PublishAsync(
+                ToOrderCreatedMessage(order),
+                MessageRouting.OrderCreatedRoutingKey,
+                ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Order created event publish failed: OrderId={OrderId} TenantId={TenantId} ActorUserId={ActorUserId}",
+                order.Id, tenantId, currentUserService.UserId);
+        }
 
         logger.LogInformation(
             "Order created: OrderId={OrderId} TenantId={TenantId} ActorUserId={ActorUserId} Type={OrderType} Total={Total} ItemCount={ItemCount}",
@@ -163,4 +179,22 @@ public class OrderService(
             Notes     = i.Notes,
         }).ToList()
     };
+
+    private static OrderCreatedMessage ToOrderCreatedMessage(Order order) => new(
+        MessageId: $"order-created-{order.Id}",
+        OrderId: order.Id,
+        TenantId: order.TenantId,
+        OrderType: order.OrderType,
+        TableNumber: order.TableNumber,
+        Status: order.Status.ToString(),
+        Total: order.Total,
+        Notes: order.Notes,
+        CreatedAt: order.CreatedAt,
+        OccurredAt: DateTime.UtcNow,
+        Items: order.Items.Select(i => new OrderItemMessage(
+            i.Id,
+            i.Name,
+            i.Quantity,
+            i.UnitPrice,
+            i.Notes)).ToList());
 }

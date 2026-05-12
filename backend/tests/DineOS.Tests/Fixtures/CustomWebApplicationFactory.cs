@@ -51,6 +51,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 [$"{FileStorageOptions.SectionName}:RootPath"] = _uploadsRoot,
+                ["RabbitMq:Enabled"] = "false",
             }));
 
         builder.ConfigureServices(services =>

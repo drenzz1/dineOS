@@ -1,7 +1,9 @@
+using DineOS.Application.Interfaces.Messaging;
 using DineOS.Application.Interfaces.Repositories;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Authentication;
 using DineOS.Application.Options;
+using DineOS.Infrastructure.Messaging;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Persistence.Interceptors;
 using DineOS.Infrastructure.Repositories;
@@ -56,6 +58,14 @@ public static class DependencyInjection
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IRestaurantService, RestaurantService>();
         services.AddScoped<IShiftService, ShiftService>();
+
+        services.Configure<RabbitMqOptions>(configuration.GetSection(RabbitMqOptions.SectionName));
+        services.AddSingleton<RabbitMqConnectionProvider>();
+        services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
+        services.AddScoped<OrderCreatedMessageHandler>();
+
+        if (configuration.GetValue($"{RabbitMqOptions.SectionName}:Enabled", true))
+            services.AddHostedService<RabbitMqOrderCreatedConsumer>();
 
         services.AddSingleton<IConnectionMultiplexer>(sp =>
         {
