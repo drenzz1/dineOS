@@ -16,4 +16,6 @@ public class Tenant : BaseAuditingEntity
     public int TotalOrders { get; set; }
     public int StaffCount { get; set; }
     public decimal Revenue { get; set; }
+    public bool OwnerEmailVerified { get; set; }
+    public DateTime? OwnerEmailVerifiedAt { get; set; }
 }

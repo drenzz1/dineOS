@@ -21,6 +21,13 @@ services:
       - Keycloak__RequireHttpsMetadata=false
       - Redis__ConnectionString=redis:6379
       - Loki__Uri=http://loki:3100
+      - Smtp__Host=mailhog
+      - Smtp__Port=1025
+      - Smtp__UseStartTls=false
+      - Email__Enabled=true
+      - Email__FromAddress=no-reply@dineos.local
+      - Email__FromName=DineOS
+      - Email__SimulateFailure=false
     volumes:
       - dineos_uploads:/app/uploads
     depends_on:
@@ -32,6 +39,8 @@ services:
         condition: service_healthy
       loki:
         condition: service_healthy
+      mailhog:
+        condition: service_started
     networks:
       - dineos-net
     restart: unless-stopped
@@ -103,6 +112,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: dineos-mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI — open http://localhost:8025 to inspect delivered mail
     networks:
       - dineos-net
     restart: unless-stopped

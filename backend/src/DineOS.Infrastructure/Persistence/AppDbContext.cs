@@ -26,6 +26,8 @@ public class AppDbContext : DbContext
     public DbSet<MenuCategory> MenuCategories => Set<MenuCategory>();
     public DbSet<RestaurantTable> RestaurantTables => Set<RestaurantTable>();
     public DbSet<Shift> Shifts => Set<Shift>();
+    public DbSet<DeadLetterEmail> DeadLetterEmails => Set<DeadLetterEmail>();
+    public DbSet<EmailVerificationCode> EmailVerificationCodes => Set<EmailVerificationCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -79,6 +81,20 @@ public class AppDbContext : DbContext
             .HasIndex(s => new { s.TenantId, s.StartTime });
         modelBuilder.Entity<Shift>()
             .HasIndex(s => s.StaffMemberId);
+
+        modelBuilder.Entity<DeadLetterEmail>()
+            .HasIndex(d => d.FailedAt);
+        modelBuilder.Entity<DeadLetterEmail>()
+            .HasIndex(d => d.TenantId);
+
+        modelBuilder.Entity<EmailVerificationCode>()
+            .HasIndex(c => new { c.Email, c.Purpose, c.CreatedAt });
+        modelBuilder.Entity<EmailVerificationCode>()
+            .HasIndex(c => c.ExpiresAt);
+
+        // Find Pending payments that need an overdue email (NULL = not yet notified).
+        modelBuilder.Entity<Payment>()
+            .HasIndex(p => new { p.Status, p.CreatedAt, p.OverdueNotifiedAt });
 
         SeedData(modelBuilder);
 

@@ -47,10 +47,17 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
 
         // Point FileStorage:RootPath at the temp directory so upload tests use a
         // real writable path without depending on /app/uploads existing in CI.
+        //
+        // Also redirect the default connection string at the Testcontainers DB
+        // so anything wired off `IConfiguration.GetConnectionString("DefaultConnection")`
+        // — most importantly Hangfire's storage — uses the same Postgres as EF.
+        // `_db.GetConnectionString()` is read lazily when the host is built, which
+        // happens after `InitializeAsync` has started the container.
         builder.ConfigureAppConfiguration((_, config) =>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 [$"{FileStorageOptions.SectionName}:RootPath"] = _uploadsRoot,
+                ["ConnectionStrings:DefaultConnection"]       = _db.GetConnectionString(),
             }));
 
         builder.ConfigureServices(services =>

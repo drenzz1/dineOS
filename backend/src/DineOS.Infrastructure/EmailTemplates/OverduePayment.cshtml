@@ -1,0 +1,33 @@
+@model DineOS.Application.Notifications.OverduePaymentEmailModel
+@{
+    Layout = "_Layout.cshtml";
+    ViewBag.Title = "Overdue payments need attention";
+}
+<h2 style="margin:0 0 12px;font-size:20px;color:#b91c1c;">Overdue payments</h2>
+<p style="margin:0 0 16px;">Hi @Model.OwnerName,</p>
+<p style="margin:0 0 16px;">
+  <strong>@Model.OverdueCount</strong> payment@(Model.OverdueCount == 1 ? "" : "s") at
+  <strong>@Model.RestaurantName</strong> @(Model.OverdueCount == 1 ? "has" : "have") been pending
+  for more than @Model.ThresholdMinutes minutes, totalling
+  <strong>@Model.OverdueTotal.ToString("C")</strong>.
+</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;margin:12px 0;">
+  <tr style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.6px;">
+    <td style="padding:6px 0;">Payment</td>
+    <td style="padding:6px 0;">Order</td>
+    <td style="padding:6px 0;text-align:right;">Amount</td>
+    <td style="padding:6px 0;text-align:right;">Age</td>
+  </tr>
+  @foreach (var row in Model.Items)
+  {
+    <tr style="border-top:1px solid #e2e8f0;">
+      <td style="padding:8px 0;">#@row.PaymentId</td>
+      <td style="padding:8px 0;">#@row.OrderId</td>
+      <td style="padding:8px 0;text-align:right;">@row.Amount.ToString("C")</td>
+      <td style="padding:8px 0;text-align:right;color:#b91c1c;">@row.AgeMinutes min</td>
+    </tr>
+  }
+</table>
+
+<p style="margin:16px 0 0;color:#475569;">Open the DineOS dashboard to settle or void these payments.</p>
