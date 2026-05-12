@@ -21,6 +21,8 @@ services:
       - Keycloak__RequireHttpsMetadata=false
       - Redis__ConnectionString=redis:6379
       - Loki__Uri=http://loki:3100
+    volumes:
+      - dineos_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -148,6 +150,7 @@ volumes:
   redis_data:
   loki_data:
   grafana_data:
+  dineos_uploads:
 
 networks:
   dineos-net:

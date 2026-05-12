@@ -1,5 +1,6 @@
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
+using DineOS.Application.Options;
 using DineOS.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -19,6 +20,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
     // Shared with tests so they can sign tokens with the same key the app validates
     internal const string TestJwtSecret = "integration-test-secret-key-min-32-chars!!";
 
+    // Isolated temp directory for file-upload tests — cleaned up in DisposeAsync
+    private readonly string _uploadsRoot =
+        Path.Combine(Path.GetTempPath(), $"dineos-uploads-{Guid.NewGuid():N}");
+
+    public string UploadsRoot => _uploadsRoot;
+
     private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("postgres:16-alpine")
         .WithDatabase("dineos_test")
         .WithUsername("postgres")
@@ -37,6 +44,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+
+        // Point FileStorage:RootPath at the temp directory so upload tests use a
+        // real writable path without depending on /app/uploads existing in CI.
+        builder.ConfigureAppConfiguration((_, config) =>
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{FileStorageOptions.SectionName}:RootPath"] = _uploadsRoot,
+            }));
 
         builder.ConfigureServices(services =>
         {
@@ -76,7 +91,24 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             if (notifDescriptor is not null)
                 services.Remove(notifDescriptor);
             services.AddSingleton<IOrderNotificationService, NoOpOrderNotificationService>();
+
+            // Replace Redis-backed cache with a no-op — menu (and other) service tests
+            // must not depend on a live Redis instance.
+            var cacheDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(ICacheService));
+            if (cacheDescriptor is not null)
+                services.Remove(cacheDescriptor);
+            services.AddSingleton<ICacheService, NullCacheService>();
         });
+    }
+
+    async Task IAsyncLifetime.DisposeAsync()
+    {
+        if (Directory.Exists(_uploadsRoot))
+            Directory.Delete(_uploadsRoot, recursive: true);
+
+        await _db.DisposeAsync();
+        Dispose();
     }
 
     private sealed class NoOpOrderNotificationService : IOrderNotificationService
@@ -88,9 +120,19 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             => Task.CompletedTask;
     }
 
-    async Task IAsyncLifetime.DisposeAsync()
+    private sealed class NullCacheService : ICacheService
     {
-        await _db.DisposeAsync();
-        Dispose();
+        public Task<T?> GetAsync<T>(string key, CancellationToken ct = default) =>
+            Task.FromResult(default(T?));
+
+        public Task SetAsync<T>(string key, T value, TimeSpan ttl, CancellationToken ct = default) =>
+            Task.CompletedTask;
+
+        public Task RemoveAsync(string key, CancellationToken ct = default) =>
+            Task.CompletedTask;
+
+        // Always miss — factory is always called, caching is a no-op in tests
+        public Task<T> GetOrSetAsync<T>(string key, Func<CancellationToken, Task<T>> factory, TimeSpan ttl, CancellationToken ct = default) =>
+            factory(ct);
     }
 }

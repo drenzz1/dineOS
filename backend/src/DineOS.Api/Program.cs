@@ -7,13 +7,16 @@ using DineOS.Application;
 using DineOS.Application.Authentication;
 using DineOS.Application.Common;
 using DineOS.Application.Interfaces.Services;
+using DineOS.Application.Options;
 using DineOS.Infrastructure;
 using DineOS.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
 using Serilog;
 using Serilog.Events;
@@ -338,6 +341,34 @@ try
     }
 
     app.UseCors("AllowFrontend");
+
+    // ── Uploads static file serving (dev or explicit opt-in only) ────────────────
+    var fileStorageOpts = builder.Configuration
+        .GetSection(FileStorageOptions.SectionName)
+        .Get<FileStorageOptions>() ?? new FileStorageOptions();
+
+    if (app.Environment.IsDevelopment() || fileStorageOpts.ServeLocally)
+    {
+        var uploadsRoot = Path.GetFullPath(fileStorageOpts.RootPath);
+        Directory.CreateDirectory(uploadsRoot);
+
+        var contentTypeProvider = new FileExtensionContentTypeProvider();
+        contentTypeProvider.Mappings.Clear();
+        contentTypeProvider.Mappings[".jpg"]  = "image/jpeg";
+        contentTypeProvider.Mappings[".jpeg"] = "image/jpeg";
+        contentTypeProvider.Mappings[".png"]  = "image/png";
+        contentTypeProvider.Mappings[".webp"] = "image/webp";
+
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider        = new PhysicalFileProvider(uploadsRoot),
+            RequestPath         = fileStorageOpts.UrlBasePath,
+            ContentTypeProvider = contentTypeProvider,
+            OnPrepareResponse   = ctx =>
+                ctx.Context.Response.Headers.CacheControl = "public, max-age=3600",
+        });
+    }
+
     app.UseHttpsRedirection();
     app.UseRateLimiter();
 

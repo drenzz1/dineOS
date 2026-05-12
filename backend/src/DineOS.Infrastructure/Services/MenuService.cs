@@ -15,9 +15,11 @@ public class MenuService(
     ITenantService tenantService,
     ICurrentUserService currentUserService,
     ICacheService cache,
+    IFileStorageService fileStorage,
     IValidator<CreateMenuItemRequest> createItemValidator,
     IValidator<UpdateMenuItemRequest> updateItemValidator,
     IValidator<CreateMenuCategoryRequest> createCategoryValidator,
+    IValidator<UploadMenuItemImageRequest> uploadImageValidator,
     ILogger<MenuService> logger) : IMenuService
 {
     private static readonly TimeSpan MenuItemsCacheTtl = TimeSpan.FromMinutes(5);
@@ -123,6 +125,47 @@ public class MenuService(
             item.Id, item.TenantId, currentUserService.UserId);
 
         return ServiceResult<MenuItemDto>.Ok(ToItemDto(item), "Menu item updated.");
+    }
+
+    public async Task<ServiceResult<MenuItemImageUploadDto>> UploadMenuItemImageAsync(
+        long id,
+        UploadMenuItemImageRequest request,
+        CancellationToken ct = default)
+    {
+        var validation = await uploadImageValidator.ValidateAsync(request, ct);
+        if (!validation.IsValid)
+            return ServiceResult<MenuItemImageUploadDto>.ValidationFailed(
+                "File upload validation failed.",
+                validation.Errors
+                    .Select(e => new ValidationError(e.ErrorCode, e.ErrorMessage))
+                    .ToList());
+
+        var item = await db.MenuItems.FirstOrDefaultAsync(mi => mi.Id == id, ct);
+        if (item is null)
+            return ServiceResult<MenuItemImageUploadDto>.NotFound($"Menu item {id} not found.");
+
+        var imageUrl = await fileStorage.SaveAsync(request.Content, request.FileName, request.ContentType, "menu-items", ct);
+
+        item.ImageUrl = imageUrl;
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "DB save failed after image upload; cleaning up file {ImageUrl}", imageUrl);
+            await fileStorage.DeleteAsync(imageUrl, ct);
+            throw;
+        }
+
+        await cache.RemoveAsync(MenuItemsCacheKey(item.TenantId), ct);
+
+        logger.LogInformation(
+            "Menu item image uploaded: MenuItemId={MenuItemId} TenantId={TenantId} ActorUserId={ActorUserId}",
+            item.Id, item.TenantId, currentUserService.UserId);
+
+        return ServiceResult<MenuItemImageUploadDto>.Ok(new MenuItemImageUploadDto(imageUrl), "Image uploaded.");
     }
 
     public async Task<ServiceResult<MenuItemDto>> DeleteMenuItemAsync(long id, CancellationToken ct = default)

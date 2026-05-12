@@ -43,9 +43,11 @@ public class MenuServiceTests
             tenantSvc,
             currentUser,
             cache,
+            Substitute.For<IFileStorageService>(),
             createValidator,
             updateValidator,
             createCategoryValidator,
+            Substitute.For<IValidator<UploadMenuItemImageRequest>>(),
             NullLogger<MenuService>.Instance);
 
         return (svc, db, cache);

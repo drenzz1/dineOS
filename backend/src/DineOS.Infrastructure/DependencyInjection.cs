@@ -1,6 +1,7 @@
 using DineOS.Application.Interfaces.Repositories;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Authentication;
+using DineOS.Application.Options;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Persistence.Interceptors;
 using DineOS.Infrastructure.Repositories;
@@ -45,6 +46,8 @@ public static class DependencyInjection
         services.AddScoped<IStaffService, StaffService>();
         services.AddScoped<IAdminRestaurantService, AdminRestaurantService>();
         services.AddScoped<IMenuService, MenuService>();
+        services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
+        services.AddScoped<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IShiftNoteService, ShiftNoteService>();
