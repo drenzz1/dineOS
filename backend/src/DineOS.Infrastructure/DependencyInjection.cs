@@ -3,11 +3,14 @@ using DineOS.Application.Interfaces.Repositories;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Authentication;
 using DineOS.Application.Options;
+using DineOS.Infrastructure.Jobs;
 using DineOS.Infrastructure.Messaging;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Persistence.Interceptors;
 using DineOS.Infrastructure.Repositories;
 using DineOS.Infrastructure.Services;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -85,6 +88,56 @@ public static class DependencyInjection
         });
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
         services.AddSingleton<ICacheService, RedisCacheService>();
+
+        // ── Email ──────────────────────────────────────────────────────────
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
+        services.Configure<EmailVerificationOptions>(
+            configuration.GetSection(EmailVerificationOptions.SectionName));
+        services.Configure<PaymentNotificationOptions>(
+            configuration.GetSection(PaymentNotificationOptions.SectionName));
+        services.AddScoped<IEmailSender, MailKitEmailSender>();
+        services.AddSingleton<IEmailTemplateRenderer, RazorLightEmailTemplateRenderer>();
+        services.AddScoped<IEmailVerificationService, EmailVerificationService>();
+
+        // ── Hangfire ────────────────────────────────────────────────────────
+        // Storage: PostgreSQL (reuses the app database). PrepareSchemaIfNecessary
+        // creates the hangfire.* schema on first run.
+        services.AddHangfire((sp, cfg) =>
+        {
+            cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+               .UseSimpleAssemblyNameTypeSerializer()
+               .UseRecommendedSerializerSettings()
+               .UsePostgreSqlStorage(opt =>
+               {
+                   opt.UseNpgsqlConnection(configuration.GetConnectionString("DefaultConnection"));
+               })
+               .UseFilter(sp.GetRequiredService<DeadLetterEmailFilter>());
+        });
+
+        services.AddSingleton<DeadLetterEmailFilter>();
+        services.AddHangfireServer(options =>
+        {
+            options.WorkerCount = Math.Max(1, Environment.ProcessorCount);
+            options.Queues = new[] { "default" };
+        });
+        services.AddScoped<AccountVerificationEmailJob>();
+        services.AddScoped<DailyPaymentSummaryJob>();
+        services.AddScoped<OverduePaymentNotificationJob>();
+        services.AddHostedService<RecurringJobRegistrar>();
+
+        // ── AI (Anthropic) ─────────────────────────────────────────────────
+        services.Configure<AnthropicOptions>(configuration.GetSection(AnthropicOptions.SectionName));
+        services.AddHttpClient<IAiClient, AnthropicAiClient>(AnthropicAiClient.HttpClientName, (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AnthropicOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout     = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+            client.DefaultRequestHeaders.Add("anthropic-version", opts.ApiVersion);
+            if (!string.IsNullOrWhiteSpace(opts.ApiKey))
+                client.DefaultRequestHeaders.Add("x-api-key", opts.ApiKey);
+        });
+        services.AddScoped<IAiMenuService, AiMenuService>();
 
         return services;
     }

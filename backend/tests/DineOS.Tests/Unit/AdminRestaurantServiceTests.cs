@@ -3,10 +3,14 @@ using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Restaurants;
 using DineOS.Domain.Entities;
 using DineOS.Domain.Enums;
+using DineOS.Infrastructure.Jobs;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Services;
 using FluentValidation;
 using FluentValidation.Results;
+using Hangfire;
+using Hangfire.Common;
+using Hangfire.States;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -15,7 +19,7 @@ namespace DineOS.Tests.Unit;
 
 public class AdminRestaurantServiceTests
 {
-    private static (AdminRestaurantService svc, AppDbContext db) CreateSut(
+    private static (AdminRestaurantService svc, AppDbContext db, IBackgroundJobClient jobs) CreateSut(
         IValidator<CreateRestaurantRequest>? createValidator = null,
         IValidator<UpdateRestaurantStatusRequest>? statusValidator = null,
         IValidator<UpdateRestaurantPlanRequest>? planValidator = null)
@@ -36,15 +40,19 @@ public class AdminRestaurantServiceTests
                 .Options,
             tenantSvc);
 
+        var jobs = Substitute.For<IBackgroundJobClient>();
+        jobs.Create(Arg.Any<Job>(), Arg.Any<IState>()).Returns("job-stub-1");
+
         var svc = new AdminRestaurantService(
             db,
             currentUser,
             createValidator,
             statusValidator,
             planValidator,
+            jobs,
             NullLogger<AdminRestaurantService>.Instance);
 
-        return (svc, db);
+        return (svc, db, jobs);
     }
 
     private static IValidator<T> AlwaysValid<T>()
@@ -58,7 +66,7 @@ public class AdminRestaurantServiceTests
     [Fact]
     public async Task CreateAsync_ValidRequest_ReturnsCreated_AndGeneratesSlug()
     {
-        var (svc, db) = CreateSut();
+        var (svc, db, _) = CreateSut();
 
         var result = await svc.CreateAsync(new CreateRestaurantRequest
         {
@@ -80,9 +88,35 @@ public class AdminRestaurantServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_EnqueuesAccountVerificationEmailJob()
+    {
+        var (svc, _, jobs) = CreateSut();
+
+        await svc.CreateAsync(new CreateRestaurantRequest
+        {
+            Name       = "Sushi Hub",
+            OwnerName  = "Bob",
+            OwnerEmail = "bob@example.com",
+            Phone      = "+1 555 0200",
+            City       = "Prishtina",
+            Plan       = "Free"
+        });
+
+        // Exactly one job was enqueued, and it was an AccountVerificationEmailJob.
+        var calls = jobs.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == nameof(IBackgroundJobClient.Create))
+            .ToList();
+        Assert.Single(calls);
+
+        var job = (Job)calls[0].GetArguments()[0]!;
+        Assert.Equal(typeof(AccountVerificationEmailJob), job.Type);
+        Assert.Equal(nameof(AccountVerificationEmailJob.SendAsync), job.Method.Name);
+    }
+
+    [Fact]
     public async Task GetByIdAsync_NonExistent_ReturnsNotFound()
     {
-        var (svc, _) = CreateSut();
+        var (svc, _, _) = CreateSut();
 
         var result = await svc.GetByIdAsync(9999);
 
@@ -93,7 +127,7 @@ public class AdminRestaurantServiceTests
     [Fact]
     public async Task UpdateStatusAsync_TogglesIsActive()
     {
-        var (svc, db) = CreateSut();
+        var (svc, db, _) = CreateSut();
         var tenant = new Tenant { Name = "X", Slug = "x", OwnerName = "O", OwnerEmail = "o@x.com", Phone = "1", City = "C", IsActive = true };
         db.Tenants.Add(tenant);
         await db.SaveChangesAsync();
@@ -107,7 +141,7 @@ public class AdminRestaurantServiceTests
     [Fact]
     public async Task UpdatePlanAsync_ChangesPlan()
     {
-        var (svc, db) = CreateSut();
+        var (svc, db, _) = CreateSut();
         var tenant = new Tenant { Name = "X", Slug = "x", OwnerName = "O", OwnerEmail = "o@x.com", Phone = "1", City = "C", Plan = SubscriptionPlan.Free };
         db.Tenants.Add(tenant);
         await db.SaveChangesAsync();

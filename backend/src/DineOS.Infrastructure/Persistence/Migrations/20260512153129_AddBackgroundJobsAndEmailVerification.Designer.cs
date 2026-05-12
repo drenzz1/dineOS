@@ -3,6 +3,7 @@ using System;
 using DineOS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DineOS.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260512153129_AddBackgroundJobsAndEmailVerification")]
+    partial class AddBackgroundJobsAndEmailVerification
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -697,30 +700,6 @@ namespace DineOS.Infrastructure.Persistence.Migrations
                             StaffCount = 0,
                             TotalOrders = 0
                         });
-                });
-
-            modelBuilder.Entity("DineOS.Infrastructure.Persistence.Messaging.ProcessedMessage", b =>
-                {
-                    b.Property<string>("MessageId")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("MessageType")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTime>("ProcessedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<long>("TenantId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("MessageId");
-
-                    b.HasIndex("TenantId", "ProcessedAt");
-
-                    b.ToTable("ProcessedMessages");
                 });
 
             modelBuilder.Entity("DineOS.Domain.Entities.OrderItem", b =>
