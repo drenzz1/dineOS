@@ -27,6 +27,9 @@ public class EmailVerificationController(
     /// <summary>Re-enqueues the verification email for the given restaurant.</summary>
     [HttpPost("resend")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult Resend(long tenantId)
     {
         var jobId = backgroundJobs.Enqueue<AccountVerificationEmailJob>(
@@ -38,11 +41,14 @@ public class EmailVerificationController(
     [HttpPost("confirm")]
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Confirm(
         long tenantId,
         [FromBody] ConfirmEmailVerificationRequest request,
         CancellationToken ct) =>
-        (await verificationService.ConfirmAccountVerificationCodeAsync(tenantId, request.Code, ct))
+        (await verificationService.ConfirmAccountVerificationCodeAsync(tenantId, request, ct))
             .ToActionResult();
 }

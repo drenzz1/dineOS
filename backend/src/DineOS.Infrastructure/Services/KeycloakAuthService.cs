@@ -2,6 +2,7 @@ using DineOS.Application.Authentication;
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
+using FluentValidation;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
@@ -15,9 +16,13 @@ public sealed class KeycloakAuthService(
     IHttpClientFactory httpClientFactory,
     IOptions<KeycloakOptions> options,
     ITokenBlacklistService tokenBlacklist,
+    IValidator<LoginRequest> loginValidator,
+    IValidator<RefreshTokenRequest> refreshValidator,
+    IValidator<LogoutRequest> logoutValidator,
     ILogger<KeycloakAuthService> logger) : IKeycloakAuthService
 {
     public const string HttpClientName = "Keycloak";
+    private const string ValidationFailedMessage = "Validation failed.";
 
     private readonly KeycloakOptions _options = options.Value;
 
@@ -25,8 +30,11 @@ public sealed class KeycloakAuthService(
         LoginRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-            return Result<RefreshTokenResponse>.Failure("Username and password are required.");
+        var validation = await loginValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+            return Result<RefreshTokenResponse>.Failure(
+                ValidationFailedMessage,
+                validation.Errors.Select(e => e.ErrorMessage).ToList());
 
         var form = CreateClientForm();
         form["grant_type"] = string.IsNullOrWhiteSpace(_options.GrantType) ? "password" : _options.GrantType;
@@ -50,8 +58,11 @@ public sealed class KeycloakAuthService(
         RefreshTokenRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.RefreshToken))
-            return Result<RefreshTokenResponse>.Failure("Refresh token is required.");
+        var validation = await refreshValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+            return Result<RefreshTokenResponse>.Failure(
+                ValidationFailedMessage,
+                validation.Errors.Select(e => e.ErrorMessage).ToList());
 
         var tokenInfo = DecodeRefreshToken(request.RefreshToken);
 
@@ -87,8 +98,11 @@ public sealed class KeycloakAuthService(
         LogoutRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.RefreshToken))
-            return Result.Failure("Refresh token is required.");
+        var validation = await logoutValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+            return Result.Failure(
+                ValidationFailedMessage,
+                validation.Errors.Select(e => e.ErrorMessage).ToList());
 
         var tokenInfo = DecodeRefreshToken(request.RefreshToken);
 
