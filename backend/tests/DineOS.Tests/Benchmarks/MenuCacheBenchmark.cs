@@ -57,9 +57,11 @@ public class MenuCacheBenchmark(ITestOutputHelper output)
             tenantSvc,
             currentUser,
             cache,
+            Substitute.For<IFileStorageService>(),
             AlwaysValid<CreateMenuItemRequest>(),
             AlwaysValid<UpdateMenuItemRequest>(),
             AlwaysValid<CreateMenuCategoryRequest>(),
+            AlwaysValid<UploadMenuItemImageRequest>(),
             NullLogger<MenuService>.Instance);
 
         const string key = "menu:items:tenant:1";

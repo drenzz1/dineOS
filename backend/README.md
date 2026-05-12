@@ -102,6 +102,10 @@ Important settings:
 | `Keycloak__ClientSecret` | Confidential client secret for non-local deployments |
 | `Redis__ConnectionString` | Redis endpoint |
 | `Loki__Uri` | Optional Loki sink URL |
+| `FileStorage__RootPath` | Filesystem path where uploads are written (`/app/uploads` in Docker) |
+| `FileStorage__UrlBasePath` | URL prefix for returned image paths (default `/uploads`) |
+| `FileStorage__MaxBytes` | Maximum upload size in bytes (default `5242880` = 5 MB) |
+| `FileStorage__ServeLocally` | Set to `true` to serve uploaded files outside Development environment |
 
 ## Auth
 
@@ -188,6 +192,7 @@ ERD and schema reference (tables, columns, foreign keys, audit/soft-delete colum
 - `../docs/database/SCHEMA.md` — column-level schema, indexes, and migration list
 - `../docs/backend/sql-optimization.md` — EXPLAIN ANALYZE proof for the indexes added through `AppDbContext` (orders board, menu by category, recent shift notes, period revenue)
 - `../docs/backend/redis-caching.md` — Redis cache-aside on `GET /api/v1/menu/items`: contract, invalidation, and cold-vs-warm benchmark
+- `../docs/backend/file-uploads.md` — file upload endpoint: storage path, config keys, validation error codes, filename strategy, static-file serving in dev, Docker volume, and follow-up items
 
 ## Testing
 

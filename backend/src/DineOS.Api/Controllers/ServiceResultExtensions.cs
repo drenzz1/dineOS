@@ -19,10 +19,14 @@ internal static class ServiceResultExtensions
 
         return result.Error switch
         {
+            ServiceErrorKind.ValidationFailed =>
+                result.ValidationErrors is { Count: > 0 }
+                    ? BuildValidationProblem(result.ValidationErrors)
+                    : new BadRequestObjectResult(failure),
+            ServiceErrorKind.BadRequest =>
+                new BadRequestObjectResult(failure),
             ServiceErrorKind.NotFound =>
                 new NotFoundObjectResult(failure),
-            ServiceErrorKind.ValidationFailed or ServiceErrorKind.BadRequest =>
-                new BadRequestObjectResult(failure),
             ServiceErrorKind.Conflict =>
                 new ConflictObjectResult(failure),
             ServiceErrorKind.Unauthorized =>
@@ -31,5 +35,20 @@ internal static class ServiceResultExtensions
                 new UnprocessableEntityObjectResult(failure),
             _ => new ObjectResult(failure) { StatusCode = StatusCodes.Status500InternalServerError }
         };
+    }
+
+    private static ObjectResult BuildValidationProblem(IReadOnlyList<ValidationError> errors)
+    {
+        var dict = errors
+            .GroupBy(e => e.Code)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(e => e.Message).ToArray());
+
+        return new BadRequestObjectResult(new ValidationProblemDetails(dict)
+        {
+            Title  = "Validation failed.",
+            Status = StatusCodes.Status400BadRequest,
+        });
     }
 }

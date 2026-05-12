@@ -23,4 +23,5 @@ RUN dotnet publish "DineOS.Api.csproj" -c Release -o /app/publish /p:UseAppHost=
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+RUN mkdir -p /app/uploads
 ENTRYPOINT ["dotnet", "DineOS.Api.dll"]

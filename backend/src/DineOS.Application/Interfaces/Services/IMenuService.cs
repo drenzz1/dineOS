@@ -8,6 +8,11 @@ public interface IMenuService
 {
     Task<ServiceResult<List<MenuItemDto>>> GetMenuItemsAsync(CancellationToken ct = default);
 
+    Task<ServiceResult<MenuItemImageUploadDto>> UploadMenuItemImageAsync(
+        long id,
+        UploadMenuItemImageRequest request,
+        CancellationToken ct = default);
+
     Task<ServiceResult<MenuItemDto>> CreateMenuItemAsync(
         CreateMenuItemRequest request,
         CancellationToken ct = default);

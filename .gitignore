@@ -68,6 +68,9 @@ playwright-report/
 TestResults/
 TestResults2/
 
+# Local dev upload artifacts (served by API in Development; not committed)
+**/uploads/
+
 # Backend / infrastructure artifacts
 bin/
 obj/
