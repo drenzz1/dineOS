@@ -5,8 +5,10 @@ using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Restaurants;
 using DineOS.Domain.Entities;
 using DineOS.Domain.Enums;
+using DineOS.Infrastructure.Jobs;
 using DineOS.Infrastructure.Persistence;
 using FluentValidation;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -18,6 +20,7 @@ public class AdminRestaurantService(
     IValidator<CreateRestaurantRequest> createValidator,
     IValidator<UpdateRestaurantStatusRequest> statusValidator,
     IValidator<UpdateRestaurantPlanRequest> planValidator,
+    IBackgroundJobClient backgroundJobs,
     ILogger<AdminRestaurantService> logger) : IAdminRestaurantService
 {
     public async Task<ServiceResult<PagedResponse<RestaurantDto>>> ListAsync(
@@ -103,6 +106,15 @@ public class AdminRestaurantService(
         logger.LogInformation(
             "Restaurant created: RestaurantId={RestaurantId} Slug={Slug} Plan={Plan} ActorUserId={ActorUserId}",
             tenant.Id, tenant.Slug, tenant.Plan, currentUserService.UserId);
+
+        // Enqueue the account-verification email. Hangfire owns the retry +
+        // dead-letter pipeline from here — failures will not block the response.
+        var jobId = backgroundJobs.Enqueue<AccountVerificationEmailJob>(
+            job => job.SendAsync(tenant.Id, CancellationToken.None));
+
+        logger.LogInformation(
+            "Account verification email enqueued: RestaurantId={RestaurantId} JobId={JobId}",
+            tenant.Id, jobId);
 
         return ServiceResult<RestaurantDto>.Created(ToDto(tenant), "Restaurant created.");
     }

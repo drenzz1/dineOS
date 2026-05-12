@@ -1,0 +1,16 @@
+@model DineOS.Application.Notifications.AccountVerificationEmailModel
+@{
+    Layout = "_Layout.cshtml";
+    ViewBag.Title = "Verify your DineOS account";
+}
+<h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Verify your email</h2>
+<p style="margin:0 0 16px;">Hi @Model.OwnerName,</p>
+<p style="margin:0 0 16px;">
+  Your restaurant <strong>@Model.RestaurantName</strong> has been created on DineOS.
+  Use the code below to verify your email and finish onboarding.
+</p>
+<div style="margin:24px 0;padding:18px;background:#f1f5f9;border-radius:8px;text-align:center;">
+  <div style="font-size:32px;font-weight:700;letter-spacing:6px;color:#0f172a;">@Model.Code</div>
+</div>
+<p style="margin:0 0 8px;color:#475569;">This code expires in @Model.CodeTtlMinutes minutes.</p>
+<p style="margin:16px 0 0;color:#94a3b8;font-size:13px;">If you didn't create a DineOS restaurant, you can ignore this email.</p>
