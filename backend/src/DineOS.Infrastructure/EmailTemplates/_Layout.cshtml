@@ -1,0 +1,35 @@
+@{
+    var title = ViewBag.Title as string ?? "DineOS";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>@title</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1f2937;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 0;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;box-shadow:0 1px 3px rgba(16,24,40,0.06);overflow:hidden;">
+        <tr>
+          <td style="background:#0f172a;padding:18px 24px;color:#ffffff;font-size:18px;font-weight:600;letter-spacing:.2px;">
+            DineOS
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 28px;font-size:15px;line-height:1.55;">
+            @RenderBody()
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 28px;background:#f8fafc;color:#64748b;font-size:12px;line-height:1.55;border-top:1px solid #e2e8f0;">
+            This is an automated message from DineOS. If you weren't expecting it, you can safely ignore it.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

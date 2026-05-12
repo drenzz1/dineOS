@@ -10,6 +10,7 @@ using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Options;
 using DineOS.Infrastructure;
 using DineOS.Infrastructure.Persistence;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -398,6 +399,19 @@ try
     app.UseMiddleware<TenantIsolationMiddleware>();
     app.MapControllers();
     app.MapHub<OrderUpdatesHub>("/hubs/orders");
+
+    // ── Hangfire dashboard ────────────────────────────────────────────────────
+    // Anonymous access is allowed by default in Development for ergonomics;
+    // production environments require an authenticated SuperAdmin.
+    var dashboardAllowAnonymous =
+        builder.Configuration.GetValue<bool?>("Hangfire:Dashboard:AllowAnonymous")
+        ?? app.Environment.IsDevelopment();
+
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] { new SuperAdminDashboardAuthorizationFilter(dashboardAllowAnonymous) },
+        DashboardTitle = "DineOS Background Jobs",
+    });
 
     app.Run();
 }
