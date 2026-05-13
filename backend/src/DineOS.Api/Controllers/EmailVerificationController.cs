@@ -39,11 +39,15 @@ public class EmailVerificationController(
     }
 
     /// <summary>Confirms a verification code submitted by the owner.</summary>
+    // Owner-facing: the 6-digit code is itself proof of inbox ownership, so we
+    // override the class-level SuperAdminOnly policy. Brute-force is bounded by
+    // the per-IP "email-verification-confirm" limiter plus the in-row
+    // FailedAttempts cap on EmailVerificationCode.
     [HttpPost("confirm")]
+    [AllowAnonymous]
+    [EnableRateLimiting("email-verification-confirm")]
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Confirm(

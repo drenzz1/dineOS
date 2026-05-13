@@ -68,7 +68,10 @@ public static class DependencyInjection
         services.AddScoped<OrderCreatedMessageHandler>();
 
         if (configuration.GetValue($"{RabbitMqOptions.SectionName}:Enabled", true))
+        {
+            services.AddHostedService<RabbitMqTopologyHostedService>();
             services.AddHostedService<RabbitMqOrderCreatedConsumer>();
+        }
 
         services.AddSingleton<IConnectionMultiplexer>(sp =>
         {

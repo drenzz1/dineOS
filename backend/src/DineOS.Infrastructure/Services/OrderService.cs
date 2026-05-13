@@ -7,9 +7,11 @@ using DineOS.Application.Orders;
 using DineOS.Domain.Entities;
 using DineOS.Domain.Enums;
 using DineOS.Infrastructure.Persistence;
+using DineOS.Infrastructure.Persistence.Messaging;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace DineOS.Infrastructure.Services;
 
@@ -104,19 +106,31 @@ public class OrderService(
         await db.SaveChangesAsync(ct);
 
         var dto = ToDto(order);
+        var message = ToOrderCreatedMessage(order);
+        var published = false;
         try
         {
-            await messagePublisher.PublishAsync(
-                ToOrderCreatedMessage(order),
+            published = await messagePublisher.TryPublishAsync(
+                message,
                 MessageRouting.OrderCreatedRoutingKey,
                 ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(
+            logger.LogWarning(
                 ex,
-                "Order created event publish failed: OrderId={OrderId} TenantId={TenantId} ActorUserId={ActorUserId}",
-                order.Id, tenantId, currentUserService.UserId);
+                "RabbitMQ publish failed, falling back to in-process broadcast: MessageId={MessageId} OrderId={OrderId} TenantId={TenantId} ActorUserId={ActorUserId}",
+                message.MessageId, order.Id, tenantId, currentUserService.UserId);
+        }
+
+        if (!published)
+        {
+            await MarkOrderCreatedMessageProcessedAsync(message, ct);
+            await notificationService.BroadcastOrderCreatedAsync(tenantId, dto, ct);
+
+            logger.LogInformation(
+                "Order created event broadcast via fallback: MessageId={MessageId} OrderId={OrderId} TenantId={TenantId} ActorUserId={ActorUserId}",
+                message.MessageId, order.Id, tenantId, currentUserService.UserId);
         }
 
         logger.LogInformation(
@@ -197,4 +211,35 @@ public class OrderService(
             i.Quantity,
             i.UnitPrice,
             i.Notes)).ToList());
+
+    private async Task MarkOrderCreatedMessageProcessedAsync(
+        OrderCreatedMessage message,
+        CancellationToken ct)
+    {
+        if (await db.ProcessedMessages.AnyAsync(m => m.MessageId == message.MessageId, ct))
+            return;
+
+        db.ProcessedMessages.Add(new ProcessedMessage
+        {
+            MessageId = message.MessageId,
+            MessageType = nameof(OrderCreatedMessage),
+            TenantId = message.TenantId,
+            ProcessedAt = DateTime.UtcNow
+        });
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            logger.LogInformation(
+                ex,
+                "Fallback processed-message insert skipped after conflict: MessageId={MessageId} EventType={EventType} OrderId={OrderId} TenantId={TenantId}",
+                message.MessageId, nameof(OrderCreatedMessage), message.OrderId, message.TenantId);
+        }
+    }
+
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 }

@@ -14,7 +14,7 @@ public sealed class RabbitMqMessagePublisher(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task PublishAsync<TMessage>(
+    public async Task<bool> TryPublishAsync<TMessage>(
         TMessage message,
         string routingKey,
         CancellationToken ct = default)
@@ -26,11 +26,10 @@ public sealed class RabbitMqMessagePublisher(
             logger.LogDebug(
                 "RabbitMQ publishing disabled: MessageId={MessageId} EventType={EventType} RoutingKey={RoutingKey}",
                 message.MessageId, typeof(TMessage).Name, routingKey);
-            return;
+            return false;
         }
 
         await using var channel = await connectionProvider.CreateChannelAsync(ct);
-        await RabbitMqTopology.DeclareAsync(channel, rabbitOptions, ct);
 
         var body = JsonSerializer.SerializeToUtf8Bytes(message, JsonOptions);
         var properties = new BasicProperties
@@ -60,5 +59,7 @@ public sealed class RabbitMqMessagePublisher(
         logger.LogInformation(
             "RabbitMQ event published: MessageId={MessageId} EventType={EventType} RoutingKey={RoutingKey}",
             message.MessageId, typeof(TMessage).Name, routingKey);
+
+        return true;
     }
 }
