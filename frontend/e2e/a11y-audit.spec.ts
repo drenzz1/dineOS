@@ -81,7 +81,7 @@ test('/orders/new with selected item — Cashier', async ({ page }) => {
   await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
   await page.getByTestId('order-type-pickup-option').click();
-  await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
+  await page.waitForSelector('[data-testid="menu-item-card"]', { state: 'visible', timeout: 10000 });
   await page.getByTestId('menu-item-card').first().click();
   await expect(page.getByText(/in cart: 1/i)).toBeVisible();
   await page.waitForLoadState('networkidle');
@@ -96,7 +96,7 @@ test('/orders/new ready to submit — Cashier', async ({ page }) => {
   await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
   await page.getByTestId('order-type-pickup-option').click();
-  await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
+  await page.waitForSelector('[data-testid="menu-item-card"]', { state: 'visible', timeout: 10000 });
   await page.getByTestId('menu-item-card').first().click();
   await expect(page.getByTestId('order-note-input')).toBeVisible();
   await page.getByTestId('order-note-input').fill('Extra napkins');
