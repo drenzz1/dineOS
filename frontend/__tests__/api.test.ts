@@ -5,7 +5,6 @@ import {
   updateRestaurantStatus,
   updateRestaurantPlan,
 } from "@/lib/api/restaurantApi";
-
 // ─── Helper: set a document cookie value ──────────────────────────────────────
 function setCookie(value: string) {
   Object.defineProperty(document, "cookie", {

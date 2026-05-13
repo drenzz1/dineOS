@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { clearAuthCookies, startKeycloakLogin } from "@/lib/auth/keycloak";
+import { clearAuthCookies } from "@/lib/auth/keycloak";
 import { useAuthStore } from "@/stores/authStore";
 import type { Role } from "@/types";
 
@@ -37,10 +37,6 @@ export default function LoginPage() {
     router.push(destination);
   }
 
-  function handleKeycloakLogin() {
-    startKeycloakLogin(searchParams.get("from"));
-  }
-
   const tenantRoles: AppRole[] = ["Manager", "Cashier", "KitchenStaff"];
 
   return (
@@ -51,19 +47,6 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-zinc-500">
             Use your restaurant account.
           </p>
-        </div>
-
-        <Button data-testid="login-submit" className="w-full" onClick={handleKeycloakLogin}>
-          Continue with Keycloak
-        </Button>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-zinc-200" />
-          </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="bg-white px-2 text-zinc-600">Developer access</span>
-          </div>
         </div>
 
         <div data-testid="login-role-select" className="space-y-2">
