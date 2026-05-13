@@ -9,14 +9,12 @@ using DineOS.Application.Common;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Options;
 using DineOS.Infrastructure;
-using DineOS.Infrastructure.Persistence;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
 using Serilog;
@@ -328,11 +326,7 @@ try
     var app = builder.Build();
 
     // Auto-apply pending migrations on startup
-     using (var scope = app.Services.CreateScope())
-     {
-         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-         db.Database.Migrate();
-     }
+    await app.Services.GetRequiredService<IDatabaseMigrator>().MigrateAsync();
 
     // ── Middleware pipeline ───────────────────────────────────────────────────────
     app.UseMiddleware<CorrelationIdMiddleware>();
