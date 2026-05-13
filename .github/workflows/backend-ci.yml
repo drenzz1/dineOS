@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - feat/be-13-testing-foundation
+  workflow_dispatch:
 
 jobs:
   backend-test:
@@ -38,6 +39,7 @@ jobs:
           dotnet test tests/DineOS.Tests/DineOS.Tests.csproj \
             --no-build \
             --configuration Release \
+            --filter "Category!=LiveAuth" \
             --collect:"XPlat Code Coverage" \
             --results-directory ./TestResults \
             --logger "trx;LogFileName=test-results.trx"
@@ -73,3 +75,44 @@ jobs:
               sys.exit(1)
           print('Coverage check passed ✓')
           EOF
+
+  live-auth-tests:
+    name: Live Keycloak Integration Tests
+    runs-on: ubuntu-latest
+    needs: backend-test
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        working-directory: backend
+        run: dotnet restore
+
+      - name: Build
+        working-directory: backend
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run live Keycloak tests
+        working-directory: backend
+        run: |
+          dotnet test tests/DineOS.Tests/DineOS.Tests.csproj \
+            --no-build \
+            --configuration Release \
+            --settings tests/DineOS.Tests/live.runsettings \
+            --results-directory ./TestResults \
+            --logger "trx;LogFileName=live-auth-results.trx"
+
+      - name: Upload live test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-auth-test-results
+          path: backend/TestResults/**/*.trx
+          retention-days: 14
