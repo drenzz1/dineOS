@@ -39,7 +39,7 @@ export default function PaymentCenter() {
 
   const { data: orders = [], isLoading, isError } = useQuery({
     queryKey: queryKeys.orders.payments(tenantId),
-    queryFn: getOrders,
+    queryFn: () => getOrders(),
   });
 
   const payableOrders = useMemo(

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -26,11 +26,6 @@ import { updateOrderStatus } from "@/lib/api/ordersApi";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { OrderStatus } from "@/types/order";
 import type { Order } from "@/types/order";
-
-const OrderDetailPanel = dynamic(
-  () => import("./OrderDetailPanel"),
-  { ssr: false, loading: () => null }
-);
 
 // ─── Status progression ───────────────────────────────────────────────────────
 
@@ -124,9 +119,17 @@ interface DraggableCardProps {
   order: Order;
   onClick: () => void;
   onDoubleClick: () => void;
+  onAdvance: () => void;
+  isActionPending: boolean;
 }
 
-function DraggableCard({ order, onClick, onDoubleClick }: DraggableCardProps) {
+function DraggableCard({
+  order,
+  onClick,
+  onDoubleClick,
+  onAdvance,
+  isActionPending,
+}: DraggableCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: order.id,
     data: { order },
@@ -143,7 +146,14 @@ function DraggableCard({ order, onClick, onDoubleClick }: DraggableCardProps) {
         touchAction: "none",
       }}
     >
-      <OrderCard order={order} onClick={onClick} onDoubleClick={onDoubleClick} />
+      <OrderCard
+        order={order}
+        onClick={onClick}
+        onDoubleClick={onDoubleClick}
+        actionLabel={NEXT_STATUS[order.status] ? `Move to ${NEXT_STATUS[order.status]}` : undefined}
+        onAction={NEXT_STATUS[order.status] ? onAdvance : undefined}
+        isActionPending={isActionPending}
+      />
     </div>
   );
 }
@@ -155,9 +165,18 @@ interface DroppableColumnProps {
   orders: Order[];
   onCardClick: (order: Order) => void;
   onCardDoubleClick: (order: Order) => void;
+  onAdvance: (order: Order) => void;
+  movingOrderId: string | null;
 }
 
-function DroppableColumn({ column, orders, onCardClick, onCardDoubleClick }: DroppableColumnProps) {
+function DroppableColumn({
+  column,
+  orders,
+  onCardClick,
+  onCardDoubleClick,
+  onAdvance,
+  movingOrderId,
+}: DroppableColumnProps) {
   const { status, label, badgeClass, countClass, emptyMessage } = column;
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
@@ -189,6 +208,8 @@ function DroppableColumn({ column, orders, onCardClick, onCardDoubleClick }: Dro
               order={order}
               onClick={() => onCardClick(order)}
               onDoubleClick={() => onCardDoubleClick(order)}
+              onAdvance={() => onAdvance(order)}
+              isActionPending={movingOrderId === order.id}
             />
           ))
         )}
@@ -200,12 +221,17 @@ function DroppableColumn({ column, orders, onCardClick, onCardDoubleClick }: Dro
 // ─── Board ────────────────────────────────────────────────────────────────────
 
 export default function OrderBoard() {
-  const { grouped, isLoading, isError } = useOrderBoard();
+  const router = useRouter();
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(today);
+  const [status, setStatus] = useState<OrderStatus | "all">("all");
+  const { grouped, isLoading, isError } = useOrderBoard({ date, status });
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [overlayWidth, setOverlayWidth] = useState<number | undefined>(undefined);
+  const [movingOrderId, setMovingOrderId] = useState<string | null>(null);
+  const ordersListKey = queryKeys.orders.list(tenantId, { date, status });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -217,8 +243,15 @@ export default function OrderBoard() {
   const { mutate: moveOrder } = useMutation({
     mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>
       updateOrderStatus(orderId, status),
+    onMutate: ({ orderId }) => {
+      setMovingOrderId(orderId);
+    },
+    onSettled: () => {
+      setMovingOrderId(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+    },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.orders.list(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
     },
   });
 
@@ -235,13 +268,13 @@ export default function OrderBoard() {
     if (!newStatus) return;
 
     queryClient.setQueryData(
-      queryKeys.orders.list(tenantId),
+      ordersListKey,
       (old: Order[] | undefined) =>
-        (old ?? []).map((o) =>
-          o.id === order.id
-            ? { ...o, status: newStatus, updatedAt: new Date().toISOString() }
-            : o
-        )
+        (old ?? []).flatMap((o) => {
+          if (o.id !== order.id) return [o];
+          const updated = { ...o, status: newStatus, updatedAt: new Date().toISOString() };
+          return status === "all" || status === newStatus ? [updated] : [];
+        })
     );
 
     moveOrder({ orderId: order.id, status: newStatus });
@@ -259,13 +292,13 @@ export default function OrderBoard() {
     if (!order || order.status === newStatus) return;
 
     queryClient.setQueryData(
-      queryKeys.orders.list(tenantId),
+      ordersListKey,
       (old: Order[] | undefined) =>
-        (old ?? []).map((o) =>
-          o.id === order.id
-            ? { ...o, status: newStatus, updatedAt: new Date().toISOString() }
-            : o
-        )
+        (old ?? []).flatMap((o) => {
+          if (o.id !== order.id) return [o];
+          const updated = { ...o, status: newStatus, updatedAt: new Date().toISOString() };
+          return status === "all" || status === newStatus ? [updated] : [];
+        })
     );
 
     moveOrder({ orderId: order.id, status: newStatus });
@@ -316,6 +349,37 @@ export default function OrderBoard() {
         </Link>
       </div>
 
+      <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-surface p-3">
+        <label className="grid gap-1">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+            Date
+          </span>
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className="h-9 rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none focus:border-accent"
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+            Status
+          </span>
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value as OrderStatus | "all")}
+            className="h-9 rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none focus:border-accent"
+          >
+            <option value="all">All statuses</option>
+            {COLUMNS.map((column) => (
+              <option key={column.status} value={column.status}>
+                {column.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       {/* Board */}
       {isLoading ? (
         <BoardSkeleton />
@@ -348,8 +412,10 @@ export default function OrderBoard() {
                 key={column.status}
                 column={column}
                 orders={grouped[column.status]}
-                onCardClick={setSelectedOrder}
+                onCardClick={(order) => router.push(`/orders/${order.id}`)}
                 onCardDoubleClick={handleDoubleClick}
+                onAdvance={handleDoubleClick}
+                movingOrderId={movingOrderId}
               />
             ))}
           </div>
@@ -365,10 +431,6 @@ export default function OrderBoard() {
         </DndContext>
       )}
 
-      <OrderDetailPanel
-        order={selectedOrder}
-        onClose={() => setSelectedOrder(null)}
-      />
     </div>
   );
 }

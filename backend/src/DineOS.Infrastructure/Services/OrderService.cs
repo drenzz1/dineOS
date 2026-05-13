@@ -184,6 +184,7 @@ public class OrderService(
         Notes       = o.Notes,
         TenantId    = o.TenantId,
         CreatedAt   = o.CreatedAt,
+        UpdatedAt   = o.UpdatedAt ?? o.CreatedAt,
         Items       = o.Items.Select(i => new OrderItemDto
         {
             Id        = i.Id,
