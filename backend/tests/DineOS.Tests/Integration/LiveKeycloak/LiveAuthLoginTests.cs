@@ -1,3 +1,4 @@
+using DineOS.Application.Authorization;
 using DineOS.Tests.Common;
 using DineOS.Tests.Fixtures;
 using System.IdentityModel.Tokens.Jwt;
@@ -72,7 +73,7 @@ public class LiveAuthLoginTests : IAsyncLifetime
             .Select(r => r.GetString())
             .ToList();
 
-        Assert.Contains("Manager", roles);
+        Assert.Contains(Roles.Manager, roles);
     }
 
     // ── b) Wrong password → 401 ───────────────────────────────────────────────────

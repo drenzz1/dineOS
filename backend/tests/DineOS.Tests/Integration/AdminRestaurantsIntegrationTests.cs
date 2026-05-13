@@ -1,5 +1,6 @@
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
+using DineOS.Application.Authorization;
 using DineOS.Tests.Fixtures;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -69,7 +70,7 @@ public class AdminRestaurantsIntegrationTests(CustomWebApplicationFactory factor
     [Fact]
     public async Task GetRestaurants_ManagerRole_Returns403()
     {
-        var client = ClientWith(GenerateJwt("Manager", "1"));
+        var client = ClientWith(GenerateJwt(Roles.Manager, "1"));
 
         var response = await client.GetAsync("/api/v1/admin/restaurants");
 
@@ -279,7 +280,7 @@ public class AdminRestaurantsIntegrationTests(CustomWebApplicationFactory factor
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
-    private HttpClient SuperAdminClient() => ClientWith(GenerateJwt("SuperAdmin"));
+    private HttpClient SuperAdminClient() => ClientWith(GenerateJwt(Roles.SuperAdmin));
 
     private HttpClient ClientWith(string jwt)
     {

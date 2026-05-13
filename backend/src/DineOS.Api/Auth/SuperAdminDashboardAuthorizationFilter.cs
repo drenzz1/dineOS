@@ -1,3 +1,4 @@
+using DineOS.Application.Authorization;
 using Hangfire.Dashboard;
 
 namespace DineOS.Api.Auth;
@@ -17,6 +18,6 @@ public sealed class SuperAdminDashboardAuthorizationFilter(bool allowAnonymous)
             return true;
 
         return httpContext.User.Identity?.IsAuthenticated == true
-               && httpContext.User.IsInRole("SuperAdmin");
+               && httpContext.User.IsInRole(Roles.SuperAdmin);
     }
 }

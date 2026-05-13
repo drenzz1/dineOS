@@ -1,4 +1,5 @@
 using DineOS.Api.Auth;
+using DineOS.Application.Authorization;
 using System.Security.Claims;
 
 namespace DineOS.Tests.Unit;
@@ -55,8 +56,8 @@ public class KeycloakRolesTransformationTests
         var result = await _sut.TransformAsync(principal);
 
         var roles = result.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
-        Assert.Contains("Manager", roles);
-        Assert.Contains("Cashier", roles);
+        Assert.Contains(Roles.Manager, roles);
+        Assert.Contains(Roles.Cashier, roles);
     }
 
     [Fact]
@@ -64,7 +65,7 @@ public class KeycloakRolesTransformationTests
     {
         var identity = new ClaimsIdentity(
             [new Claim("realm_access", """{"roles":["Manager"]}"""),
-             new Claim(ClaimTypes.Role, "Manager")],
+             new Claim(ClaimTypes.Role, Roles.Manager)],
             "Test");
         var principal = new ClaimsPrincipal(identity);
 

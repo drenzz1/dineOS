@@ -1,5 +1,6 @@
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
+using DineOS.Application.Authorization;
 using DineOS.Tests.Fixtures;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -26,7 +27,7 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task GetStaff_AuthenticatedManager_Returns200_WithEmptyList()
     {
-        var client = ClientWith(Jwt("Manager", "701"));
+        var client = ClientWith(Jwt(Roles.Manager, "701"));
 
         var response = await client.GetAsync("/api/v1/staff");
 
@@ -44,13 +45,13 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task PostStaff_ValidRequest_Returns201_AndAppearsInGet()
     {
-        var client = ClientWith(Jwt("Manager", "702"));
+        var client = ClientWith(Jwt(Roles.Manager, "702"));
 
         var postResponse = await client.PostAsync("/api/v1/staff", Json(new
         {
             fullName = "Alice Smith",
             email = "alice@dineos.dev",
-            role = "Cashier",
+            role = Roles.Cashier,
             pin = "1234"
         }));
 
@@ -60,7 +61,7 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
         Assert.NotNull(created);
         Assert.Equal("Alice Smith", created.FullName);
         Assert.Equal("alice@dineos.dev", created.Email);
-        Assert.Equal("Cashier", created.Role);
+        Assert.Equal(Roles.Cashier, created.Role);
         Assert.True(created.IsActive);
         Assert.Equal(702, created.TenantId);
 
@@ -74,13 +75,13 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task PostStaff_MissingFullName_Returns400_WithValidationErrors()
     {
-        var client = ClientWith(Jwt("Manager", "703"));
+        var client = ClientWith(Jwt(Roles.Manager, "703"));
 
         var response = await client.PostAsync("/api/v1/staff", Json(new
         {
             // fullName intentionally omitted — FluentValidation must catch it
             email = "noname@dineos.dev",
-            role = "Cashier",
+            role = Roles.Cashier,
             pin = "1234"
         }));
 
@@ -100,13 +101,13 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task PutStaff_ValidRequest_UpdatesRecord()
     {
-        var client = ClientWith(Jwt("Manager", "704"));
-        var created = await CreateStaffAsync(client, "Bob Jones", "bob@dineos.dev", "Cashier", "5678");
+        var client = ClientWith(Jwt(Roles.Manager, "704"));
+        var created = await CreateStaffAsync(client, "Bob Jones", "bob@dineos.dev", Roles.Cashier, "5678");
 
         var putResponse = await client.PutAsync($"/api/v1/staff/{created.Id}", Json(new
         {
             fullName = "Bob Updated",
-            role = "Manager"
+            role = Roles.Manager
         }));
 
         Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
@@ -114,7 +115,7 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
         var updated = UnwrapDto(await putResponse.Content.ReadAsStringAsync());
         Assert.NotNull(updated);
         Assert.Equal("Bob Updated", updated.FullName);
-        Assert.Equal("Manager", updated.Role);
+        Assert.Equal(Roles.Manager, updated.Role);
         Assert.Equal("bob@dineos.dev", updated.Email); // null in request → unchanged
     }
 
@@ -122,8 +123,8 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task PatchStaffActive_SetsFalse_ReflectedInGetList()
     {
-        var client = ClientWith(Jwt("Manager", "705"));
-        var created = await CreateStaffAsync(client, "Carol White", "carol@dineos.dev", "KitchenStaff", "9012");
+        var client = ClientWith(Jwt(Roles.Manager, "705"));
+        var created = await CreateStaffAsync(client, "Carol White", "carol@dineos.dev", Roles.KitchenStaff, "9012");
 
         var patchResponse = await client.PatchAsync(
             $"/api/v1/staff/{created.Id}/active", Json(new { isActive = false }));
@@ -146,11 +147,11 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task TenantIsolation_CrossTenantToken_CannotSeeOrModifyOtherTenantStaff()
     {
-        var t706Client = ClientWith(Jwt("Manager", "706"));
-        var t707Client = ClientWith(Jwt("Manager", "707"));
+        var t706Client = ClientWith(Jwt(Roles.Manager, "706"));
+        var t707Client = ClientWith(Jwt(Roles.Manager, "707"));
 
         // Create a staff member belonging to tenant 706
-        var created = await CreateStaffAsync(t706Client, "Dave T706", "dave@dineos.dev", "Cashier", "1111");
+        var created = await CreateStaffAsync(t706Client, "Dave T706", "dave@dineos.dev", Roles.Cashier, "1111");
 
         // GET by tenant 707 — must not include tenant 706's staff
         var list = UnwrapList(
@@ -173,7 +174,7 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task PutStaff_NonExistentId_Returns404()
     {
-        var client = ClientWith(Jwt("Manager", "709"));
+        var client = ClientWith(Jwt(Roles.Manager, "709"));
 
         var response = await client.PutAsync("/api/v1/staff/99999", Json(new { fullName = "Ghost" }));
 
@@ -208,7 +209,7 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     public async Task StaffWriteEndpoints_CashierRole_Returns403(string method, string path)
     {
         // Authorization policy check fires before the action, so staff ID 99999 need not exist
-        var client = ClientWith(Jwt("Cashier", "708"));
+        var client = ClientWith(Jwt(Roles.Cashier, "708"));
 
         var request = new HttpRequestMessage(new HttpMethod(method), path)
         {

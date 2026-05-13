@@ -3,6 +3,7 @@ using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Payments;
+using DineOS.Application.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -22,7 +23,7 @@ namespace DineOS.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/payments")]
 [Produces("application/json")]
-[Authorize(Policy = "CashierAndAbove")]
+[Authorize(Policy = Policies.CashierAndAbove)]
 [EnableRateLimiting("authenticated")]
 public class PaymentsController(IPaymentService paymentService) : ControllerBase
 {

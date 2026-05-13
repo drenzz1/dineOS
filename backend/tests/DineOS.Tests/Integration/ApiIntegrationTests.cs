@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using DineOS.Application.Authorization;
 using DineOS.Application.Common;
 using DineOS.Tests.Fixtures;
 using Microsoft.IdentityModel.Tokens;
@@ -128,7 +129,7 @@ public class ApiIntegrationTests(CustomWebApplicationFactory factory)
     private static string GenerateTestJwt(
         string userId   = "test-user",
         string email    = "test@dineos.dev",
-        string role     = "Manager",
+        string role     = Roles.Manager,
         string tenantId = "1")
     {
         var key = new SymmetricSecurityKey(

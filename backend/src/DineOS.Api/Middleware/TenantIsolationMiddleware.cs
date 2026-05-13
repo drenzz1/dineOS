@@ -1,3 +1,4 @@
+using DineOS.Application.Authorization;
 using DineOS.Application.Common;
 using System.Security.Claims;
 using System.Text.Json;
@@ -19,7 +20,7 @@ public class TenantIsolationMiddleware(RequestDelegate next, ILogger<TenantIsola
         }
 
         // SuperAdmin operates platform-wide; no tenant scope enforced
-        if (context.User.IsInRole("SuperAdmin"))
+        if (context.User.IsInRole(Roles.SuperAdmin))
         {
             await next(context);
             return;

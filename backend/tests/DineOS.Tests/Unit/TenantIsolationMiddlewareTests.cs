@@ -1,4 +1,5 @@
 using DineOS.Api.Middleware;
+using DineOS.Application.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -55,7 +56,7 @@ public class TenantIsolationMiddlewareTests
     {
         var called = false;
         var ctx = BuildContext(AuthUser(
-            new Claim(ClaimTypes.Role, "SuperAdmin")));
+            new Claim(ClaimTypes.Role, Roles.SuperAdmin)));
 
         await Mw(_ => { called = true; return Task.CompletedTask; }).InvokeAsync(ctx);
 

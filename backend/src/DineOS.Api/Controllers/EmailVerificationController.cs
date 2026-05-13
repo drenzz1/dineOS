@@ -4,6 +4,7 @@ using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Restaurants;
 using Hangfire;
 using DineOS.Infrastructure.Jobs;
+using DineOS.Application.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -18,7 +19,7 @@ namespace DineOS.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/admin/restaurants/{tenantId:long}/email-verification")]
 [Produces("application/json")]
-[Authorize(Policy = "SuperAdminOnly")]
+[Authorize(Policy = Policies.SuperAdminOnly)]
 [EnableRateLimiting("authenticated")]
 public class EmailVerificationController(
     IEmailVerificationService verificationService,

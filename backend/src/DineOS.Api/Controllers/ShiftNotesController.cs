@@ -3,6 +3,7 @@ using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.ShiftNotes;
+using DineOS.Application.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -28,7 +29,7 @@ public class ShiftNotesController(IShiftNoteService shiftNoteService) : Controll
 
     /// <summary>Creates a new shift note.</summary>
     [HttpPost]
-    [Authorize(Policy = "ManagerAndAbove")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<ShiftNoteDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -41,7 +42,7 @@ public class ShiftNotesController(IShiftNoteService shiftNoteService) : Controll
 
     /// <summary>Soft-deletes a shift note by ID.</summary>
     [HttpDelete("{id:long}")]
-    [Authorize(Policy = "ManagerAndAbove")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<ShiftNoteDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

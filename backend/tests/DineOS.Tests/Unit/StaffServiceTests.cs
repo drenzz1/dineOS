@@ -1,3 +1,4 @@
+using DineOS.Application.Authorization;
 using DineOS.Application.Common;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.StaffMembers;
@@ -73,7 +74,7 @@ public class StaffServiceTests
         {
             FullName = "Alice",
             Email    = "alice@x.com",
-            Role     = "Cashier",
+            Role     = Roles.Cashier,
             Pin      = "1234"
         });
 
@@ -105,7 +106,7 @@ public class StaffServiceTests
 
         var result = await svc.CreateStaffAsync(new CreateStaffMemberRequest
         {
-            FullName = "A", Email = "a@x.com", Role = "Cashier", Pin = "1234"
+            FullName = "A", Email = "a@x.com", Role = Roles.Cashier, Pin = "1234"
         });
 
         Assert.False(result.IsSuccess);
@@ -130,7 +131,7 @@ public class StaffServiceTests
 
         var created = await svc.CreateStaffAsync(new CreateStaffMemberRequest
         {
-            FullName = "Bob", Email = "bob@x.com", Role = "Cashier", Pin = "1234"
+            FullName = "Bob", Email = "bob@x.com", Role = Roles.Cashier, Pin = "1234"
         });
 
         var result = await svc.SetStaffActiveAsync(created.Value!.Id, new SetStaffActiveRequest { IsActive = false });
