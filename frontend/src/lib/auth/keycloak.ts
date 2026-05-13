@@ -2,17 +2,6 @@
 
 export type AppRole = "Manager" | "Cashier" | "KitchenStaff" | "SuperAdmin";
 
-interface AccessTokenClaims {
-  sub?: string;
-  email?: string;
-  preferred_username?: string;
-  name?: string;
-  tenant_id?: string | number;
-  realm_access?: {
-    roles?: string[];
-  };
-}
-
 const ROLE_PRIORITY: AppRole[] = ["SuperAdmin", "Manager", "Cashier", "KitchenStaff"];
 
 const ROLE_DEFAULTS: Record<AppRole, string> = {
@@ -21,16 +10,6 @@ const ROLE_DEFAULTS: Record<AppRole, string> = {
   KitchenStaff: "/kitchen",
   SuperAdmin: "/admin/dashboard",
 };
-
-function base64UrlDecodeJson<T>(value: string): T {
-  const base64 = value
-    .replace(/-/g, "+")
-    .replace(/_/g, "/")
-    .padEnd(Math.ceil(value.length / 4) * 4, "=");
-  const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
-
-  return JSON.parse(new TextDecoder().decode(bytes)) as T;
-}
 
 export function getPrimaryRole(roles: string[]): AppRole {
   const role = ROLE_PRIORITY.find((candidate) => roles.includes(candidate));
@@ -59,29 +38,6 @@ export function getDestination(role: AppRole, from: string | null): string {
   return from?.startsWith("/") && !from.startsWith("//")
     ? from
     : ROLE_DEFAULTS[role];
-}
-
-export function decodeAccessTokenClaims(accessToken: string): {
-  userId: string;
-  role: AppRole;
-  tenantId: string | null;
-} {
-  const claims = base64UrlDecodeJson<AccessTokenClaims>(accessToken.split(".")[1] ?? "");
-  const role = getPrimaryRole(claims.realm_access?.roles ?? []);
-  const tenantId =
-    claims.tenant_id === undefined || claims.tenant_id === null
-      ? null
-      : String(claims.tenant_id);
-
-  if (role !== "SuperAdmin" && !tenantId) {
-    throw new Error("The access token is missing the tenant_id claim.");
-  }
-
-  return {
-    userId: claims.sub ?? claims.email ?? "unknown",
-    role,
-    tenantId,
-  };
 }
 
 export function persistAuthCookies(

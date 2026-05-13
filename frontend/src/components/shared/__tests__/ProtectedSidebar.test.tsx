@@ -8,6 +8,10 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
 
+jest.mock("@/hooks/useMe", () => ({
+  useMe: () => ({ user: undefined, isLoading: false, isError: false }),
+}));
+
 const ALL_LINKS = [
   "Dashboard",
   "Orders",

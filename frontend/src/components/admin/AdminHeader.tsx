@@ -2,11 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
+import { useMe } from "@/hooks/useMe";
 import { Button } from "@/components/ui/Button";
 
 export default function AdminHeader() {
   const router = useRouter();
   const logout = useAuthStore((state) => state.logout);
+  const { user: me } = useMe();
+
+  const initials = me
+    ? (me.name || me.username || me.email).charAt(0).toUpperCase()
+    : "SA";
+  const displayRole = "Super Admin";
 
   const handleLogout = async () => {
     await logout();
@@ -25,9 +32,9 @@ export default function AdminHeader() {
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-accent-fg">
-            SA
+            {initials}
           </div>
-          <span className="text-[13px] font-medium text-fg-muted">Super Admin</span>
+          <span className="text-[13px] font-medium text-fg-muted">{displayRole}</span>
         </div>
         <Button variant="ghost" size="sm" onClick={handleLogout}>
           Log out

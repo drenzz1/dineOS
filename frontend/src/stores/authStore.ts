@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Role } from "@/types";
 import { queryClient } from "@/lib/queryClient";
+import { queryKeys } from "@/lib/api/queryKeys";
 import { login as apiLogin, logout as apiLogout } from "@/lib/auth/authApi";
 import {
   getPrimaryRole,
@@ -82,12 +83,14 @@ export const useAuthStore = create<AuthState>()(
 
         clearAuthCookies();
         set({ userId: null, role: null, tenantId: null, restaurantName: null, accessToken: null });
+        queryClient.removeQueries({ queryKey: queryKeys.me.all });
         queryClient.clear();
       },
       setAuth: (userId, role, tenantId, restaurantName = null, accessToken = null) =>
         set({ userId, role, tenantId, restaurantName, accessToken }),
       clearAuth: () => {
         set({ userId: null, role: null, tenantId: null, restaurantName: null, accessToken: null });
+        queryClient.removeQueries({ queryKey: queryKeys.me.all });
         queryClient.clear();
       },
     }),
