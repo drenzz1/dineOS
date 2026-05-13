@@ -4,11 +4,12 @@ import type { Role } from "@/types";
 import { queryClient } from "@/lib/queryClient";
 import { login as apiLogin, logout as apiLogout } from "@/lib/auth/authApi";
 import {
-  decodeAccessTokenClaims,
+  getPrimaryRole,
   persistAuthCookies,
   clearAuthCookies,
   getDestination,
 } from "@/lib/auth/keycloak";
+import { getMe } from "@/lib/api/meApi";
 
 interface AuthState {
   userId: string | null;
@@ -38,7 +39,18 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       login: async (username, password, from = null) => {
         const tokens = await apiLogin(username, password);
-        const { userId, role, tenantId } = decodeAccessTokenClaims(tokens.accessToken);
+
+        persistAuthCookies(
+          tokens.accessToken,
+          tokens.refreshToken,
+          tokens.expiresIn,
+          tokens.refreshExpiresIn,
+          "Manager",
+          null
+        );
+
+        const me = await getMe();
+        const role = getPrimaryRole(me.roles);
 
         persistAuthCookies(
           tokens.accessToken,
@@ -46,14 +58,16 @@ export const useAuthStore = create<AuthState>()(
           tokens.expiresIn,
           tokens.refreshExpiresIn,
           role,
-          tenantId
+          me.tenantId
         );
 
+        const restaurantName = me.tenantId ? "Olio & Sale" : null;
+
         set({
-          userId,
+          userId: me.id,
           role,
-          tenantId,
-          restaurantName: tenantId ? "Olio & Sale" : null,
+          tenantId: me.tenantId,
+          restaurantName,
           accessToken: tokens.accessToken,
         });
 
