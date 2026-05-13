@@ -4,7 +4,7 @@ namespace DineOS.Application.Interfaces.Messaging;
 
 public interface IMessagePublisher
 {
-    Task PublishAsync<TMessage>(
+    Task<bool> TryPublishAsync<TMessage>(
         TMessage message,
         string routingKey,
         CancellationToken ct = default)
