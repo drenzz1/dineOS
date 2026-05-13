@@ -4,6 +4,8 @@ import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
+import { useMe } from "@/hooks/useMe";
+import { getPrimaryRole } from "@/lib/auth/keycloak";
 import type { Role } from "@/types";
 
 interface NavItem {
@@ -34,26 +36,6 @@ function mergeClasses(...classes: Array<string | undefined | false>): string {
   return classes.filter(Boolean).join(" ");
 }
 
-function getCookieRole(): Role | "SuperAdmin" | null {
-  if (typeof document === "undefined") return null;
-
-  const roleCookie = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("role="));
-  const role = roleCookie?.split("=")[1];
-
-  if (
-    role === "Manager" ||
-    role === "Cashier" ||
-    role === "KitchenStaff" ||
-    role === "SuperAdmin"
-  ) {
-    return role;
-  }
-
-  return null;
-}
-
 function subscribeClientReady(): () => void {
   return () => {};
 }
@@ -69,6 +51,7 @@ function getServerSnapshot(): boolean {
 export default function ProtectedSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user: me } = useMe();
   const storedRole = useAuthStore((state) => state.role);
   const logout = useAuthStore((state) => state.logout);
   const isClient = useSyncExternalStore(
@@ -76,7 +59,9 @@ export default function ProtectedSidebar() {
     getClientSnapshot,
     getServerSnapshot
   );
-  const role = isClient ? (storedRole ?? getCookieRole() ?? "Manager") : null;
+  const role = isClient
+    ? ((me ? getPrimaryRole(me.roles) : null) ?? storedRole)
+    : null;
   const visibleNavItems =
     role && role !== "SuperAdmin" ? ROLE_NAV_ITEMS[role] : [];
 
