@@ -381,7 +381,7 @@ export default function OrderWizard() {
   const { mutate: submitOrder, isPending } = useMutation({
     mutationFn: createOrder,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.orders.list(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       setToast({ message: "Order created successfully!", ok: true });
       resetStep();
       form.reset();
@@ -389,9 +389,12 @@ export default function OrderWizard() {
       delete (window as Window & { __e2eNotes?: string }).__e2eNotes;
       setTimeout(() => router.push("/orders"), 1200);
     },
-    onError: () => {
+    onError: (error) => {
       setToast({
-        message: "Failed to create order. Please try again.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to create order. Please try again.",
         ok: false,
       });
     },

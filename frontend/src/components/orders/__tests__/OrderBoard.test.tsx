@@ -6,6 +6,10 @@ import { getOrders, updateOrderStatus } from "@/lib/api/ordersApi";
 import { OrderStatus } from "@/types/order";
 import type { Order } from "@/types/order";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
 jest.mock("@/lib/api/ordersApi", () => ({
   getOrders: jest.fn(),
   updateOrderStatus: jest.fn(),
@@ -22,14 +26,19 @@ const mockOrder: Order = {
 };
 
 beforeEach(() => {
-  jest.mocked(getOrders).mockResolvedValue([mockOrder]);
+  let orders = [mockOrder];
+  jest.mocked(getOrders).mockImplementation(async () => orders);
   jest.mocked(updateOrderStatus).mockImplementation(
-    async (orderId: string, status: OrderStatus): Promise<Order> => ({
-      ...mockOrder,
-      id: orderId,
-      status,
-      updatedAt: new Date().toISOString(),
-    })
+    async (orderId: string, status: OrderStatus): Promise<Order> => {
+      const updated = {
+        ...mockOrder,
+        id: orderId,
+        status,
+        updatedAt: new Date().toISOString(),
+      };
+      orders = orders.map((order) => (order.id === orderId ? updated : order));
+      return updated;
+    }
   );
 });
 
