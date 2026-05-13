@@ -22,6 +22,23 @@ export interface AuthTokens {
   refreshExpiresIn: number | null;
 }
 
+export async function logout(): Promise<void> {
+  const refreshToken = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("refresh_token="))
+    ?.split("=")[1];
+
+  if (!refreshToken) {
+    return;
+  }
+
+  try {
+    await apiClient.post("/v1/auth/logout", { refreshToken: decodeURIComponent(refreshToken) });
+  } catch {
+    // Continue with client-side cleanup regardless of backend response
+  }
+}
+
 export async function login(username: string, password: string): Promise<AuthTokens> {
   try {
     const res = await apiClient.post<ApiResponse<RefreshTokenResponse>>(

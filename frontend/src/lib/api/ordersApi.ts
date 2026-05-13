@@ -2,7 +2,34 @@ import axios from "axios";
 import apiClient from "@/lib/api/apiClient";
 import type { OrderFormValues } from "@/lib/validations/order";
 import type { MenuItem, Order } from "@/types";
-import { OrderStatus } from "@/types";
+import { MenuCategory, OrderStatus } from "@/types";
+
+function isDevAuth(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.cookie.split("; ").includes("access_token=dev");
+}
+
+const MOCK_MENU_ITEMS: MenuItem[] = [
+  { id: "1", name: "Margherita Pizza", price: 12.99, category: MenuCategory.MainCourse },
+  { id: "2", name: "Pepperoni Pizza", price: 14.99, category: MenuCategory.MainCourse },
+  { id: "3", name: "Caesar Salad", price: 9.99, category: MenuCategory.Starters },
+  { id: "4", name: "Tiramisu", price: 7.99, category: MenuCategory.Desserts },
+  { id: "5", name: "Espresso", price: 3.99, category: MenuCategory.Drinks },
+  { id: "6", name: "Garlic Bread", price: 5.99, category: MenuCategory.Sides },
+  { id: "7", name: "Mineral Water", price: 2.99, category: MenuCategory.Drinks },
+];
+
+let MOCK_ORDERS: Order[] = [
+  {
+    id: "ord-001",
+    orderType: "dine-in",
+    tableNumber: 3,
+    status: OrderStatus.New,
+    items: [{ id: "oi-1", name: "Margherita Pizza", quantity: 1, unitPrice: 12.99 }],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
 
 interface ApiResponse<T> {
   success: boolean;
@@ -109,6 +136,10 @@ function buildCreateOrderRequest(data: OrderFormValues) {
 }
 
 export async function getMenuItems(): Promise<MenuItem[]> {
+  if (isDevAuth()) {
+    return MOCK_MENU_ITEMS;
+  }
+
   try {
     const res = await apiClient.get<ApiResponse<MenuItemDto[]>>("/v1/menu/items");
     return unwrap(res.data, "Failed to load menu items.").map(mapMenuItem);
@@ -118,6 +149,10 @@ export async function getMenuItems(): Promise<MenuItem[]> {
 }
 
 export async function getOrders(params: GetOrdersParams = {}): Promise<Order[]> {
+  if (isDevAuth()) {
+    return MOCK_ORDERS;
+  }
+
   try {
     const res = await apiClient.get<ApiResponse<OrderDto[]>>("/v1/orders", {
       params: {
@@ -141,6 +176,27 @@ export async function getOrder(orderId: string): Promise<Order> {
 }
 
 export async function createOrder(data: OrderFormValues): Promise<Order> {
+  if (isDevAuth()) {
+    const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const order: Order = {
+      id: `dev-${Date.now()}`,
+      orderType: data.orderType,
+      tableNumber: data.tableNumber ?? undefined,
+      status: OrderStatus.New,
+      items: data.items.map((item, idx) => ({
+        id: `dev-oi-${idx}`,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      })),
+      notes: data.notes?.trim() || undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    MOCK_ORDERS = [...MOCK_ORDERS, order];
+    return order;
+  }
+
   try {
     const res = await apiClient.post<ApiResponse<OrderDto>>(
       "/v1/orders",

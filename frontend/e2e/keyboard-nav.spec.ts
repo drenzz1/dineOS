@@ -39,7 +39,7 @@ test('Keyboard A1: /orders/new quick order — core controls accessible by keybo
   await page.keyboard.press('ArrowRight');
   await expect(pickupRadio).toBeChecked();
 
-  await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
+  await page.waitForSelector('[data-testid="menu-item-card"]', { state: 'visible', timeout: 10000 });
 
   const firstItem = page.getByTestId('menu-item-card').first();
   await firstItem.focus();
@@ -103,7 +103,7 @@ test('Keyboard A3: Enter on focused submit button submits the quick-order form',
   await expect(page.getByTestId('quick-order-form')).toBeVisible();
 
   await page.getByTestId('order-type-pickup-option').click();
-  await expect(page.getByTestId('menu-item-card').first()).toBeVisible();
+  await page.waitForSelector('[data-testid="menu-item-card"]', { state: 'visible', timeout: 10000 });
   await page.getByTestId('menu-item-card').first().click();
   await expect(page.getByTestId('order-note-input')).toBeVisible();
 

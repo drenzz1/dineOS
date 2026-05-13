@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import type { Role } from "@/types";
 
@@ -68,7 +68,9 @@ function getServerSnapshot(): boolean {
 
 export default function ProtectedSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const storedRole = useAuthStore((state) => state.role);
+  const logout = useAuthStore((state) => state.logout);
   const isClient = useSyncExternalStore(
     subscribeClientReady,
     getClientSnapshot,
@@ -77,6 +79,11 @@ export default function ProtectedSidebar() {
   const role = isClient ? (storedRole ?? getCookieRole() ?? "Manager") : null;
   const visibleNavItems =
     role && role !== "SuperAdmin" ? ROLE_NAV_ITEMS[role] : [];
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   return (
     <aside className="hidden md:flex md:w-64 md:shrink-0 md:flex-col bg-surface border-r border-border">
@@ -111,6 +118,15 @@ export default function ProtectedSidebar() {
           );
         })}
       </nav>
+
+      <div className="mt-auto border-t border-border p-2.5">
+        <button
+          onClick={handleLogout}
+          className="flex items-center h-8 rounded-sm px-3 text-[13px] font-medium text-fg-muted hover:bg-surface-2 hover:text-fg transition-colors duration-150 w-full text-left"
+        >
+          Log out
+        </button>
+      </div>
     </aside>
   );
 }
