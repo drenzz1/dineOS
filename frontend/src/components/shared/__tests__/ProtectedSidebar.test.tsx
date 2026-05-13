@@ -5,6 +5,7 @@ import type { Role } from "@/types";
 
 jest.mock("next/navigation", () => ({
   usePathname: () => "/orders",
+  useRouter: () => ({ push: jest.fn() }),
 }));
 
 const ALL_LINKS = [

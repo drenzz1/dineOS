@@ -2,10 +2,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Role } from "@/types";
 import { queryClient } from "@/lib/queryClient";
-import { login as apiLogin } from "@/lib/auth/authApi";
+import { login as apiLogin, logout as apiLogout } from "@/lib/auth/authApi";
 import {
   decodeAccessTokenClaims,
   persistAuthCookies,
+  clearAuthCookies,
   getDestination,
 } from "@/lib/auth/keycloak";
 
@@ -16,6 +17,7 @@ interface AuthState {
   restaurantName: string | null;
   accessToken: string | null;
   login: (username: string, password: string, from?: string | null) => Promise<{ destination: string }>;
+  logout: () => Promise<void>;
   setAuth: (
     userId: string,
     role: Role | "SuperAdmin",
@@ -56,6 +58,17 @@ export const useAuthStore = create<AuthState>()(
         });
 
         return { destination: getDestination(role, from) };
+      },
+      logout: async () => {
+        try {
+          await apiLogout();
+        } catch {
+          // Backend call may fail — always clean up regardless
+        }
+
+        clearAuthCookies();
+        set({ userId: null, role: null, tenantId: null, restaurantName: null, accessToken: null });
+        queryClient.clear();
       },
       setAuth: (userId, role, tenantId, restaurantName = null, accessToken = null) =>
         set({ userId, role, tenantId, restaurantName, accessToken }),
