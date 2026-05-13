@@ -1,4 +1,3 @@
-// TODO: replace with real API call and SignalR when backend is ready
 import { useQuery } from "@tanstack/react-query";
 import { getOrders } from "@/lib/api/ordersApi";
 import { queryKeys } from "@/lib/api/queryKeys";
@@ -8,6 +7,11 @@ import type { Order } from "@/types/order";
 
 type GroupedOrders = Record<OrderStatus, Order[]>;
 
+export interface OrderBoardFilters {
+  date?: string;
+  status?: OrderStatus | "all";
+}
+
 const EMPTY_GROUPS: GroupedOrders = {
   [OrderStatus.New]: [],
   [OrderStatus.InProgress]: [],
@@ -16,11 +20,15 @@ const EMPTY_GROUPS: GroupedOrders = {
   [OrderStatus.Cancelled]: [],
 };
 
-export function useOrderBoard() {
+export function useOrderBoard(filters: OrderBoardFilters = {}) {
   const { tenantId } = useTenant();
+  const normalizedFilters = {
+    date: filters.date,
+    status: filters.status ?? "all",
+  };
   const { data: orders = [], isLoading, isError } = useQuery({
-    queryKey: queryKeys.orders.list(tenantId),
-    queryFn: getOrders,
+    queryKey: queryKeys.orders.list(tenantId, normalizedFilters),
+    queryFn: () => getOrders(normalizedFilters),
     // Poll every 30 s until SignalR real-time updates are wired up
     refetchInterval: 30_000,
   });

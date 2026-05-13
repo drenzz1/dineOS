@@ -10,6 +10,9 @@ interface OrderCardProps {
   order: Order;
   onClick: () => void;
   onDoubleClick?: () => void;
+  actionLabel?: string;
+  onAction?: () => void;
+  isActionPending?: boolean;
 }
 
 function formatElapsed(dateStr: string): string {
@@ -37,7 +40,14 @@ function mergeClasses(...classes: Array<string | undefined | false>): string {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function OrderCard({ order, onClick, onDoubleClick }: OrderCardProps) {
+export default function OrderCard({
+  order,
+  onClick,
+  onDoubleClick,
+  actionLabel,
+  onAction,
+  isActionPending,
+}: OrderCardProps) {
   const stallClass = getStallClass(order);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -120,6 +130,21 @@ export default function OrderCard({ order, onClick, onDoubleClick }: OrderCardPr
         )}
 
         <StatusBadge status={order.status} data-testid="order-status-badge" />
+
+        {actionLabel && onAction && (
+          <button
+            type="button"
+            className="mt-1 w-full rounded border border-border bg-surface-2 px-2 py-1.5 text-[11.5px] font-semibold text-fg-muted transition hover:border-border-strong hover:text-fg disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isActionPending}
+            onClick={(event) => {
+              event.stopPropagation();
+              onAction();
+            }}
+            onDoubleClick={(event) => event.stopPropagation()}
+          >
+            {isActionPending ? "Updating..." : actionLabel}
+          </button>
+        )}
       </div>
     </Card>
   );

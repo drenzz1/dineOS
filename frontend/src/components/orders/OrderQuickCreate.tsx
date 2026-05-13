@@ -55,10 +55,15 @@ export default function OrderQuickCreate() {
     queryFn: getMenuItems,
   });
 
-  const { mutate: submitOrder, isPending } = useMutation({
+  const {
+    mutate: submitOrder,
+    isPending,
+    error: submitError,
+    reset: resetSubmitError,
+  } = useMutation({
     mutationFn: createOrder,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.orders.list(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       form.reset();
       router.push(payAfterCreate ? "/payments" : "/orders");
     },
@@ -130,6 +135,7 @@ export default function OrderQuickCreate() {
   }
 
   function onSubmit(values: OrderFormValues) {
+    resetSubmitError();
     submitOrder(values);
   }
 
@@ -246,6 +252,12 @@ export default function OrderQuickCreate() {
         {itemsError && (
           <div className="rounded-md border border-status-cancelled-border bg-status-cancelled-bg px-3 py-2 text-sm font-medium text-status-cancelled-fg">
             {itemsError}
+          </div>
+        )}
+
+        {submitError && (
+          <div className="rounded-md border border-status-cancelled-border bg-status-cancelled-bg px-3 py-2 text-sm font-medium text-status-cancelled-fg">
+            {submitError.message}
           </div>
         )}
 

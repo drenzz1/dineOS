@@ -5,7 +5,6 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateOrderStatus } from "@/lib/api/ordersApi";
 import { queryKeys } from "@/lib/api/queryKeys";
-import { useTenant } from "@/hooks/useTenant";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { OrderStatus } from "@/types/order";
@@ -26,7 +25,6 @@ const ALL_STATUSES: OrderStatus[] = [
 
 export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelProps) {
   const queryClient = useQueryClient();
-  const { tenantId } = useTenant();
   const panelRef = useFocusTrap(!!order);
 
   // Close on Escape key
@@ -48,7 +46,7 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
       status: OrderStatus;
     }) => updateOrderStatus(orderId, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.orders.list(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       onClose();
     },
   });
