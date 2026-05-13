@@ -1,0 +1,167 @@
+dineOS — Milestone 4 work split (paste-friendly)
+=================================================
+
+22 tickets, 3 people. Each section below is one person's queue in the
+exact order they should pick tickets up. "BLOCKED BY" means the linked
+ticket has to be MERGED before this one starts. "READY" = nothing
+blocking, can start immediately.
+
+Link to project board: https://github.com/users/drenzz1/projects/5
+Link to milestone:     Milestone 4 — Advanced Backend (.NET 10)
+
+
+====================================
+ENDRITI  (@endrit77)  — 5 tickets
+====================================
+
+1. #175  Centralize role + policy names as constants
+         READY — start now.
+         Touches every controller, so do it BEFORE the auth chain to
+         avoid merge conflicts with yourself.
+
+2. #156  Switch login to POST /api/v1/auth/login
+         BLOCKED BY: #175
+         The whole auth chain starts here. Until this lands, the other
+         FE tickets are mostly meaningless because tokens won't flow
+         through the backend.
+
+3. #157  Refresh-on-401 interceptor
+         BLOCKED BY: #156
+
+4. #158  Logout calls POST /api/v1/auth/logout
+         BLOCKED BY: #156   (can do in parallel with #157)
+
+5. #159  useMe hook from GET /api/v1/me
+         BLOCKED BY: #156
+
+   ...once Group 3 (operator pages) is mostly done...
+
+6. #168  Wire /admin/users + delete-restaurant modal
+         BLOCKED BY: #156, #159
+
+7. #169  Restaurant email-verification UI (resend + confirm)
+         BLOCKED BY: #156, #173 (Dreni's auth-gate decision)
+
+
+====================================
+DRENI  (@drenzz1)  — 11 tickets
+====================================
+
+Backend safety net first — all of these are READY today and can run in
+any order. Pick whichever you want first.
+
+1. #172  Fix AnthropicOptions.Model default (one-line fix)
+         READY
+
+2. #173  Decide auth gate on EmailVerificationController.Confirm
+         READY — DECISION REQUIRED before Endriti starts #169.
+
+3. #174  RabbitMQ publish fallback in OrderService
+         READY — must be merged before #170 (SignalR).
+
+4. #176  Move db.Database.Migrate() into IDatabaseMigrator
+         READY
+
+5. #177  Push the docs bundle (Postman + blueprints) to main
+         READY — the files are already on your disk under docs/backend/
+
+   ...then the frontend chain...
+
+6. #162  Wire /orders + /orders/new + /orders/[id]
+         BLOCKED BY: #156 (Endriti's login)
+         The whole order/payment/kitchen UX depends on this one.
+
+7. #163  Wire /payments
+         BLOCKED BY: #162
+
+8. #167  Build /settings/profile + /settings/tables pages
+         BLOCKED BY: #156
+
+9. #170  SignalR client for /hubs/orders
+         BLOCKED BY: #162, #164 (Hera's kitchen), #174 (your own)
+         Last big piece — turns the boards live.
+
+
+====================================
+HERA  (@herakurti)  — 7 tickets
+====================================
+
+   ...everything here waits for Endriti's auth chain (#156) before it
+   makes sense to start...
+
+1. #160  Wire /menu to real backend (items, categories, image upload)
+         BLOCKED BY: #156
+
+2. #164  Wire /kitchen board to real backend + queue counters
+         BLOCKED BY: #156, #162 (Dreni's orders wiring)
+
+3. #165  Wire /shifts + shift notes panel
+         BLOCKED BY: #156
+
+4. #166  Wire /reports tabs (sales / orders / staff)
+         BLOCKED BY: #156
+
+5. #161  ✨ AI Describe button on menu cards
+         BLOCKED BY: #160 (needs the menu mutation)
+
+6. #171  ApiResponse envelope helper + standard error toasts
+         BLOCKED BY: #160, #162, #163, #164, #165, #166, #167
+                     (this is a refactor pass across everything wired)
+
+
+====================================
+DEPENDENCY GRAPH AT A GLANCE
+====================================
+
+  #175 (Endriti)
+     └─ #156 (Endriti) ────────────────────────────────────────┐
+                ├─ #157 (Endriti)                              │
+                ├─ #158 (Endriti)                              │
+                ├─ #159 (Endriti) ─────┐                       │
+                │                      └─ #168 (Endriti)       │
+                │                                              │
+                ├─ #160 (Hera) ──┐                             │
+                │                └─ #161 (Hera)                │
+                ├─ #162 (Dreni) ─┬─ #163 (Dreni)               │
+                │                ├─ #164 (Hera) ─┐             │
+                │                │               └─ #170 ──────┤
+                │                │                             │
+                ├─ #165 (Hera)                                  │
+                ├─ #166 (Hera)                                  │
+                ├─ #167 (Dreni)                                 │
+                └─ all six wirings above ─── #171 (Hera)        │
+                                                                │
+  #173 (Dreni)  ──── (decision) ──── #169 (Endriti) ────────────┘
+  #174 (Dreni)  ──────────────────── #170 (Dreni)
+
+  STANDALONE (no dependencies, do anytime):
+    #172, #176, #177  (all Dreni)
+
+
+====================================
+WHO IS BLOCKED RIGHT NOW
+====================================
+
+* Endriti: nothing — start with #175 today.
+* Dreni:   nothing — start with any of #172 / #173 / #174 / #176 / #177.
+* Hera:    waiting on Endriti's #156 to land before any FE wiring is
+           meaningful. While waiting, Hera can:
+             - read docs/backend/SERVICE-TEST-BLUEPRINT.md (4 + 5)
+             - explore the Postman collection
+             - draft the #171 envelope/toast helper as a paper design
+
+
+====================================
+PR ETIQUETTE (applies to everyone)
+====================================
+
+* One PR per ticket.
+* PR title: feat(<area>): <imperative summary> (#NNN)
+* PR body must include "Closes #NNN" so the project board moves the
+  card to Done on merge.
+* Move the card to "In progress" when you start, "In review" when the
+  PR opens.
+* Append a row to docs/AI-Development-Log.md after each merge.
+* Run the matching folder of the Postman collection
+  (docs/backend/postman/dineOS.postman_collection.json) before
+  requesting review — catches every contract mismatch in 30 seconds.

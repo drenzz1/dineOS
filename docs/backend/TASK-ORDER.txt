@@ -1,0 +1,130 @@
+dineOS — order in which to pick up Milestone 4 tickets (#156 – #177)
+=====================================================================
+
+Top is first. Bottom is last. If two tickets sit on the same number, they
+can be done in parallel by different people. Don't start a numbered
+group until the previous group's gate is met.
+
+
+GROUP 1 — Backend safety net  (start immediately, in parallel)
+---------------------------------------------------------------
+1.  #172  Dreni    Fix AnthropicOptions.Model default invalid id.
+                   One-line config fix; unblocks AI usage.
+
+2.  #173  Dreni    Decide auth gate on EmailVerificationController.Confirm.
+                   Decision is required before #169 can be built.
+
+3.  #174  Dreni    RabbitMQ publish fallback in OrderService.
+                   Defines the contract that SignalR (#170) relies on.
+
+4.  #175  Endriti  Role + policy constants.
+                   Touches every controller — do before parallel auth work
+                   to avoid messy merges.
+
+5.  #176  Dreni    Move db.Database.Migrate() into IDatabaseMigrator.
+                   Cleanup; non-blocking but cheap to land now.
+
+   >>> GATE: #173 and #174 must be CLOSED with a decision recorded
+       before Group 3 begins. The rest can roll into Group 2.
+
+
+GROUP 2 — Auth foundation  (sequential; one person owns the chain)
+-------------------------------------------------------------------
+6.  #156  Endriti  Switch login to POST /api/v1/auth/login.
+                   Until this lands, every other FE wiring is pointless.
+
+7.  #157  Endriti  Refresh-on-401 interceptor.
+                   Depends on #156.
+
+8.  #158  Endriti  Logout calls POST /api/v1/auth/logout.
+                   Depends on #156.
+
+9.  #159  Endriti  useMe hook fed by GET /api/v1/me.
+                   Depends on #156. Replaces ad-hoc JWT decoding in
+                   useTenant — needed before any role-gated UI.
+
+   >>> GATE: Logging into the dineOS UI hits backend /auth/login,
+       expired tokens silently refresh, Logout blacklists. Verified
+       end-to-end with Postman.
+
+
+GROUP 3 — Operator pages  (parallel; assign owners as listed)
+--------------------------------------------------------------
+10. #160  Hera     Wire /menu to real backend.
+11. #162  Dreni    Wire /orders + /orders/new + /orders/[id] detail page.
+                   Independent of #160.
+
+   ...once #160 and #162 are merged:
+
+12. #164  Hera     Wire /kitchen board.        Reads orders from #162.
+13. #163  Dreni    Wire /payments.             Reads orders from #162.
+14. #161  Hera     ✨ AI Describe button.       Layers onto #160.
+15. #165  Hera     Wire /shifts + shift notes. Independent.
+16. #166  Hera     Wire /reports tabs.         Independent.
+
+   Suggested cadence: Hera goes 160 → 164 → 165 → 166 → 161.
+                      Dreni goes 162 → 163.
+
+   >>> GATE: A cashier can complete an end-to-end order:
+       /orders/new → kitchen flips status → /payments settles.
+
+
+GROUP 4 — Settings + SuperAdmin  (parallel)
+--------------------------------------------
+17. #167  Dreni    Build /settings/profile + /settings/tables pages.
+                   Two new routes; net-new code.
+
+18. #168  Endriti  Wire /admin/users + delete-restaurant modal.
+
+19. #169  Endriti  Restaurant email-verification UI.
+                   Depends on #173 decision.
+
+   >>> GATE: Manager can edit profile + tables; SuperAdmin can
+       browse users and confirm a restaurant email.
+
+
+GROUP 5 — Realtime + DX polish  (last)
+--------------------------------------
+20. #170  Dreni    SignalR client for /hubs/orders.
+                   Depends on #162, #164, and the #174 contract.
+
+21. #171  Hera     ApiResponse envelope helper + standard error toasts.
+                   This is a refactor pass — easiest once Groups 2/3/4
+                   are stable.
+
+   >>> SHIP GATE: A new order on screen A appears on screen B's board
+       within ~1s without refresh; every error path shows a consistent
+       toast with the right copy and (in dev) the backend traceId.
+
+
+GROUP 6 — Docs bundle  (runs alongside Group 1)
+------------------------------------------------
+22. #177  Dreni    Push the docs already on disk:
+                     - docs/backend/postman/*.json
+                     - docs/backend/SERVICE-TEST-BLUEPRINT.md
+                     - docs/backend/FRONTEND-INTEGRATION-PLAN.md
+                     - docs/backend/EXECUTION-FLOW.md
+                     - docs/backend/IMPLEMENTATION-GUIDE.md
+                     - docs/backend/TASK-ORDER.txt  (this file)
+                     - docs/AI-Development-Log.md   (appended rows)
+                   PR off a branch from main; merge in same week as
+                   Group 1.
+
+
+Suggested timeline
+==================
+Week 1   Group 1 (days 1–2)     +  Group 6 (parallel, same week)
+Week 1   Group 2 (#156 → #159)
+Week 2   Group 3 starts (#160, #162 in parallel)
+Week 3   Group 3 finishes (#161, #163, #164, #165, #166)
+Week 3   Group 4 (#167, #168, #169) in parallel with the tail of Group 3
+Week 4   Group 5 (#170, #171) + regression / e2e pass
+
+
+Reading order for any task
+==========================
+1. EXECUTION-FLOW.md      — phase / gates / dependencies
+2. IMPLEMENTATION-GUIDE.md — exact files + code patterns per ticket
+3. FRONTEND-INTEGRATION-PLAN.md — endpoint ↔ page mapping
+4. Postman collection      — run the matching folder to verify the
+                             backend contract before opening a PR

@@ -1,0 +1,545 @@
+{
+  "info": {
+    "name": "dineOS Backend API (v1)",
+    "_postman_id": "d1ne0s-collection-2026-05-13",
+    "description": "Full coverage of every controller in DineOS.Api. All requests use `{{baseUrl}}/api/v1` and pull the bearer token from `{{accessToken}}`. The **Auth → Login** request stores `accessToken` and `refreshToken` into the environment via a test script — run it first.\n\n**Roles:** SuperAdmin · Manager · Cashier · KitchenStaff.\n**Tenant scoping:** every authenticated endpoint reads `tenant_id` from the JWT; do not send a conflicting `X-Tenant-ID` header.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",      "value": "http://localhost:5000",          "type": "string" },
+    { "key": "keycloakUrl",  "value": "http://localhost:8080",          "type": "string" },
+    { "key": "realm",        "value": "dineos",                          "type": "string" },
+    { "key": "clientId",     "value": "dineos-frontend",                 "type": "string" },
+    { "key": "username",     "value": "superadmin",                      "type": "string" },
+    { "key": "password",     "value": "ChangeMe123!",                    "type": "string" },
+    { "key": "accessToken",  "value": "",                                "type": "string" },
+    { "key": "refreshToken", "value": "",                                "type": "string" },
+    { "key": "tenantId",     "value": "1",                               "type": "string" },
+    { "key": "menuItemId",   "value": "1",                               "type": "string" },
+    { "key": "orderId",      "value": "1",                               "type": "string" },
+    { "key": "shiftId",      "value": "1",                               "type": "string" },
+    { "key": "shiftNoteId",  "value": "1",                               "type": "string" },
+    { "key": "staffId",      "value": "1",                               "type": "string" },
+    { "key": "tableId",      "value": "1",                               "type": "string" },
+    { "key": "restaurantId", "value": "1",                               "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": { "raw": "{{baseUrl}}/api/v1/health", "host": ["{{baseUrl}}"], "path": ["api","v1","health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /auth/login (saves tokens)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data) {",
+                  "  pm.environment.set('accessToken', json.data.accessToken || json.data.AccessToken);",
+                  "  pm.environment.set('refreshToken', json.data.refreshToken || json.data.RefreshToken);",
+                  "  pm.collectionVariables.set('accessToken', json.data.accessToken || json.data.AccessToken);",
+                  "  pm.collectionVariables.set('refreshToken', json.data.refreshToken || json.data.RefreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          }
+        },
+        {
+          "name": "POST /auth/refresh",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","refresh"] }
+          }
+        },
+        {
+          "name": "POST /auth/logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/logout", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","logout"] }
+          }
+        },
+        {
+          "name": "GET /me",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/me", "host": ["{{baseUrl}}"], "path": ["api","v1","me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin (SuperAdmin only)",
+      "item": [
+        {
+          "name": "GET /admin/users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users?search=&page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","admin","users"],
+              "query": [
+                { "key": "search", "value": "" },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /admin/restaurants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/restaurants?search=&page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","admin","restaurants"],
+              "query": [
+                { "key": "search", "value": "" },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /admin/restaurants/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/restaurants/{{restaurantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","restaurants","{{restaurantId}}"] }
+          }
+        },
+        {
+          "name": "POST /admin/restaurants",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sample Bistro\",\n  \"ownerName\": \"Alex Owner\",\n  \"ownerEmail\": \"owner@sample.test\",\n  \"phone\": \"+38344123456\",\n  \"city\": \"Prishtina\",\n  \"plan\": \"Free\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/restaurants", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","restaurants"] }
+          }
+        },
+        {
+          "name": "PATCH /admin/restaurants/:id/status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"Active\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/restaurants/{{restaurantId}}/status", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","restaurants","{{restaurantId}}","status"] }
+          }
+        },
+        {
+          "name": "PATCH /admin/restaurants/:id/plan",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"plan\": \"Pro\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/restaurants/{{restaurantId}}/plan", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","restaurants","{{restaurantId}}","plan"] }
+          }
+        },
+        {
+          "name": "DELETE /admin/restaurants/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/restaurants/{{restaurantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","restaurants","{{restaurantId}}"] }
+          }
+        },
+        {
+          "name": "POST /admin/restaurants/:id/email-verification/resend",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/restaurants/{{tenantId}}/email-verification/resend", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","restaurants","{{tenantId}}","email-verification","resend"] }
+          }
+        },
+        {
+          "name": "POST /admin/restaurants/:id/email-verification/confirm",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"123456\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/restaurants/{{tenantId}}/email-verification/confirm", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","restaurants","{{tenantId}}","email-verification","confirm"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restaurant (Manager+)",
+      "item": [
+        {
+          "name": "GET /restaurant",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/restaurant", "host": ["{{baseUrl}}"], "path": ["api","v1","restaurant"] } }
+        },
+        {
+          "name": "PUT /restaurant",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Name\",\n  \"ownerName\": \"Owner Name\",\n  \"phone\": \"+38344111222\",\n  \"city\": \"Prishtina\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/restaurant", "host": ["{{baseUrl}}"], "path": ["api","v1","restaurant"] }
+          }
+        },
+        {
+          "name": "GET /restaurant/tables",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/restaurant/tables", "host": ["{{baseUrl}}"], "path": ["api","v1","restaurant","tables"] } }
+        },
+        {
+          "name": "POST /restaurant/tables",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"number\": 5,\n  \"capacity\": 4,\n  \"location\": \"Patio\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/restaurant/tables", "host": ["{{baseUrl}}"], "path": ["api","v1","restaurant","tables"] }
+          }
+        },
+        {
+          "name": "PUT /restaurant/tables/:id",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"number\": 5,\n  \"capacity\": 6,\n  \"location\": \"Window\",\n  \"isActive\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/restaurant/tables/{{tableId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","restaurant","tables","{{tableId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Menu",
+      "item": [
+        {
+          "name": "GET /menu (Manager+)",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/menu", "host": ["{{baseUrl}}"], "path": ["api","v1","menu"] } }
+        },
+        {
+          "name": "GET /menu/items",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/menu/items", "host": ["{{baseUrl}}"], "path": ["api","v1","menu","items"] } }
+        },
+        {
+          "name": "POST /menu/items",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Margherita\",\n  \"price\": 7.50,\n  \"category\": \"Pizza\",\n  \"description\": \"Tomato, mozzarella, basil\",\n  \"imageUrl\": null\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/menu/items", "host": ["{{baseUrl}}"], "path": ["api","v1","menu","items"] }
+          }
+        },
+        {
+          "name": "PUT /menu/items/:id",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Margherita (large)\",\n  \"price\": 9.00,\n  \"category\": \"Pizza\",\n  \"description\": \"Updated description\",\n  \"imageUrl\": null\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/menu/items/{{menuItemId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","menu","items","{{menuItemId}}"] }
+          }
+        },
+        {
+          "name": "POST /menu/items/:id/image (multipart)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "image", "type": "file", "src": [] }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/menu/items/{{menuItemId}}/image", "host": ["{{baseUrl}}"], "path": ["api","v1","menu","items","{{menuItemId}}","image"] }
+          }
+        },
+        {
+          "name": "DELETE /menu/items/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/api/v1/menu/items/{{menuItemId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","menu","items","{{menuItemId}}"] }
+          }
+        },
+        {
+          "name": "GET /menu/categories",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/menu/categories", "host": ["{{baseUrl}}"], "path": ["api","v1","menu","categories"] } }
+        },
+        {
+          "name": "POST /menu/categories",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Pizza\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/menu/categories", "host": ["{{baseUrl}}"], "path": ["api","v1","menu","categories"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders (Cashier+)",
+      "item": [
+        {
+          "name": "GET /orders",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders?date=&status=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","orders"],
+              "query": [
+                { "key": "date", "value": "" },
+                { "key": "status", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /orders/:id",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","orders","{{orderId}}"] } }
+        },
+        {
+          "name": "POST /orders",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"orderType\": \"dine-in\",\n  \"tableNumber\": 5,\n  \"notes\": null,\n  \"items\": [\n    { \"name\": \"Margherita\", \"quantity\": 1, \"unitPrice\": 7.50, \"notes\": null }\n  ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/orders", "host": ["{{baseUrl}}"], "path": ["api","v1","orders"] }
+          }
+        },
+        {
+          "name": "PATCH /orders/:id/status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"InProgress\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/status", "host": ["{{baseUrl}}"], "path": ["api","v1","orders","{{orderId}}","status"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Kitchen (KitchenStaff only)",
+      "item": [
+        {
+          "name": "GET /kitchen/orders",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/kitchen/orders", "host": ["{{baseUrl}}"], "path": ["api","v1","kitchen","orders"] } }
+        },
+        {
+          "name": "GET /kitchen/queue",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/kitchen/queue", "host": ["{{baseUrl}}"], "path": ["api","v1","kitchen","queue"] } }
+        },
+        {
+          "name": "PUT /kitchen/orders/:id/status",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"InProgress\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/kitchen/orders/{{orderId}}/status", "host": ["{{baseUrl}}"], "path": ["api","v1","kitchen","orders","{{orderId}}","status"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments (Cashier+)",
+      "item": [
+        {
+          "name": "GET /payments/open-orders",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/payments/open-orders", "host": ["{{baseUrl}}"], "path": ["api","v1","payments","open-orders"] } }
+        },
+        {
+          "name": "POST /payments",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": {{orderId}},\n  \"amount\": 7.50,\n  \"method\": \"Card\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/payments", "host": ["{{baseUrl}}"], "path": ["api","v1","payments"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Staff (Manager+)",
+      "item": [
+        {
+          "name": "GET /staff",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/staff", "host": ["{{baseUrl}}"], "path": ["api","v1","staff"] } }
+        },
+        {
+          "name": "POST /staff",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Jane Cashier\",\n  \"email\": \"jane@sample.test\",\n  \"role\": \"Cashier\",\n  \"pin\": \"4321\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/staff", "host": ["{{baseUrl}}"], "path": ["api","v1","staff"] }
+          }
+        },
+        {
+          "name": "PUT /staff/:id",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Jane C. Updated\",\n  \"email\": null,\n  \"role\": null,\n  \"pin\": null\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/staff/{{staffId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","staff","{{staffId}}"] }
+          }
+        },
+        {
+          "name": "PATCH /staff/:id/active",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"isActive\": false\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/staff/{{staffId}}/active", "host": ["{{baseUrl}}"], "path": ["api","v1","staff","{{staffId}}","active"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shifts (Manager+)",
+      "item": [
+        {
+          "name": "GET /shifts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shifts?date=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","shifts"],
+              "query": [{ "key": "date", "value": "" }]
+            }
+          }
+        },
+        {
+          "name": "POST /shifts",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"staffMemberId\": {{staffId}},\n  \"startTime\": \"2026-05-13T09:00:00Z\",\n  \"endTime\": \"2026-05-13T17:00:00Z\",\n  \"notes\": \"Lunch shift\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/shifts", "host": ["{{baseUrl}}"], "path": ["api","v1","shifts"] }
+          }
+        },
+        {
+          "name": "PUT /shifts/:id",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"staffMemberId\": null,\n  \"startTime\": \"2026-05-13T10:00:00Z\",\n  \"endTime\":   \"2026-05-13T18:00:00Z\",\n  \"notes\": \"Shift moved\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/shifts/{{shiftId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","shifts","{{shiftId}}"] }
+          }
+        },
+        {
+          "name": "DELETE /shifts/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/api/v1/shifts/{{shiftId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","shifts","{{shiftId}}"] }
+          }
+        },
+        {
+          "name": "GET /shifts/notes",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/shifts/notes", "host": ["{{baseUrl}}"], "path": ["api","v1","shifts","notes"] } }
+        },
+        {
+          "name": "POST /shifts/notes (Manager+)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Morning handover\",\n  \"body\": \"Restock cups; espresso grinder making noise.\",\n  \"priority\": \"Info\",\n  \"author\": \"Manager Joe\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/shifts/notes", "host": ["{{baseUrl}}"], "path": ["api","v1","shifts","notes"] }
+          }
+        },
+        {
+          "name": "DELETE /shifts/notes/:id (Manager+)",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/api/v1/shifts/notes/{{shiftNoteId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","shifts","notes","{{shiftNoteId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports (Manager+)",
+      "item": [
+        {
+          "name": "GET /reports/sales",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/sales?from=&to=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","reports","sales"],
+              "query": [
+                { "key": "from", "value": "" },
+                { "key": "to", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /reports/orders",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/orders?from=&to=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","reports","orders"],
+              "query": [
+                { "key": "from", "value": "" },
+                { "key": "to", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /reports/staff",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/reports/staff", "host": ["{{baseUrl}}"], "path": ["api","v1","reports","staff"] } }
+        }
+      ]
+    },
+    {
+      "name": "AI (Manager+, ai-expensive limiter)",
+      "item": [
+        {
+          "name": "POST /ai/menu-items/:id/describe",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/ai/menu-items/{{menuItemId}}/describe", "host": ["{{baseUrl}}"], "path": ["api","v1","ai","menu-items","{{menuItemId}}","describe"] }
+          }
+        }
+      ]
+    }
+  ]
+}
