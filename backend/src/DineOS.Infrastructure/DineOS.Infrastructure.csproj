@@ -9,7 +9,7 @@
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.18" />
     <PackageReference Include="Hangfire.PostgreSql" Version="1.20.10" />
-    <PackageReference Include="MailKit" Version="4.14.0" />
+    <PackageReference Include="MailKit" Version="4.16.0" />
     <PackageReference Include="RazorLight" Version="2.3.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
@@ -29,10 +29,24 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="EmailTemplates\**\*.cshtml" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Work around dotnet/sdk:10.0.100 passing recursive globs literally in Linux builds. -->
+    <Compile Include="DependencyInjection.cs" />
+    <Compile Include="Jobs/*.cs" />
+    <Compile Include="Messaging/*.cs" />
+    <Compile Include="Persistence/*.cs" />
+    <Compile Include="Persistence/Interceptors/*.cs" />
+    <Compile Include="Persistence/Messaging/*.cs" />
+    <Compile Include="Persistence/Migrations/*.cs" />
+    <Compile Include="Repositories/*.cs" />
+    <Compile Include="Services/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="EmailTemplates/*.cshtml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

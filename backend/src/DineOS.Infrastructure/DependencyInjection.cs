@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IRestaurantService, RestaurantService>();
         services.AddScoped<IShiftService, ShiftService>();
+        services.AddSingleton<IDatabaseMigrator, EfDatabaseMigrator>();
 
         services.Configure<RabbitMqOptions>(configuration.GetSection(RabbitMqOptions.SectionName));
         services.AddSingleton<RabbitMqConnectionProvider>();
