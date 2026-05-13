@@ -85,6 +85,41 @@ public class AnthropicAiClientTests
     }
 
     [Fact]
+    public async Task GenerateMenuDescriptionAsync_UsesConfiguredModelAndApiKey()
+    {
+        var (client, handler) = CreateSut(new AnthropicOptions
+        {
+            ApiKey = "configured-key",
+            Model = "claude-future-model",
+        });
+        handler.Responder = request =>
+        {
+            Assert.True(request.Headers.TryGetValues("x-api-key", out var values));
+            Assert.Equal("configured-key", Assert.Single(values));
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""
+                    {
+                      "content": [
+                        { "type": "tool_use", "name": "report_menu_description",
+                          "input": { "description": "Bright citrus salad with fresh herbs.", "allergens": [] } }
+                      ],
+                      "usage": { "input_tokens": 10, "output_tokens": 5 }
+                    }
+                    """, Encoding.UTF8, "application/json"),
+            };
+        };
+
+        var result = await client.GenerateMenuDescriptionAsync(
+            new MenuDescriptionAiRequest("Citrus Salad", "Salads", 8m, null));
+
+        Assert.Equal("claude-future-model", result.Usage.Model);
+        Assert.NotNull(handler.LastBody);
+        Assert.Contains("\"model\":\"claude-future-model\"", handler.LastBody);
+    }
+
+    [Fact]
     public async Task GenerateMenuDescriptionAsync_MissingApiKey_ThrowsAiUnavailable()
     {
         var (client, _) = CreateSut(new AnthropicOptions { ApiKey = "" });
