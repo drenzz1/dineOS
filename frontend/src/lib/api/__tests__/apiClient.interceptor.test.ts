@@ -11,7 +11,7 @@
  */
 
 import type MockAdapterType from "axios-mock-adapter";
-import type { AxiosInstance } from "axios";
+import type { AxiosInstance, AxiosStatic } from "axios";
 import { persistAuthCookies, clearAuthCookies, decodeAccessTokenClaims } from "@/lib/auth/keycloak";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -19,12 +19,12 @@ import { useAuthStore } from "@/stores/authStore";
 // Declared here (module-level) so it is initialised before beforeAll runs.
 // The axios factory below captures it via a proxy that reads the value at
 // call-time, not at factory-registration-time.
-let refreshPostMock = jest.fn();
+const refreshPostMock = jest.fn();
 
 // ─── mock registrations ───────────────────────────────────────────────────────
 
 jest.mock("axios", () => {
-  const actual = jest.requireActual<typeof import("axios")>("axios");
+  const actual = jest.requireActual<AxiosStatic>("axios");
   let createCount = 0;
   return {
     ...actual,
