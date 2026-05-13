@@ -1,3 +1,4 @@
+using DineOS.Application.Authorization;
 using DineOS.Tests.Fixtures;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -25,7 +26,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task SuperAdmin_AdminEndpoint_Returns200()
     {
-        var client = ClientWith(GenerateTestJwt("SuperAdmin"));
+        var client = ClientWith(GenerateTestJwt(Roles.SuperAdmin));
 
         var response = await client.GetAsync("/api/v1/admin/users");
 
@@ -36,7 +37,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task Manager_SuperAdminOnlyEndpoint_Returns403_WithStructuredError()
     {
-        var client = ClientWith(GenerateTestJwt("Manager", "1"));
+        var client = ClientWith(GenerateTestJwt(Roles.Manager, "1"));
 
         var response = await client.GetAsync("/api/v1/admin/users");
 
@@ -54,7 +55,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task Cashier_CreateOrder_Returns201()
     {
-        var client = ClientWith(GenerateTestJwt("Cashier", "1"));
+        var client = ClientWith(GenerateTestJwt(Roles.Cashier, "1"));
         client.DefaultRequestHeaders.Add("X-Tenant-ID", "1");
 
         var payload = JsonSerializer.Serialize(new
@@ -76,7 +77,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task Cashier_StaffManagementEndpoint_Returns403()
     {
-        var client = ClientWith(GenerateTestJwt("Cashier", "1"));
+        var client = ClientWith(GenerateTestJwt(Roles.Cashier, "1"));
 
         var response = await client.GetAsync("/api/v1/staff");
 
@@ -87,7 +88,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task KitchenStaff_KitchenOrders_Returns200()
     {
-        var client = ClientWith(GenerateTestJwt("KitchenStaff", "1"));
+        var client = ClientWith(GenerateTestJwt(Roles.KitchenStaff, "1"));
 
         var response = await client.GetAsync("/api/v1/kitchen/orders");
 
@@ -104,7 +105,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     [InlineData("GET",  "/api/v1/orders")]           // CashierAndAbove
     public async Task KitchenStaff_OtherRoleEndpoints_Returns403(string method, string path)
     {
-        var client = ClientWith(GenerateTestJwt("KitchenStaff", "1"));
+        var client = ClientWith(GenerateTestJwt(Roles.KitchenStaff, "1"));
 
         var request = new HttpRequestMessage(new HttpMethod(method), path);
         var response = await client.SendAsync(request);
@@ -117,7 +118,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     public async Task Manager_XTenantIdHeaderMismatch_Returns403_CrossTenantIsolation()
     {
         // JWT claims tenant_id=1 but header asserts tenant 2 — middleware must reject
-        var client = ClientWith(GenerateTestJwt("Manager", "1"));
+        var client = ClientWith(GenerateTestJwt(Roles.Manager, "1"));
         client.DefaultRequestHeaders.Add("X-Tenant-ID", "2");
 
         var response = await client.GetAsync("/api/v1/staff");

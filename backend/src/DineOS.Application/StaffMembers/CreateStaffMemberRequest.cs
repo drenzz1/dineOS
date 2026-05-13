@@ -1,3 +1,4 @@
+using DineOS.Application.Authorization;
 using FluentValidation;
 
 namespace DineOS.Application.StaffMembers;
@@ -12,7 +13,7 @@ public class CreateStaffMemberRequest
 
 public class CreateStaffMemberRequestValidator : AbstractValidator<CreateStaffMemberRequest>
 {
-    private static readonly string[] ValidRoles = ["Manager", "Cashier", "KitchenStaff", "SuperAdmin"];
+    private static readonly string[] ValidRoles = [Roles.Manager, Roles.Cashier, Roles.KitchenStaff, Roles.SuperAdmin];
 
     public CreateStaffMemberRequestValidator()
     {

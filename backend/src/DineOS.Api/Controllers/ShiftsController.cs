@@ -3,6 +3,7 @@ using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Shifts;
+using DineOS.Application.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -14,7 +15,7 @@ namespace DineOS.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/shifts")]
 [Produces("application/json")]
-[Authorize(Policy = "ManagerAndAbove")]
+[Authorize(Policy = Policies.ManagerAndAbove)]
 [EnableRateLimiting("authenticated")]
 public class ShiftsController(IShiftService shiftService) : ControllerBase
 {

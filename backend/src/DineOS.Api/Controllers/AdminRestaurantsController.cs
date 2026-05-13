@@ -3,6 +3,7 @@ using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Restaurants;
+using DineOS.Application.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -14,7 +15,7 @@ namespace DineOS.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/admin/restaurants")]
 [Produces("application/json")]
-[Authorize(Policy = "SuperAdminOnly")]
+[Authorize(Policy = Policies.SuperAdminOnly)]
 [EnableRateLimiting("authenticated")]
 public class AdminRestaurantsController(IAdminRestaurantService restaurantService) : ControllerBase
 {

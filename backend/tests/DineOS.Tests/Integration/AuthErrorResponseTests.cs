@@ -1,3 +1,4 @@
+using DineOS.Application.Authorization;
 using DineOS.Tests.Fixtures;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -37,7 +38,7 @@ public class AuthErrorResponseTests(CustomWebApplicationFactory factory)
     {
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", GenerateJwtWithRole("Manager"));
+            new AuthenticationHeaderValue("Bearer", GenerateJwtWithRole(Roles.Manager));
 
         // AdminController requires "SuperAdminOnly" policy
         var response = await client.GetAsync("/api/v1/admin/users");
@@ -59,7 +60,7 @@ public class AuthErrorResponseTests(CustomWebApplicationFactory factory)
     {
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", GenerateJwtWithRole("Cashier"));
+            new AuthenticationHeaderValue("Bearer", GenerateJwtWithRole(Roles.Cashier));
 
         var r1 = JsonDocument.Parse(
             await (await client.GetAsync("/api/v1/admin/users")).Content.ReadAsStringAsync()

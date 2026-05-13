@@ -5,6 +5,7 @@ using DineOS.Api.Middleware;
 using DineOS.Api.Services;
 using DineOS.Application;
 using DineOS.Application.Authentication;
+using DineOS.Application.Authorization;
 using DineOS.Application.Common;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Options;
@@ -122,10 +123,10 @@ try
             .RequireAuthenticatedUser()
             .Build();
 
-        options.AddPolicy("SuperAdminOnly",   p => p.RequireRole("SuperAdmin"));
-        options.AddPolicy("ManagerAndAbove",  p => p.RequireRole("SuperAdmin", "Manager"));
-        options.AddPolicy("CashierAndAbove",  p => p.RequireRole("SuperAdmin", "Manager", "Cashier"));
-        options.AddPolicy("KitchenStaffOnly", p => p.RequireRole("KitchenStaff"));
+        options.AddPolicy(Policies.SuperAdminOnly,   p => p.RequireRole(Roles.SuperAdmin));
+        options.AddPolicy(Policies.ManagerAndAbove,  p => p.RequireRole(Roles.SuperAdmin, Roles.Manager));
+        options.AddPolicy(Policies.CashierAndAbove,  p => p.RequireRole(Roles.SuperAdmin, Roles.Manager, Roles.Cashier));
+        options.AddPolicy(Policies.KitchenStaffOnly, p => p.RequireRole(Roles.KitchenStaff));
     });
 
     // ── API Versioning ────────────────────────────────────────────────────────────

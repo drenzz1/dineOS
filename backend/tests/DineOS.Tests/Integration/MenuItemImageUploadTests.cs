@@ -2,6 +2,7 @@ using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Domain.Entities;
 using DineOS.Infrastructure.Persistence;
+using DineOS.Application.Authorization;
 using DineOS.Tests.Fixtures;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,7 +32,7 @@ public class MenuItemImageUploadTests(CustomWebApplicationFactory factory)
     public async Task UploadImage_ValidPng_Returns200_AndPersistsImageUrl()
     {
         var itemId = await SeedMenuItemAsync("901");
-        var client = ClientWith(Jwt("Manager", "901"));
+        var client = ClientWith(Jwt(Roles.Manager, "901"));
 
         var response = await client.PostAsync(
             $"/api/v1/menu/items/{itemId}/image",
@@ -56,7 +57,7 @@ public class MenuItemImageUploadTests(CustomWebApplicationFactory factory)
     public async Task UploadImage_InvalidContentType_Returns400_WithErrorCode()
     {
         var itemId = await SeedMenuItemAsync("902");
-        var client = ClientWith(Jwt("Manager", "902"));
+        var client = ClientWith(Jwt(Roles.Manager, "902"));
 
         var response = await client.PostAsync(
             $"/api/v1/menu/items/{itemId}/image",
@@ -73,7 +74,7 @@ public class MenuItemImageUploadTests(CustomWebApplicationFactory factory)
     public async Task UploadImage_FileTooLarge_Returns400_WithErrorCode()
     {
         var itemId = await SeedMenuItemAsync("903");
-        var client = ClientWith(Jwt("Manager", "903"));
+        var client = ClientWith(Jwt(Roles.Manager, "903"));
 
         // 5 MB + 1 byte exceeds the default 5 MB limit
         var response = await client.PostAsync(
@@ -91,7 +92,7 @@ public class MenuItemImageUploadTests(CustomWebApplicationFactory factory)
     public async Task UploadImage_EmptyFile_Returns400_WithErrorCode()
     {
         var itemId = await SeedMenuItemAsync("904");
-        var client = ClientWith(Jwt("Manager", "904"));
+        var client = ClientWith(Jwt(Roles.Manager, "904"));
 
         var response = await client.PostAsync(
             $"/api/v1/menu/items/{itemId}/image",
@@ -107,7 +108,7 @@ public class MenuItemImageUploadTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task UploadImage_NonExistentItem_Returns404()
     {
-        var client = ClientWith(Jwt("Manager", "905"));
+        var client = ClientWith(Jwt(Roles.Manager, "905"));
 
         var response = await client.PostAsync(
             "/api/v1/menu/items/99999/image",
@@ -133,7 +134,7 @@ public class MenuItemImageUploadTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task UploadImage_CashierRole_Returns403()
     {
-        var client = ClientWith(Jwt("Cashier", "907"));
+        var client = ClientWith(Jwt(Roles.Cashier, "907"));
 
         // Authorization policy fires before the action body — item need not exist
         var response = await client.PostAsync(
@@ -148,7 +149,7 @@ public class MenuItemImageUploadTests(CustomWebApplicationFactory factory)
     public async Task UploadImage_PathTraversalFilename_IsSanitizedAndStoredSafely()
     {
         var itemId = await SeedMenuItemAsync("908");
-        var client = ClientWith(Jwt("Manager", "908"));
+        var client = ClientWith(Jwt(Roles.Manager, "908"));
 
         // SaveAsync extracts only the extension via Path.GetExtension and generates a
         // UUID-based filename, so the traversal attempt in the original name is discarded.

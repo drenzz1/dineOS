@@ -3,6 +3,7 @@ using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Menu;
+using DineOS.Application.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -20,7 +21,7 @@ public class MenuController(IMenuService menuService) : ControllerBase
 {
     /// <summary>Lists all menu items for the current tenant (base route, Manager and above).</summary>
     [HttpGet]
-    [Authorize(Policy = "ManagerAndAbove")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<List<MenuItemDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -38,7 +39,7 @@ public class MenuController(IMenuService menuService) : ControllerBase
 
     /// <summary>Adds a new menu item.</summary>
     [HttpPost("items")]
-    [Authorize(Policy = "ManagerAndAbove")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<MenuItemDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -51,7 +52,7 @@ public class MenuController(IMenuService menuService) : ControllerBase
 
     /// <summary>Updates an existing menu item.</summary>
     [HttpPut("items/{id:long}")]
-    [Authorize(Policy = "ManagerAndAbove")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<MenuItemDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -105,7 +106,7 @@ public class MenuController(IMenuService menuService) : ControllerBase
     /// <response code="404">No menu item with the given ID exists for this tenant.</response>
     /// <response code="429">Rate limit exceeded.</response>
     [HttpPost("items/{id:long}/image")]
-    [Authorize(Policy = "ManagerAndAbove")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ApiResponse<MenuItemImageUploadDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
@@ -124,7 +125,7 @@ public class MenuController(IMenuService menuService) : ControllerBase
 
     /// <summary>Soft-deletes a menu item by ID.</summary>
     [HttpDelete("items/{id:long}")]
-    [Authorize(Policy = "ManagerAndAbove")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<MenuItemDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -143,7 +144,7 @@ public class MenuController(IMenuService menuService) : ControllerBase
 
     /// <summary>Adds a new menu category.</summary>
     [HttpPost("categories")]
-    [Authorize(Policy = "ManagerAndAbove")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<MenuCategoryDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
