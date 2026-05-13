@@ -172,6 +172,21 @@ try
             policy.QueueLimit = 0;
         });
 
+        // Anonymous owner-facing email-verification confirm — partitioned by
+        // remote IP so one noisy client cannot lock everyone out. The cap is
+        // tight because a legitimate owner needs at most a handful of tries
+        // (the code itself is also capped via FailedAttempts).
+        options.AddPolicy("email-verification-confirm", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0,
+                }));
+
         options.OnRejected = async (context, cancellationToken) =>
         {
             context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;

@@ -28,11 +28,12 @@ ASP.NET's RFC 7807 `ValidationProblemDetails` is *available* (via `ServiceResult
 
 Defined in `backend/src/DineOS.Api/Program.cs`:
 
-| Policy | Limit | Queue | Used by |
-|---|---|---|---|
-| `public` | 60/min | 5 | `POST auth/login`, `POST auth/refresh`, `GET health` |
-| `authenticated` | 300/min | 20 | All other controllers (class-level) |
-| `ai-expensive` | 10/min | 0 | `POST ai/menu-items/{id}/describe` |
+| Policy | Limit | Queue | Partitioned | Used by |
+|---|---|---|---|---|
+| `public` | 60/min | 5 | global | `POST auth/login`, `POST auth/refresh`, `GET health` |
+| `authenticated` | 300/min | 20 | global | All other controllers (class-level) |
+| `ai-expensive` | 10/min | 0 | global | `POST ai/menu-items/{id}/describe` |
+| `email-verification-confirm` | 10/min | 0 | per remote IP | `POST admin/restaurants/{tenantId}/email-verification/confirm` (anonymous endpoint) |
 
 ## Public endpoints — intentional anonymous access
 
@@ -41,6 +42,7 @@ Defined in `backend/src/DineOS.Api/Program.cs`:
 | `POST /auth/login` | Cannot require auth to obtain a token. Rate-limited via `public` policy. |
 | `POST /auth/refresh` | Refresh exchange does not require an access token (the refresh token itself is the credential). Rate-limited via `public` policy. |
 | `GET /health` | Used by uptime monitors and container orchestrators (k8s/docker liveness probes) which can't authenticate. Rate-limited via `public` policy. |
+| `POST admin/restaurants/{tenantId}/email-verification/confirm` | Owner-facing self-verification — the 6-digit code is itself proof of inbox ownership, so requiring an access token would lock owners out of their own account (decided in #173, Option A). Brute-force is bounded by the per-IP `email-verification-confirm` limiter (10/min) plus the in-row `FailedAttempts` cap (default 5) on `EmailVerificationCode`. |
 
 ## No-input endpoints (validation N/A)
 
@@ -103,7 +105,7 @@ Auth attributes shown are the *resolved* policy (class-level merged with any act
 | Action | Verb | Route | Body DTO | Validator | Auth | Rate limit |
 |---|---|---|---|---|---|---|
 | Resend | POST | `admin/restaurants/{tenantId:long}/email-verification/resend` | — | — | `SuperAdminOnly` | `authenticated` |
-| Confirm | POST | `admin/restaurants/{tenantId:long}/email-verification/confirm` | `ConfirmEmailVerificationRequest` | `ConfirmEmailVerificationRequestValidator` | `SuperAdminOnly` | `authenticated` |
+| Confirm | POST | `admin/restaurants/{tenantId:long}/email-verification/confirm` | `ConfirmEmailVerificationRequest` | `ConfirmEmailVerificationRequestValidator` | Anonymous | `email-verification-confirm` |
 
 ### HealthController
 
@@ -202,7 +204,7 @@ Auth attributes shown are the *resolved* policy (class-level merged with any act
 
 - 24 endpoints with request bodies — all have validators.
 - 25 endpoints without request bodies — covered by route constraints / nullable model binding.
-- 3 endpoints intentionally anonymous (login, refresh, health) — documented above.
+- 4 endpoints intentionally anonymous (login, refresh, health, email-verification confirm) — documented above.
 - All authenticated endpoints carry `[EnableRateLimiting("authenticated")]` (or stricter for AI).
 - All public endpoints carry `[EnableRateLimiting("public")]`.
 - All controllers carry tenant isolation via `TenantIsolationMiddleware` after the auth middleware (except those scoped to `SuperAdminOnly` or anonymous endpoints which bypass tenant context).

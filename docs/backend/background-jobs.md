@@ -56,9 +56,10 @@ cd backend && docker compose up -d
 # 3. Open MailHog at http://localhost:8025 — the verification email arrives
 #    in a few seconds. Copy the 6-digit code.
 
-# 4. Confirm the code:
+# 4. Confirm the code (anonymous — the 6-digit code is itself proof of
+#    inbox ownership; gated by the per-IP `email-verification-confirm`
+#    rate limit plus the in-row FailedAttempts cap). See #173.
 curl -X POST http://localhost:5000/api/v1/admin/restaurants/{tenantId}/email-verification/confirm \
-     -H "Authorization: Bearer <super-admin-jwt>" \
      -H "Content-Type: application/json" \
      -d '{"code":"123456"}'
 ```
