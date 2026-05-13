@@ -1,1 +1,1 @@
-export * as meApi from "./meApi";
+export default {};

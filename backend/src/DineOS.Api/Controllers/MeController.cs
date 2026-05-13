@@ -27,16 +27,13 @@ public class MeController : ControllerBase
             .Select(c => c.Value)
             .ToList();
 
-        var tenantId = User.FindFirstValue("tenant_id");
-
         return Ok(ApiResponse<object>.Ok(new
         {
             Id       = User.FindFirstValue("sub"),
             Email    = User.FindFirstValue("email"),
             Username = User.FindFirstValue("preferred_username"),
             Name     = User.FindFirstValue("name"),
-            Roles    = roles,
-            TenantId = tenantId
+            Roles    = roles
         }));
     }
 }

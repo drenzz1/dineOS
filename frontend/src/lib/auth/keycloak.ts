@@ -32,7 +32,8 @@ function base64UrlDecodeJson<T>(value: string): T {
   return JSON.parse(new TextDecoder().decode(bytes)) as T;
 }
 
-export function getPrimaryRole(roles: string[]): AppRole {
+function getPrimaryRole(claims: AccessTokenClaims): AppRole {
+  const roles = claims.realm_access?.roles ?? [];
   const role = ROLE_PRIORITY.find((candidate) => roles.includes(candidate));
 
   if (!role) {
@@ -67,7 +68,7 @@ export function decodeAccessTokenClaims(accessToken: string): {
   tenantId: string | null;
 } {
   const claims = base64UrlDecodeJson<AccessTokenClaims>(accessToken.split(".")[1] ?? "");
-  const role = getPrimaryRole(claims.realm_access?.roles ?? []);
+  const role = getPrimaryRole(claims);
   const tenantId =
     claims.tenant_id === undefined || claims.tenant_id === null
       ? null

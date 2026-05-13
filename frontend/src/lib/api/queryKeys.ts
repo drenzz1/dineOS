@@ -62,10 +62,6 @@ export const queryKeys = {
   adminAnalytics: {
     all: ["admin", "analytics"] as const,
   },
-  me: {
-    all: ["me"] as const,
-    current: () => [...queryKeys.me.all, "current"] as const,
-  },
   dashboard: {
     manager: (tenantId: string | null) =>
       ["dashboard", tenantId, "manager"] as const,

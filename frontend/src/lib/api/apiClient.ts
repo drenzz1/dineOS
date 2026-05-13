@@ -3,6 +3,7 @@ import { useAuthStore } from "@/stores/authStore";
 import {
   persistAuthCookies,
   clearAuthCookies,
+  decodeAccessTokenClaims,
 } from "@/lib/auth/keycloak";
 
 const apiClient = axios.create({
@@ -84,9 +85,9 @@ apiClient.interceptors.response.use(
 
         const { accessToken, refreshToken: newRefreshToken, expiresIn, refreshExpiresIn } =
           envelope.data;
-        const { role, tenantId } = useAuthStore.getState();
+        const { role, tenantId } = decodeAccessTokenClaims(accessToken);
 
-        persistAuthCookies(accessToken, newRefreshToken, expiresIn, refreshExpiresIn, role ?? "Manager", tenantId);
+        persistAuthCookies(accessToken, newRefreshToken, expiresIn, refreshExpiresIn, role, tenantId);
       } catch {
         clearAuthCookies();
         useAuthStore.getState().clearAuth();

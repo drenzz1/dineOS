@@ -12,7 +12,7 @@
 
 import type MockAdapterType from "axios-mock-adapter";
 import type { AxiosInstance, AxiosStatic } from "axios";
-import { persistAuthCookies, clearAuthCookies } from "@/lib/auth/keycloak";
+import { persistAuthCookies, clearAuthCookies, decodeAccessTokenClaims } from "@/lib/auth/keycloak";
 import { useAuthStore } from "@/stores/authStore";
 
 // ─── refresh stub ─────────────────────────────────────────────────────────────
@@ -42,13 +42,17 @@ jest.mock("axios", () => {
 jest.mock("@/lib/auth/keycloak", () => ({
   persistAuthCookies: jest.fn(),
   clearAuthCookies: jest.fn(),
+  decodeAccessTokenClaims: jest.fn(),
 }));
 
 jest.mock("@/stores/authStore", () => {
+  // clearAuth is created once inside the factory so every getState() call
+  // returns the same stable mock — safe to assert on without a closure over
+  // a module-level variable.
   const clearAuth = jest.fn();
   return {
     useAuthStore: {
-      getState: jest.fn(() => ({ role: "Manager", tenantId: "tenant-1", clearAuth })),
+      getState: jest.fn(() => ({ tenantId: null, clearAuth })),
     },
   };
 });
@@ -87,6 +91,12 @@ describe("apiClient — 401 response interceptor", () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
+    jest.mocked(decodeAccessTokenClaims).mockReturnValue({
+      role: "Manager",
+      tenantId: "tenant-1",
+      userId: "user-1",
+    });
+
     Object.defineProperty(document, "cookie", {
       configurable: true,
       get: () => `refresh_token=${encodeURIComponent(REFRESH_TOKEN)}`,
@@ -115,7 +125,7 @@ describe("apiClient — 401 response interceptor", () => {
     expect(refreshPostMock).toHaveBeenCalledWith("/v1/auth/refresh", {
       refreshToken: REFRESH_TOKEN,
     });
-    expect(useAuthStore.getState).toHaveBeenCalled();
+    expect(jest.mocked(decodeAccessTokenClaims)).toHaveBeenCalledWith(NEW_ACCESS_TOKEN);
     expect(jest.mocked(persistAuthCookies)).toHaveBeenCalledWith(
       NEW_ACCESS_TOKEN,
       NEW_REFRESH_TOKEN,

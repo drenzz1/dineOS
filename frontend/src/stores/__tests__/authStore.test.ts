@@ -1,28 +1,24 @@
 /**
  * Integration tests for useAuthStore.login().
  *
- * Only the HTTP boundary (authApi.login, getMe) is mocked.
- * persistAuthCookies and clearAuthCookies run for real so that
+ * Only the HTTP boundary (authApi.login) is mocked.
+ * decodeAccessTokenClaims and persistAuthCookies run for real so that
  * cookie shape and store state are asserted end-to-end.
  */
 
 import { useAuthStore } from "../authStore";
 import { login as mockApiLogin } from "@/lib/auth/authApi";
-import { getMe as mockApiGetMe } from "@/lib/api/meApi";
-import type { MeResponse } from "@/types/me";
 
 jest.mock("@/lib/auth/authApi");
-jest.mock("@/lib/api/meApi");
 
 const mockLogin = mockApiLogin as jest.MockedFunction<typeof mockApiLogin>;
-const mockGetMe = mockApiGetMe as jest.MockedFunction<typeof mockApiGetMe>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
  * Build a fake unsigned JWT whose payload contains the given claims.
- * Used here only as a token string — the payload itself is no longer
- * decoded by the auth store (data now comes from GET /api/v1/me).
+ * Uses Buffer (always available in Node/Jest) so no btoa dependency.
+ * base64UrlDecodeJson in keycloak.ts decodes the payload correctly at runtime.
  */
 function makeJwt(claims: Record<string, unknown>): string {
   const b64url = (obj: Record<string, unknown>) =>
@@ -50,42 +46,31 @@ function makeTokens(accessToken: string) {
   };
 }
 
-function meFromClaims(claims: Record<string, unknown>): MeResponse {
-  return {
-    id: (claims.sub as string) ?? (claims.email as string) ?? "unknown",
-    email: (claims.email as string) ?? "",
-    username: (claims.preferred_username as string) ?? "",
-    name: (claims.name as string) ?? "",
-    roles: (claims.realm_access as { roles?: string[] })?.roles ?? [],
-    tenantId: claims.tenant_id ? String(claims.tenant_id) : null,
-  };
-}
-
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-const MANAGER_CLAIMS = {
+const MANAGER_JWT = makeJwt({
   sub: "user-abc",
   tenant_id: "tenant-xyz",
   realm_access: { roles: ["Manager"] },
-};
+});
 
-const SUPERADMIN_CLAIMS = {
+const SUPERADMIN_JWT = makeJwt({
   sub: "admin-001",
   realm_access: { roles: ["SuperAdmin"] },
-};
-
-const MANAGER_JWT = makeJwt(MANAGER_CLAIMS);
-const SUPERADMIN_JWT = makeJwt(SUPERADMIN_CLAIMS);
+});
 
 // ─── Setup / teardown ─────────────────────────────────────────────────────────
 
 beforeEach(() => {
+  // Clear auth-related cookies by name (reliable in jsdom)
   ["access_token", "refresh_token", "role", "tenant_id"].forEach((name) => {
     document.cookie = `${name}=; max-age=0; path=/`;
   });
 
+  // Clear localStorage so Zustand persist middleware starts fresh
   localStorage.clear();
 
+  // Reset store state without re-creating the store instance
   useAuthStore.setState({
     userId: null,
     role: null,
@@ -102,7 +87,6 @@ afterEach(() => jest.resetAllMocks());
 describe("useAuthStore.login — Manager success", () => {
   beforeEach(() => {
     mockLogin.mockResolvedValue(makeTokens(MANAGER_JWT));
-    mockGetMe.mockResolvedValue(meFromClaims(MANAGER_CLAIMS));
   });
 
   it("calls authApi.login with the supplied credentials", async () => {
@@ -117,19 +101,19 @@ describe("useAuthStore.login — Manager success", () => {
     expect(useAuthStore.getState().accessToken).toBe(MANAGER_JWT);
   });
 
-  it("stores role from the /v1/me response", async () => {
+  it("decodes and stores role from the JWT", async () => {
     await useAuthStore.getState().login("alice", "s3cr3t");
 
     expect(useAuthStore.getState().role).toBe("Manager");
   });
 
-  it("stores tenantId from the /v1/me response", async () => {
+  it("decodes and stores tenantId from the JWT", async () => {
     await useAuthStore.getState().login("alice", "s3cr3t");
 
     expect(useAuthStore.getState().tenantId).toBe("tenant-xyz");
   });
 
-  it("stores userId from the /v1/me response", async () => {
+  it("decodes and stores userId (sub) from the JWT", async () => {
     await useAuthStore.getState().login("alice", "s3cr3t");
 
     expect(useAuthStore.getState().userId).toBe("user-abc");
@@ -193,7 +177,6 @@ describe("useAuthStore.login — Manager success", () => {
 describe("useAuthStore.login — SuperAdmin success", () => {
   beforeEach(() => {
     mockLogin.mockResolvedValue(makeTokens(SUPERADMIN_JWT));
-    mockGetMe.mockResolvedValue(meFromClaims(SUPERADMIN_CLAIMS));
   });
 
   it("stores role as SuperAdmin", async () => {
@@ -255,18 +238,5 @@ describe("useAuthStore.login — failure", () => {
     expect(getCookie("refresh_token")).toBeNull();
     expect(getCookie("role")).toBeNull();
     expect(getCookie("tenant_id")).toBeNull();
-  });
-
-  it("keeps store fields null when getMe fails after successful login", async () => {
-    mockLogin.mockResolvedValue(makeTokens(MANAGER_JWT));
-    mockGetMe.mockRejectedValue(new Error("Unauthorized"));
-
-    await useAuthStore.getState().login("alice", "s3cr3t").catch(() => {});
-
-    const { userId, role, tenantId, accessToken } = useAuthStore.getState();
-    expect(userId).toBeNull();
-    expect(role).toBeNull();
-    expect(tenantId).toBeNull();
-    expect(accessToken).toBeNull();
   });
 });
