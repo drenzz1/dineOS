@@ -20,6 +20,11 @@ services:
       - Keycloak__GrantType=password
       - Keycloak__RequireHttpsMetadata=false
       - Redis__ConnectionString=redis:6379
+      - RabbitMq__Enabled=true
+      - RabbitMq__HostName=rabbitmq
+      - RabbitMq__Port=5672
+      - RabbitMq__UserName=dineos
+      - RabbitMq__Password=dineos_dev
       - Loki__Uri=http://loki:3100
       - Smtp__Host=mailhog
       - Smtp__Port=1025
@@ -36,6 +41,8 @@ services:
       keycloak:
         condition: service_started
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       loki:
         condition: service_healthy
@@ -92,6 +99,26 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: dineos-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: dineos
+      RABBITMQ_DEFAULT_PASS: dineos_dev
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
       timeout: 5s
       retries: 10
     networks:
@@ -167,6 +194,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  rabbitmq_data:
   loki_data:
   grafana_data:
   dineos_uploads:

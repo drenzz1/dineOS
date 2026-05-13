@@ -294,6 +294,10 @@ try
         var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
         if (File.Exists(xmlPath))
             options.IncludeXmlComments(xmlPath);
+
+        var applicationXmlPath = Path.Combine(AppContext.BaseDirectory, "DineOS.Application.xml");
+        if (File.Exists(applicationXmlPath))
+            options.IncludeXmlComments(applicationXmlPath);
     });
 
     // ── CORS ──────────────────────────────────────────────────────────────────────

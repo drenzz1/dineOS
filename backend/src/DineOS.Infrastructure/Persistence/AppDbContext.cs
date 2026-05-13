@@ -1,6 +1,7 @@
 using DineOS.Application.Interfaces.Services;
 using DineOS.Domain.Common;
 using DineOS.Domain.Entities;
+using DineOS.Infrastructure.Persistence.Messaging;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
@@ -26,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<MenuCategory> MenuCategories => Set<MenuCategory>();
     public DbSet<RestaurantTable> RestaurantTables => Set<RestaurantTable>();
     public DbSet<Shift> Shifts => Set<Shift>();
+    public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
     public DbSet<DeadLetterEmail> DeadLetterEmails => Set<DeadLetterEmail>();
     public DbSet<EmailVerificationCode> EmailVerificationCodes => Set<EmailVerificationCode>();
 
@@ -81,6 +83,14 @@ public class AppDbContext : DbContext
             .HasIndex(s => new { s.TenantId, s.StartTime });
         modelBuilder.Entity<Shift>()
             .HasIndex(s => s.StaffMemberId);
+
+        modelBuilder.Entity<ProcessedMessage>(entity =>
+        {
+            entity.HasKey(m => m.MessageId);
+            entity.Property(m => m.MessageId).HasMaxLength(128);
+            entity.Property(m => m.MessageType).HasMaxLength(128).IsRequired();
+            entity.HasIndex(m => new { m.TenantId, m.ProcessedAt });
+        });
 
         modelBuilder.Entity<DeadLetterEmail>()
             .HasIndex(d => d.FailedAt);

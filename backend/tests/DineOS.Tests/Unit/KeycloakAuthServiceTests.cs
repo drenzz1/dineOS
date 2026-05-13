@@ -159,6 +159,9 @@ public class KeycloakAuthServiceTests
             factory,
             Options.Create(options ?? DefaultOptions()),
             _blacklist,
+            new LoginRequestValidator(),
+            new RefreshTokenRequestValidator(),
+            new LogoutRequestValidator(),
             NullLogger<KeycloakAuthService>.Instance);
     }
 
