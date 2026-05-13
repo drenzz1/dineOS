@@ -60,7 +60,7 @@ public class AiMenuServiceTests
           .Returns(new MenuDescriptionAiResult(
               Description: "Classic tomato, mozzarella, and basil pizza baked in a wood-fired oven.",
               Allergens:   new[] { "gluten", "dairy" },
-              Usage:       new AiUsage(120, 60, "claude-sonnet-4-6")));
+              Usage:       new AiUsage(120, 60, "claude-sonnet-4-5")));
 
         var result = await svc.SuggestDescriptionAsync(item.Id);
 
@@ -68,7 +68,7 @@ public class AiMenuServiceTests
         Assert.Equal(item.Id, result.Value!.MenuItemId);
         Assert.Contains("tomato", result.Value.SuggestedDescription, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(new[] { "gluten", "dairy" }, result.Value.SuggestedAllergens);
-        Assert.Equal("claude-sonnet-4-6", result.Value.Metadata.Model);
+        Assert.Equal("claude-sonnet-4-5", result.Value.Metadata.Model);
         Assert.Equal(120, result.Value.Metadata.InputTokens);
         Assert.Equal(60,  result.Value.Metadata.OutputTokens);
     }

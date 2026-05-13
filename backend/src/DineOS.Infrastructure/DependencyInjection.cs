@@ -131,8 +131,26 @@ public static class DependencyInjection
         services.AddHostedService<RecurringJobRegistrar>();
 
         // ── AI (Anthropic) ─────────────────────────────────────────────────
-        services.Configure<AnthropicOptions>(configuration.GetSection(AnthropicOptions.SectionName));
-        services.AddHttpClient<IAiClient, AnthropicAiClient>(AnthropicAiClient.HttpClientName, (sp, client) =>
+        services.AddOptions<AiProviderOptions>()
+            .Bind(configuration.GetSection(AiProviderOptions.SectionName))
+            .Validate(options =>
+                options.Provider is AiProviderOptions.Providers.Anthropic
+                    or AiProviderOptions.Providers.OpenAI
+                    or AiProviderOptions.Providers.Google,
+                "Ai:Provider must be one of Anthropic, OpenAI, or Google.")
+            .ValidateOnStart();
+
+        services.AddOptions<AnthropicOptions>()
+            .Bind(configuration.GetSection(AnthropicOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Model), "Anthropic:Model must be configured.");
+        services.AddOptions<OpenAiOptions>()
+            .Bind(configuration.GetSection(OpenAiOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Model), "OpenAI:Model must be configured.");
+        services.AddOptions<GoogleAiOptions>()
+            .Bind(configuration.GetSection(GoogleAiOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Model), "GoogleAI:Model must be configured.");
+
+        services.AddHttpClient(AnthropicAiClient.HttpClientName, (sp, client) =>
         {
             var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AnthropicOptions>>().Value;
             client.BaseAddress = new Uri(opts.BaseUrl);
@@ -140,6 +158,43 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.Add("anthropic-version", opts.ApiVersion);
             if (!string.IsNullOrWhiteSpace(opts.ApiKey))
                 client.DefaultRequestHeaders.Add("x-api-key", opts.ApiKey);
+        });
+        services.AddHttpClient(OpenAiClient.HttpClientName, (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpenAiOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout     = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+            if (!string.IsNullOrWhiteSpace(opts.ApiKey))
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {opts.ApiKey}");
+        });
+        services.AddHttpClient(GoogleAiClient.HttpClientName, (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<GoogleAiOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout     = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+            if (!string.IsNullOrWhiteSpace(opts.ApiKey))
+                client.DefaultRequestHeaders.Add("x-goog-api-key", opts.ApiKey);
+        });
+        services.AddScoped<IAiClient>(sp =>
+        {
+            var provider = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AiProviderOptions>>().Value.Provider;
+            var httpFactory = sp.GetRequiredService<IHttpClientFactory>();
+
+            return provider switch
+            {
+                AiProviderOptions.Providers.OpenAI => new OpenAiClient(
+                    httpFactory.CreateClient(OpenAiClient.HttpClientName),
+                    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpenAiOptions>>(),
+                    sp.GetRequiredService<ILogger<OpenAiClient>>()),
+                AiProviderOptions.Providers.Google => new GoogleAiClient(
+                    httpFactory.CreateClient(GoogleAiClient.HttpClientName),
+                    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<GoogleAiOptions>>(),
+                    sp.GetRequiredService<ILogger<GoogleAiClient>>()),
+                _ => new AnthropicAiClient(
+                    httpFactory.CreateClient(AnthropicAiClient.HttpClientName),
+                    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AnthropicOptions>>(),
+                    sp.GetRequiredService<ILogger<AnthropicAiClient>>()),
+            };
         });
         services.AddScoped<IAiMenuService, AiMenuService>();
 

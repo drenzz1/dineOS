@@ -1,4 +1,4 @@
-# AI Features — Anthropic-backed menu assistant (M3.10)
+# AI Features — provider-backed menu assistant (M3.10)
 
 ## What ships
 
@@ -18,7 +18,7 @@ The response shape is `ApiResponse<MenuItemDescriptionSuggestionDto>`:
     "suggestedDescription": "Wood-fired pizza with tomato, mozzarella, and basil.",
     "suggestedAllergens": ["gluten", "dairy"],
     "metadata": {
-      "model": "claude-sonnet-4-6",
+      "model": "claude-sonnet-4-5",
       "inputTokens": 130,
       "outputTokens": 42,
       "latencyMs": 870
@@ -27,45 +27,60 @@ The response shape is `ApiResponse<MenuItemDescriptionSuggestionDto>`:
 }
 ```
 
-## Provider choice — Anthropic
+## Provider choice
 
-- **Why**: aligns with the AI tooling already used by the team; tool-use API is well-suited to a structured response with a forced schema, which lets us avoid fragile text parsing.
-- **Model**: `claude-sonnet-4-6` — most capable Sonnet at the cut-off used by the team.
+- **Default**: Anthropic, because that was the first provider implemented for M3.10.
+- **Other providers**: set `Ai:Provider` to `OpenAI` or `Google` and configure that provider's key/model section.
+- **Model**: defaults to `claude-sonnet-4-5` for Anthropic, `gpt-4o-mini` for OpenAI, and `gemini-2.5-flash` for Google. Override the selected provider's `Model` key to use any model supported by that provider account and API version.
 - **No SDK dependency**: the integration uses a plain `HttpClient` so we don't pin to a community-maintained SDK and keep the dependency surface small.
 
 ## Architecture
 
 ```
-AiController ──► IAiMenuService ──► IAiClient ──► Anthropic Messages API
+AiController ──► IAiMenuService ──► IAiClient ──► selected provider API
                                        │
-                                       └── AnthropicAiClient (HttpClient)
+                                       ├── AnthropicAiClient (HttpClient)
+                                       ├── OpenAiClient (HttpClient)
+                                       └── GoogleAiClient (HttpClient)
 ```
 
-- `IAiClient` is the only seam that knows about the provider. The controller and application service depend on it through interfaces, so tests can substitute a fake without touching HTTP.
-- `AnthropicAiClient` posts to `/v1/messages` with a forced `tool_use` for the `report_menu_description` tool. The model returns its answer as the tool's structured `input`, which we then parse into our DTO.
+- `IAiClient` is the only interface the controller and application service depend on. `AddInfrastructure()` resolves the concrete provider from `Ai:Provider`.
+- `AnthropicAiClient` posts to `/v1/messages` with a forced `tool_use` for the `report_menu_description` tool. OpenAI and Google use JSON response prompts against their content-generation APIs and are parsed into the same DTO.
 - Failure modes (`HttpRequestException`, `TaskCanceledException`, non-2xx status, missing/empty content) all collapse to `AiUnavailableException`. `AiMenuService` catches that and returns `ServiceResult.UnprocessableEntity(...)` — the caller sees `422` with a human-readable fallback message and the client can prompt the user to write the description manually.
 
 ## Configuration
 
-Settings live under the `Anthropic` section. **Never commit the API key** — set it via environment variable or user secrets.
+Select the provider with `Ai:Provider`. Provider settings live under `Anthropic`, `OpenAI`, or `GoogleAI`. **Never commit API keys** — set them via environment variable or user secrets.
 
 ```bash
 # user-secrets (per-developer, recommended for local dev)
 dotnet user-secrets set "Anthropic:ApiKey" "sk-ant-..." \
   --project backend/src/DineOS.Api
+dotnet user-secrets set "Ai:Provider" "Anthropic" \
+  --project backend/src/DineOS.Api
 
 # or via env var (Docker / CI)
+ASPNETCORE_Ai__Provider=Anthropic
 ASPNETCORE_Anthropic__ApiKey=sk-ant-...
+ASPNETCORE_Anthropic__Model=claude-sonnet-4-5
 ```
 
 | Key | Default | Purpose |
 |---|---|---|
+| `Ai:Provider` | `Anthropic` | Active provider. Supported values: `Anthropic`, `OpenAI`, `Google`. |
 | `Anthropic:ApiKey` | `""` | Provider API key. Empty key triggers a clean `AiUnavailable` fallback rather than a 5xx. |
-| `Anthropic:Model` | `claude-sonnet-4-6` | Model id. |
+| `Anthropic:Model` | `claude-sonnet-4-5` | Anthropic model id. The app validates only that this is present, so newly released model ids can be used through configuration without code changes. |
 | `Anthropic:BaseUrl` | `https://api.anthropic.com` | Override only for testing/staging. |
 | `Anthropic:ApiVersion` | `2023-06-01` | Sent as `anthropic-version` header. |
 | `Anthropic:MaxTokens` | `400` | Per-request output cap. |
 | `Anthropic:TimeoutSeconds` | `20` | Hard timeout per request. |
+| `OpenAI:ApiKey` | `""` | OpenAI API key, used when `Ai:Provider=OpenAI`. |
+| `OpenAI:Model` | `gpt-4o-mini` | OpenAI model id. |
+| `OpenAI:BaseUrl` | `https://api.openai.com` | OpenAI-compatible base URL. |
+| `GoogleAI:ApiKey` | `""` | Gemini API key, used when `Ai:Provider=Google`. |
+| `GoogleAI:Model` | `gemini-2.5-flash` | Gemini model id. |
+| `GoogleAI:BaseUrl` | `https://generativelanguage.googleapis.com` | Gemini API base URL. |
+| `GoogleAI:ApiVersion` | `v1beta` | Gemini REST API version path. |
 
 The `ai-expensive` rate-limit policy is defined in `Program.cs` — fixed-window **10 requests/min** with no queue, applied at controller scope.
 
@@ -110,5 +125,7 @@ ASPNETCORE_Anthropic__BaseUrl=http://localhost:1 dotnet run --project src/DineOS
 
 - `AiMenuServiceTests` — happy path, 404 on unknown id, 422 on `AiUnavailableException`, tenant isolation (foreign tenant item returns 404, not leaked existence).
 - `AnthropicAiClientTests` — parses tool-use response, throws `AiUnavailableException` on missing key / HTTP error / empty description; verifies request body forces the tool.
+- `OpenAiClientTests` / `GoogleAiClientTests` — verify provider-specific auth headers, model wiring, and JSON response parsing.
+- `AiProviderRegistrationTests` — verifies `Ai:Provider` resolves the expected `IAiClient` implementation.
 
 All tests mock the provider — none make real network calls.
