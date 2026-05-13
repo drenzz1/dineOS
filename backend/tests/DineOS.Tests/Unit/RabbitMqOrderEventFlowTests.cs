@@ -24,6 +24,10 @@ public class RabbitMqOrderEventFlowTests
         currentUser.UserId.Returns("cashier-1");
 
         var publisher = Substitute.For<IMessagePublisher>();
+        publisher.TryPublishAsync(
+            Arg.Any<OrderCreatedMessage>(),
+            MessageRouting.OrderCreatedRoutingKey,
+            Arg.Any<CancellationToken>()).Returns(true);
         var notifications = Substitute.For<IOrderNotificationService>();
         await using var db = CreateDb(tenantService);
 
@@ -53,7 +57,7 @@ public class RabbitMqOrderEventFlowTests
         });
 
         Assert.True(result.IsSuccess);
-        await publisher.Received(1).PublishAsync(
+        await publisher.Received(1).TryPublishAsync(
             Arg.Is<OrderCreatedMessage>(message =>
                 message.MessageId == $"order-created-{result.Value!.Id}" &&
                 message.OrderId == result.Value.Id &&
@@ -65,6 +69,86 @@ public class RabbitMqOrderEventFlowTests
                 message.Items.Count == 1 &&
                 message.Items[0].Name == "Burger"),
             MessageRouting.OrderCreatedRoutingKey,
+            Arg.Any<CancellationToken>());
+        await notifications.DidNotReceive().BroadcastOrderCreatedAsync(
+            Arg.Any<long>(),
+            Arg.Any<OrderDto>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_WhenPublishReturnsFalse_BroadcastsOrderCreatedAndMarksMessageProcessed()
+    {
+        await AssertOrderCreatedFallbackAsync(publisher =>
+        {
+            publisher.TryPublishAsync(
+                Arg.Any<OrderCreatedMessage>(),
+                MessageRouting.OrderCreatedRoutingKey,
+                Arg.Any<CancellationToken>()).Returns(false);
+        });
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_WhenPublishThrows_BroadcastsOrderCreatedAndMarksMessageProcessed()
+    {
+        await AssertOrderCreatedFallbackAsync(publisher =>
+        {
+            publisher.TryPublishAsync(
+                Arg.Any<OrderCreatedMessage>(),
+                MessageRouting.OrderCreatedRoutingKey,
+                Arg.Any<CancellationToken>())
+                .Returns(_ => Task.FromException<bool>(new InvalidOperationException("RabbitMQ unavailable.")));
+        });
+    }
+
+    private static async Task AssertOrderCreatedFallbackAsync(Action<IMessagePublisher> configurePublisher)
+    {
+        var tenantService = Substitute.For<ITenantService>();
+        tenantService.TenantId.Returns(42L);
+
+        var currentUser = Substitute.For<ICurrentUserService>();
+        currentUser.UserId.Returns("cashier-1");
+
+        var publisher = Substitute.For<IMessagePublisher>();
+        configurePublisher(publisher);
+        var notifications = Substitute.For<IOrderNotificationService>();
+        await using var db = CreateDb(tenantService);
+
+        var service = new OrderService(
+            db,
+            tenantService,
+            currentUser,
+            new CreateOrderRequestValidator(),
+            new UpdateOrderStatusRequestValidator(),
+            publisher,
+            notifications,
+            NullLogger<OrderService>.Instance);
+
+        var result = await service.CreateOrderAsync(new CreateOrderRequest
+        {
+            OrderType = "pickup",
+            Items =
+            [
+                new CreateOrderItemRequest
+                {
+                    Name = "Soup",
+                    Quantity = 1,
+                    UnitPrice = 6.25m
+                }
+            ]
+        });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, await db.ProcessedMessages.CountAsync());
+        Assert.Equal($"order-created-{result.Value!.Id}", await db.ProcessedMessages.Select(m => m.MessageId).SingleAsync());
+
+        await notifications.Received(1).BroadcastOrderCreatedAsync(
+            42,
+            Arg.Is<OrderDto>(order =>
+                order.Id == result.Value.Id &&
+                order.TenantId == 42 &&
+                order.OrderType == "pickup" &&
+                order.Total == 6.25m),
             Arg.Any<CancellationToken>());
     }
 
