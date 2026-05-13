@@ -1,7 +1,12 @@
 import apiClient from "@/lib/api/apiClient";
 import type { MeResponse } from "@/types/me";
+import { type ApiResponse, unwrap, toApiError } from "@/lib/api/envelope";
 
 export async function getMe(): Promise<MeResponse> {
-  const res = await apiClient.get<{ data: MeResponse }>("/v1/me");
-  return res.data.data;
+  try {
+    const res = await apiClient.get<ApiResponse<MeResponse>>("/v1/me");
+    return unwrap(res);
+  } catch (error) {
+    throw toApiError(error);
+  }
 }
