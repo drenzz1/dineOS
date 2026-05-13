@@ -23,6 +23,7 @@ public class StaffController(IStaffService staffService) : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<List<StaffMemberDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> GetStaff(CancellationToken ct) =>
         (await staffService.GetStaffAsync(ct)).ToActionResult();
 
@@ -32,6 +33,7 @@ public class StaffController(IStaffService staffService) : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> AddStaff([FromBody] CreateStaffMemberRequest request, CancellationToken ct) =>
         (await staffService.CreateStaffAsync(request, ct)).ToActionResult();
 
@@ -42,15 +44,18 @@ public class StaffController(IStaffService staffService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> UpdateStaff(long id, [FromBody] UpdateStaffMemberRequest request, CancellationToken ct) =>
         (await staffService.UpdateStaffAsync(id, request, ct)).ToActionResult();
 
     /// <summary>Sets a staff member's active status.</summary>
     [HttpPatch("{id:long}/active")]
     [ProducesResponseType(typeof(ApiResponse<StaffMemberDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> SetStaffActive(long id, [FromBody] SetStaffActiveRequest request, CancellationToken ct) =>
         (await staffService.SetStaffActiveAsync(id, request, ct)).ToActionResult();
 }

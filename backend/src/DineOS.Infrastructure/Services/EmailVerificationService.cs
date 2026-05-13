@@ -3,9 +3,11 @@ using System.Text;
 using DineOS.Application.Common;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Options;
+using DineOS.Application.Restaurants;
 using DineOS.Domain.Entities;
 using DineOS.Domain.Enums;
 using DineOS.Infrastructure.Persistence;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,6 +17,7 @@ namespace DineOS.Infrastructure.Services;
 public sealed class EmailVerificationService(
     AppDbContext db,
     IOptions<EmailVerificationOptions> options,
+    IValidator<ConfirmEmailVerificationRequest> confirmValidator,
     ILogger<EmailVerificationService> logger) : IEmailVerificationService
 {
     private readonly EmailVerificationOptions _opts = options.Value;
@@ -53,9 +56,15 @@ public sealed class EmailVerificationService(
 
     public async Task<ServiceResult<bool>> ConfirmAccountVerificationCodeAsync(
         long tenantId,
-        string code,
+        ConfirmEmailVerificationRequest request,
         CancellationToken ct = default)
     {
+        var validation = await confirmValidator.ValidateAsync(request, ct);
+        if (!validation.IsValid)
+            return ServiceResult<bool>.ValidationFailed(
+                "Validation failed.",
+                validation.Errors.Select(e => e.ErrorMessage).ToList());
+
         var tenant = await db.Tenants
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(t => t.Id == tenantId && t.DeletedAt == null, ct);
@@ -84,7 +93,7 @@ public sealed class EmailVerificationService(
                 "Too many attempts; request a new code.",
                 new List<string> { "Too many attempts; request a new code." });
 
-        if (!FixedTimeEquals(entry.CodeHash, HashCode(code)))
+        if (!FixedTimeEquals(entry.CodeHash, HashCode(request.Code)))
         {
             entry.FailedAttempts++;
             await db.SaveChangesAsync(ct);
@@ -93,8 +102,8 @@ public sealed class EmailVerificationService(
                 new List<string> { "Verification code is invalid or expired." });
         }
 
-        entry.ConsumedAt          = DateTime.UtcNow;
-        tenant.OwnerEmailVerified = true;
+        entry.ConsumedAt            = DateTime.UtcNow;
+        tenant.OwnerEmailVerified   = true;
         tenant.OwnerEmailVerifiedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 

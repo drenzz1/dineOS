@@ -3,6 +3,7 @@ using System.Text;
 using DineOS.Application.Common;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Options;
+using DineOS.Application.Restaurants;
 using DineOS.Domain.Entities;
 using DineOS.Domain.Enums;
 using DineOS.Infrastructure.Persistence;
@@ -30,10 +31,14 @@ public class EmailVerificationServiceTests
         var svc = new EmailVerificationService(
             db,
             Options.Create(options ?? new EmailVerificationOptions()),
+            new ConfirmEmailVerificationRequestValidator(),
             NullLogger<EmailVerificationService>.Instance);
 
         return (svc, db);
     }
+
+    private static ConfirmEmailVerificationRequest Req(string code) =>
+        new() { Code = code };
 
     private static async Task<Tenant> SeedTenantAsync(AppDbContext db, string email = "owner@example.com")
     {
@@ -91,7 +96,7 @@ public class EmailVerificationServiceTests
         var tenant = await SeedTenantAsync(db);
 
         var code = await svc.IssueAccountVerificationCodeAsync(tenant.Id);
-        var result = await svc.ConfirmAccountVerificationCodeAsync(tenant.Id, code);
+        var result = await svc.ConfirmAccountVerificationCodeAsync(tenant.Id, Req(code));
 
         Assert.True(result.IsSuccess);
 
@@ -107,7 +112,7 @@ public class EmailVerificationServiceTests
         var tenant = await SeedTenantAsync(db);
         await svc.IssueAccountVerificationCodeAsync(tenant.Id);
 
-        var result = await svc.ConfirmAccountVerificationCodeAsync(tenant.Id, "000000");
+        var result = await svc.ConfirmAccountVerificationCodeAsync(tenant.Id, Req("000000"));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ServiceErrorKind.ValidationFailed, result.Error);
@@ -129,7 +134,7 @@ public class EmailVerificationServiceTests
         entry.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
         await db.SaveChangesAsync();
 
-        var result = await svc.ConfirmAccountVerificationCodeAsync(tenant.Id, code);
+        var result = await svc.ConfirmAccountVerificationCodeAsync(tenant.Id, Req(code));
 
         Assert.False(result.IsSuccess);
     }

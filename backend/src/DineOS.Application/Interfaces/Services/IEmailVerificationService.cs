@@ -1,4 +1,5 @@
 using DineOS.Application.Common;
+using DineOS.Application.Restaurants;
 
 namespace DineOS.Application.Interfaces.Services;
 
@@ -17,6 +18,6 @@ public interface IEmailVerificationService
     /// </summary>
     Task<ServiceResult<bool>> ConfirmAccountVerificationCodeAsync(
         long tenantId,
-        string code,
+        ConfirmEmailVerificationRequest request,
         CancellationToken ct = default);
 }

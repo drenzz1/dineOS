@@ -19,12 +19,14 @@ public class AuthController(IKeycloakAuthService authService) : ControllerBase
     [AllowAnonymous]
     [EnableRateLimiting("public")]
     [ProducesResponseType(typeof(ApiResponse<RefreshTokenResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
         var result = await authService.LoginAsync(request, ct);
         if (!result.IsSuccess)
-            return ToFailureResponse(result.Error);
+            return ToFailureResponse(result.Error, result.Errors);
 
         return Ok(ApiResponse<RefreshTokenResponse>.Ok(
             result.Value!,
@@ -36,12 +38,14 @@ public class AuthController(IKeycloakAuthService authService) : ControllerBase
     [AllowAnonymous]
     [EnableRateLimiting("public")]
     [ProducesResponseType(typeof(ApiResponse<RefreshTokenResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request, CancellationToken ct)
     {
         var result = await authService.RefreshAsync(request, ct);
         if (!result.IsSuccess)
-            return ToFailureResponse(result.Error);
+            return ToFailureResponse(result.Error, result.Errors);
 
         return Ok(ApiResponse<RefreshTokenResponse>.Ok(
             result.Value!,
@@ -53,24 +57,26 @@ public class AuthController(IKeycloakAuthService authService) : ControllerBase
     [Authorize]
     [EnableRateLimiting("authenticated")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Logout([FromBody] LogoutRequest request, CancellationToken ct)
     {
         var result = await authService.LogoutAsync(request, ct);
         if (!result.IsSuccess)
-            return BadRequest(ApiResponse.Fail(result.Error ?? "Logout failed."));
+            return BadRequest(ApiResponse.Fail(result.Error ?? "Logout failed.", result.Errors));
 
         return NoContent();
     }
 
-    private ObjectResult ToFailureResponse(string? error)
+    private ObjectResult ToFailureResponse(string? error, IReadOnlyList<string>? errors = null)
     {
         var message = error ?? "Authentication failed.";
 
         return message switch
         {
-            "Username and password are required." or "Refresh token is required." =>
-                BadRequest(ApiResponse.Fail(message)),
+            "Validation failed." =>
+                BadRequest(ApiResponse.Fail(message, errors)),
             "Identity provider is unavailable." =>
                 StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse.Fail(message)),
             "Invalid response from identity provider." =>
