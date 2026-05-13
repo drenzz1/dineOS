@@ -16,10 +16,20 @@ export const queryKeys = {
   },
   orders: {
     all: ["orders"] as const,
-    list: (tenantId: string | null) =>
-      [...queryKeys.orders.all, tenantId, "list"] as const,
+    list: (
+      tenantId: string | null,
+      filters?: { date?: string; status?: string }
+    ) =>
+      [
+        ...queryKeys.orders.all,
+        tenantId,
+        "list",
+        filters?.date ?? null,
+        filters?.status ?? "all",
+      ] as const,
     byDate: (tenantId: string | null, date: string) =>
       [...queryKeys.orders.all, tenantId, { date }] as const,
+    detail: (id: string) => [...queryKeys.orders.all, "detail", id] as const,
     kitchen: (tenantId: string | null) =>
       [
         ...queryKeys.orders.all,
