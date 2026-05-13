@@ -2,16 +2,18 @@ import apiClient from "@/lib/api/apiClient";
 import type { Restaurant, RestaurantPlan, RestaurantStatus } from "@/types";
 import type { RestaurantFormValues } from "@/lib/validations";
 
-interface PagedResponse<T> {
-  data: T[];
+interface PagedRestaurantData {
+  items: Restaurant[];
   totalCount: number;
   page: number;
   pageSize: number;
 }
 
 export async function getRestaurants(): Promise<Restaurant[]> {
-  const res = await apiClient.get<PagedResponse<Restaurant>>("/v1/admin/restaurants");
-  return res.data.data;
+  const res = await apiClient.get<{ data: PagedRestaurantData }>(
+    "/v1/admin/restaurants"
+  );
+  return res.data.data.items;
 }
 
 export async function getRestaurant(id: number): Promise<Restaurant> {
@@ -44,4 +46,8 @@ export async function updateRestaurantPlan(
     { plan }
   );
   return res.data.data;
+}
+
+export async function deleteRestaurant(id: number): Promise<void> {
+  await apiClient.delete(`/v1/admin/restaurants/${id}`);
 }

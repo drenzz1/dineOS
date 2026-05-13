@@ -40,7 +40,9 @@ function RoleBadge({ role }: { role: Role | "SuperAdmin" }) {
 interface UsersTableProps {
   users: AdminUser[];
   isLoading?: boolean;
+  isError?: boolean;
   emptyMessage?: string;
+  errorMessage?: string;
 }
 
 const COLUMNS = [
@@ -55,13 +57,23 @@ const COLUMNS = [
 export default function UsersTable({
   users,
   isLoading = false,
+  isError = false,
   emptyMessage = "No users found.",
+  errorMessage = "Failed to load users.",
 }: UsersTableProps) {
   if (isLoading) {
     return (
       <p role="status" className="text-sm text-zinc-500">
         Loading users…
       </p>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center">
+        <p className="text-sm text-red-700">{errorMessage}</p>
+      </div>
     );
   }
 

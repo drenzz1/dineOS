@@ -85,7 +85,7 @@ describe("restaurantApi — paged response and mutations", () => {
   it("getRestaurants unwraps the paged envelope and returns only the items array", async () => {
     const mockList = [{ id: 1, name: "Bella Cucina", ownerName: "Alice", ownerEmail: "a@b.com", phone: "+1", plan: "Pro", status: "Active", city: "Tirana", totalOrders: 0, staffCount: 0, revenue: 0, createdAt: new Date().toISOString(), tenantId: 1 }];
     jest.spyOn(apiClient, "get").mockResolvedValue({
-      data: { data: mockList, totalCount: 1, page: 1, pageSize: 20 },
+      data: { data: { items: mockList, totalCount: 1, page: 1, pageSize: 20 } },
     });
 
     const result = await getRestaurants();

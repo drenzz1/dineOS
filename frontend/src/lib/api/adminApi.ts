@@ -1,64 +1,64 @@
-// TODO: wire to real admin users endpoint — see GitHub issue #121
+import apiClient from "@/lib/api/apiClient";
 import type { AdminUser } from "@/types";
 
-const MOCK_USERS: AdminUser[] = [
-  {
-    id: "u1",
-    name: "Alice Rossi",
-    email: "alice@bellacucina.com",
-    role: "Manager",
-    restaurantName: "Bella Cucina",
-    status: "Active",
-    lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "u2",
-    name: "Bob Marku",
-    email: "bob@bellacucina.com",
-    role: "Cashier",
-    restaurantName: "Bella Cucina",
-    status: "Active",
-    lastLogin: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "u3",
-    name: "Carol Duka",
-    email: "carol@pastapalace.com",
-    role: "KitchenStaff",
-    restaurantName: "Pasta Palace",
-    status: "Inactive",
-    lastLogin: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "u4",
-    name: "Dave Ademi",
-    email: "dave@dineos.com",
-    role: "SuperAdmin",
-    restaurantName: null,
-    status: "Active",
-    lastLogin: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "u5",
-    name: "Eve Krasniqi",
-    email: "eve@pastapalace.com",
-    role: "Cashier",
-    restaurantName: "Pasta Palace",
-    status: "Suspended",
-    lastLogin: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "u6",
-    name: "Frank Hoxha",
-    email: "frank@grillhouse.com",
-    role: "KitchenStaff",
-    restaurantName: "Grill House",
-    status: "Active",
-    lastLogin: null,
-  },
-];
+interface PlatformUserDto {
+  id: number;
+  fullName: string;
+  email: string;
+  role: string;
+  tenantName: string;
+  isActive: boolean;
+}
 
-export async function getAdminUsers(): Promise<AdminUser[]> {
-  await new Promise<void>((resolve) => setTimeout(resolve, 300));
-  return MOCK_USERS;
+interface PagedData {
+  items: PlatformUserDto[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface AdminUsersParams {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUser[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+function mapUser(dto: PlatformUserDto): AdminUser {
+  return {
+    id: dto.id,
+    name: dto.fullName,
+    email: dto.email,
+    role: dto.role as AdminUser["role"],
+    restaurantName: dto.tenantName,
+    status: dto.isActive ? "Active" : "Inactive",
+    lastLogin: null,
+  };
+}
+
+export async function getAdminUsers(
+  params: AdminUsersParams = {}
+): Promise<AdminUsersResponse> {
+  const res = await apiClient.get<{ data: PagedData }>("/v1/admin/users", {
+    params,
+  });
+
+  const { items, ...pagination } = res.data.data;
+
+  return {
+    users: items.map(mapUser),
+    ...pagination,
+  };
 }

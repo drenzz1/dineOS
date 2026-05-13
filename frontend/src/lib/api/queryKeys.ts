@@ -51,7 +51,14 @@ export const queryKeys = {
   },
   adminUsers: {
     all: ["adminUsers"] as const,
-    list: () => [...queryKeys.adminUsers.all, "list"] as const,
+    list: (params?: { search?: string; page?: number; pageSize?: number }) =>
+      [
+        ...queryKeys.adminUsers.all,
+        "list",
+        params?.search ?? null,
+        params?.page ?? 1,
+        params?.pageSize ?? 20,
+      ] as const,
   },
   adminRestaurants: {
     all: ["adminRestaurants"] as const,
