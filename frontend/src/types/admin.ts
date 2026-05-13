@@ -3,11 +3,11 @@ import type { Role } from "./staff";
 export type UserStatus = "Active" | "Inactive" | "Suspended";
 
 export interface AdminUser {
-  id: string;
+  id: number;
   name: string;
   email: string;
   role: Role | "SuperAdmin";
-  restaurantName: string | null; // null for SuperAdmin — no tenant scope
+  restaurantName: string;
   status: UserStatus;
-  lastLogin: string | null; // ISO string; null if never logged in
+  lastLogin: string | null;
 }

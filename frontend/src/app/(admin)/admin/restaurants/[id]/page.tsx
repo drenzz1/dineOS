@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getRestaurant,
   updateRestaurantStatus,
   updateRestaurantPlan,
+  deleteRestaurant,
 } from "@/lib/api/restaurantApi";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/hooks/useToast";
 import type { RestaurantPlan } from "@/types";
 
 const PLAN_STAFF_LIMIT: Record<RestaurantPlan, number> = {
@@ -31,8 +33,12 @@ function StatCard({ label, value }: { label: string; value: string }) {
 
 export default function RestaurantDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [pendingPlan, setPendingPlan] = useState<RestaurantPlan | "">("");
 
   const { data: restaurant, isLoading } = useQuery({
@@ -57,6 +63,26 @@ export default function RestaurantDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.adminRestaurants.all });
       setPendingPlan("");
+    },
+  });
+
+  const { mutate: removeRestaurant, isPending: isDeletePending } = useMutation({
+    mutationFn: () => deleteRestaurant(Number(id)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminRestaurants.all });
+      toast({ title: "Restaurant deleted", variant: "success" });
+      router.push("/admin/restaurants");
+    },
+    onError: (error) => {
+      if ((error as { response?: { status?: number } }).response?.status === 404) {
+        toast({ title: "Restaurant not found", variant: "error" });
+      } else {
+        toast({
+          title: "Failed to delete restaurant",
+          description: "Please try again.",
+          variant: "error",
+        });
+      }
     },
   });
 
@@ -96,12 +122,17 @@ export default function RestaurantDetailPage() {
           </h1>
           <p className="text-sm text-zinc-500">{restaurant.city}</p>
         </div>
-        <Button
-          variant={restaurant.status === "Active" ? "danger" : "primary"}
-          onClick={() => setConfirmOpen(true)}
-        >
-          {restaurant.status === "Active" ? "Suspend" : "Reactivate"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={restaurant.status === "Active" ? "danger" : "primary"}
+            onClick={() => setConfirmOpen(true)}
+          >
+            {restaurant.status === "Active" ? "Suspend" : "Reactivate"}
+          </Button>
+          <Button variant="danger" onClick={() => setDeleteOpen(true)}>
+            Delete
+          </Button>
+        </div>
       </div>
 
       {/* Overview */}
@@ -178,7 +209,7 @@ export default function RestaurantDetailPage() {
         </div>
       </section>
 
-      {/* Confirm dialog */}
+      {/* Suspend/Reactivate modal */}
       <Modal
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
@@ -203,6 +234,34 @@ export default function RestaurantDetailPage() {
             onClick={() => toggleStatus()}
           >
             {restaurant.status === "Active" ? "Suspend" : "Reactivate"}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Delete confirmation modal */}
+      <Modal
+        isOpen={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Delete Restaurant"
+      >
+        <p className="text-sm text-zinc-600">
+          Are you sure you want to permanently delete{" "}
+          <span className="font-semibold text-zinc-900">{restaurant.name}</span>?
+        </p>
+        <p className="mt-2 text-sm text-red-600">
+          This action cannot be undone. All staff, orders, and menu data for this
+          restaurant will be removed.
+        </p>
+        <div className="mt-5 flex justify-end gap-3">
+          <Button variant="secondary" onClick={() => setDeleteOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            isLoading={isDeletePending}
+            onClick={() => removeRestaurant()}
+          >
+            Delete
           </Button>
         </div>
       </Modal>
