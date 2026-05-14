@@ -1,5 +1,6 @@
 import apiClient from "@/lib/api/apiClient";
 import type { AdminUser } from "@/types";
+import { type ApiResponse, unwrap, toApiError } from "@/lib/api/envelope";
 
 interface PlatformUserDto {
   id: number;
@@ -51,14 +52,11 @@ function mapUser(dto: PlatformUserDto): AdminUser {
 export async function getAdminUsers(
   params: AdminUsersParams = {}
 ): Promise<AdminUsersResponse> {
-  const res = await apiClient.get<{ data: PagedData }>("/v1/admin/users", {
-    params,
-  });
-
-  const { items, ...pagination } = res.data.data;
-
-  return {
-    users: items.map(mapUser),
-    ...pagination,
-  };
+  try {
+    const res = await apiClient.get<ApiResponse<PagedData>>("/v1/admin/users", { params });
+    const { items, ...pagination } = unwrap(res);
+    return { users: items.map(mapUser), ...pagination };
+  } catch (error) {
+    throw toApiError(error);
+  }
 }

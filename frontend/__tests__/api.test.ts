@@ -25,7 +25,7 @@ describe("staffApi — real API calls", () => {
     const mockStaff = [
       { id: 1, fullName: "Ana Berisha", email: "ana@dineos.com", role: "Manager", isActive: true, tenantId: 1 },
     ];
-    jest.spyOn(apiClient, "get").mockResolvedValue({ data: { data: mockStaff } });
+    jest.spyOn(apiClient, "get").mockResolvedValue({ data: { success: true, data: mockStaff } });
 
     const result = await getStaff();
 
@@ -35,7 +35,7 @@ describe("staffApi — real API calls", () => {
 
   it("saveStaffMember calls POST for a new staff member", async () => {
     const created = { id: 2, fullName: "Luan K", email: "luan@dineos.com", role: "Cashier", isActive: true, tenantId: 1 };
-    jest.spyOn(apiClient, "post").mockResolvedValue({ data: { data: created } });
+    jest.spyOn(apiClient, "post").mockResolvedValue({ data: { success: true, data: created } });
 
     const result = await saveStaffMember({ fullName: "Luan K", email: "luan@dineos.com", role: "Cashier" });
 
@@ -45,7 +45,7 @@ describe("staffApi — real API calls", () => {
 
   it("saveStaffMember calls PUT when an id is provided", async () => {
     const updated = { id: 1, fullName: "Updated", email: "a@b.com", role: "Manager", isActive: true, tenantId: 1 };
-    jest.spyOn(apiClient, "put").mockResolvedValue({ data: { data: updated } });
+    jest.spyOn(apiClient, "put").mockResolvedValue({ data: { success: true, data: updated } });
 
     const result = await saveStaffMember({ fullName: "Updated", email: "a@b.com", role: "Manager" }, 1);
 
@@ -55,7 +55,7 @@ describe("staffApi — real API calls", () => {
 
   it("toggleStaffActive calls PATCH to /v1/staff/:id/active", async () => {
     const toggled = { id: 1, fullName: "Ana", email: "ana@dineos.com", role: "Manager", isActive: false, tenantId: 1 };
-    jest.spyOn(apiClient, "patch").mockResolvedValue({ data: { data: toggled } });
+    jest.spyOn(apiClient, "patch").mockResolvedValue({ data: { success: true, data: toggled } });
 
     const result = await toggleStaffActive(1);
 
@@ -65,7 +65,9 @@ describe("staffApi — real API calls", () => {
 
   it("getStaff rejects on a 401 response", async () => {
     jest.spyOn(apiClient, "get").mockRejectedValue({
+      isAxiosError: true,
       response: { status: 401, data: { message: "Unauthorized" } },
+      message: "Unauthorized",
     });
 
     await expect(getStaff()).rejects.toMatchObject({ response: { status: 401 } });
@@ -73,7 +75,9 @@ describe("staffApi — real API calls", () => {
 
   it("getStaff rejects on a 403 response", async () => {
     jest.spyOn(apiClient, "get").mockRejectedValue({
+      isAxiosError: true,
       response: { status: 403, data: { message: "Forbidden" } },
+      message: "Forbidden",
     });
 
     await expect(getStaff()).rejects.toMatchObject({ response: { status: 403 } });
@@ -85,7 +89,7 @@ describe("restaurantApi — paged response and mutations", () => {
   it("getRestaurants unwraps the paged envelope and returns only the items array", async () => {
     const mockList = [{ id: 1, name: "Bella Cucina", ownerName: "Alice", ownerEmail: "a@b.com", phone: "+1", plan: "Pro", status: "Active", city: "Tirana", totalOrders: 0, staffCount: 0, revenue: 0, createdAt: new Date().toISOString(), tenantId: 1 }];
     jest.spyOn(apiClient, "get").mockResolvedValue({
-      data: { data: { items: mockList, totalCount: 1, page: 1, pageSize: 20 } },
+      data: { success: true, data: { items: mockList, totalCount: 1, page: 1, pageSize: 20 } },
     });
 
     const result = await getRestaurants();
@@ -97,7 +101,7 @@ describe("restaurantApi — paged response and mutations", () => {
 
   it("updateRestaurantStatus sends PATCH to /v1/admin/restaurants/:id/status", async () => {
     const updated = { id: 1, name: "Bella", ownerName: "A", ownerEmail: "a@b.com", phone: "+1", plan: "Pro", status: "Suspended", city: "Tirana", totalOrders: 0, staffCount: 0, revenue: 0, createdAt: "", tenantId: 1 };
-    jest.spyOn(apiClient, "patch").mockResolvedValue({ data: { data: updated } });
+    jest.spyOn(apiClient, "patch").mockResolvedValue({ data: { success: true, data: updated } });
 
     const result = await updateRestaurantStatus(1, "Suspended");
 
@@ -110,7 +114,7 @@ describe("restaurantApi — paged response and mutations", () => {
 
   it("updateRestaurantPlan sends PATCH to /v1/admin/restaurants/:id/plan", async () => {
     const updated = { id: 1, name: "Bella", ownerName: "A", ownerEmail: "a@b.com", phone: "+1", plan: "Free", status: "Active", city: "Tirana", totalOrders: 0, staffCount: 0, revenue: 0, createdAt: "", tenantId: 1 };
-    jest.spyOn(apiClient, "patch").mockResolvedValue({ data: { data: updated } });
+    jest.spyOn(apiClient, "patch").mockResolvedValue({ data: { success: true, data: updated } });
 
     const result = await updateRestaurantPlan(1, "Free");
 
@@ -123,7 +127,9 @@ describe("restaurantApi — paged response and mutations", () => {
 
   it("getRestaurants rejects on a 500 response", async () => {
     jest.spyOn(apiClient, "get").mockRejectedValue({
+      isAxiosError: true,
       response: { status: 500, data: { message: "Internal Server Error" } },
+      message: "Internal Server Error",
     });
 
     await expect(getRestaurants()).rejects.toMatchObject({ response: { status: 500 } });

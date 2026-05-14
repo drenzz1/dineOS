@@ -1,8 +1,8 @@
-import axios from "axios";
 import apiClient from "@/lib/api/apiClient";
 import type { OrderFormValues } from "@/lib/validations/order";
 import type { MenuItem, Order } from "@/types";
 import { MenuCategory, OrderStatus } from "@/types";
+import { type ApiResponse, unwrap, toApiError } from "@/lib/api/envelope";
 
 function isDevAuth(): boolean {
   if (typeof document === "undefined") return false;
@@ -30,13 +30,6 @@ let MOCK_ORDERS: Order[] = [
     updatedAt: new Date().toISOString(),
   },
 ];
-
-interface ApiResponse<T> {
-  success: boolean;
-  data: T | null;
-  message: string | null;
-  errors: string[] | null;
-}
 
 interface OrderDto {
   id: number;
@@ -72,23 +65,6 @@ interface MenuItemDto {
 export interface GetOrdersParams {
   date?: string;
   status?: OrderStatus | "all";
-}
-
-function unwrap<T>(body: ApiResponse<T>, fallback: string): T {
-  if (!body.success || body.data == null) {
-    throw new Error(body.errors?.[0] ?? body.message ?? fallback);
-  }
-
-  return body.data;
-}
-
-function toApiError(error: unknown, fallback: string): Error {
-  if (axios.isAxiosError(error)) {
-    const body = error.response?.data as ApiResponse<unknown> | undefined;
-    return new Error(body?.errors?.[0] ?? body?.message ?? fallback);
-  }
-
-  return error instanceof Error ? error : new Error(fallback);
 }
 
 function mapOrder(dto: OrderDto): Order {
@@ -142,9 +118,9 @@ export async function getMenuItems(): Promise<MenuItem[]> {
 
   try {
     const res = await apiClient.get<ApiResponse<MenuItemDto[]>>("/v1/menu/items");
-    return unwrap(res.data, "Failed to load menu items.").map(mapMenuItem);
+    return unwrap(res).map(mapMenuItem);
   } catch (error) {
-    throw toApiError(error, "Failed to load menu items.");
+    throw toApiError(error);
   }
 }
 
@@ -160,18 +136,18 @@ export async function getOrders(params: GetOrdersParams = {}): Promise<Order[]> 
         status: params.status && params.status !== "all" ? params.status : undefined,
       },
     });
-    return unwrap(res.data, "Failed to load orders.").map(mapOrder);
+    return unwrap(res).map(mapOrder);
   } catch (error) {
-    throw toApiError(error, "Failed to load orders.");
+    throw toApiError(error);
   }
 }
 
 export async function getOrder(orderId: string): Promise<Order> {
   try {
     const res = await apiClient.get<ApiResponse<OrderDto>>(`/v1/orders/${orderId}`);
-    return mapOrder(unwrap(res.data, `Order ${orderId} not found.`));
+    return mapOrder(unwrap(res));
   } catch (error) {
-    throw toApiError(error, `Order ${orderId} not found.`);
+    throw toApiError(error);
   }
 }
 
@@ -202,9 +178,9 @@ export async function createOrder(data: OrderFormValues): Promise<Order> {
       "/v1/orders",
       buildCreateOrderRequest(data)
     );
-    return mapOrder(unwrap(res.data, "Failed to create order."));
+    return mapOrder(unwrap(res));
   } catch (error) {
-    throw toApiError(error, "Failed to create order.");
+    throw toApiError(error);
   }
 }
 
@@ -217,8 +193,8 @@ export async function updateOrderStatus(
       `/v1/orders/${orderId}/status`,
       { status }
     );
-    return mapOrder(unwrap(res.data, `Failed to update order ${orderId}.`));
+    return mapOrder(unwrap(res));
   } catch (error) {
-    throw toApiError(error, `Failed to update order ${orderId}.`);
+    throw toApiError(error);
   }
 }
