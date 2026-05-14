@@ -18,4 +18,13 @@ public class Tenant : BaseAuditingEntity
     public decimal Revenue { get; set; }
     public bool OwnerEmailVerified { get; set; }
     public DateTime? OwnerEmailVerifiedAt { get; set; }
+
+    // ── Stripe subscription state ─────────────────────────────────────────
+    // Free tenants leave all four fields null/None. Stripe-backed tenants
+    // get them populated by the BillingController + Stripe webhook.
+    public string? StripeCustomerId { get; set; }
+    public string? StripeSubscriptionId { get; set; }
+    public BillingStatus BillingStatus { get; set; } = BillingStatus.None;
+    public BillingCycle? BillingCycle { get; set; }
+    public DateTime? CurrentPeriodEnd { get; set; }
 }

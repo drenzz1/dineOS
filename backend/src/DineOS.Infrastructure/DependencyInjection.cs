@@ -63,6 +63,9 @@ public static class DependencyInjection
         services.AddScoped<IShiftService, ShiftService>();
         services.AddSingleton<IDatabaseMigrator, EfDatabaseMigrator>();
 
+        services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
+        services.AddScoped<IBillingService, BillingService>();
+
         services.Configure<RabbitMqOptions>(configuration.GetSection(RabbitMqOptions.SectionName));
         services.AddSingleton<RabbitMqConnectionProvider>();
         services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();

@@ -26,12 +26,13 @@ let MOCK_ORDERS: Order[] = [
     tableNumber: 3,
     status: OrderStatus.New,
     items: [{ id: "oi-1", name: "Margherita Pizza", quantity: 1, unitPrice: 12.99 }],
+    total: 12.99,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
 ];
 
-interface OrderDto {
+export interface OrderDto {
   id: number;
   tenantId?: number;
   orderType: "dine-in" | "pickup";
@@ -67,7 +68,7 @@ export interface GetOrdersParams {
   status?: OrderStatus | "all";
 }
 
-function mapOrder(dto: OrderDto): Order {
+export function mapOrder(dto: OrderDto): Order {
   return {
     id: String(dto.id),
     tenantId: dto.tenantId == null ? undefined : String(dto.tenantId),
@@ -80,6 +81,7 @@ function mapOrder(dto: OrderDto): Order {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
     })),
+    total: dto.total,
     notes: dto.notes ?? undefined,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
@@ -165,6 +167,7 @@ export async function createOrder(data: OrderFormValues): Promise<Order> {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
       })),
+      total: subtotal,
       notes: data.notes?.trim() || undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

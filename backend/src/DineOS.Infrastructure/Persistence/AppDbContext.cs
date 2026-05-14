@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
     public DbSet<DeadLetterEmail> DeadLetterEmails => Set<DeadLetterEmail>();
     public DbSet<EmailVerificationCode> EmailVerificationCodes => Set<EmailVerificationCode>();
+    public DbSet<TenantInvoice> TenantInvoices => Set<TenantInvoice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,6 +102,24 @@ public class AppDbContext : DbContext
             .HasIndex(c => new { c.Email, c.Purpose, c.CreatedAt });
         modelBuilder.Entity<EmailVerificationCode>()
             .HasIndex(c => c.ExpiresAt);
+
+        // Stripe webhooks look up the tenant by StripeCustomerId; both lookups
+        // are 1:1 so we make them unique.
+        modelBuilder.Entity<Tenant>()
+            .HasIndex(t => t.StripeCustomerId)
+            .IsUnique()
+            .HasFilter("\"StripeCustomerId\" IS NOT NULL");
+        modelBuilder.Entity<Tenant>()
+            .HasIndex(t => t.StripeSubscriptionId)
+            .IsUnique()
+            .HasFilter("\"StripeSubscriptionId\" IS NOT NULL");
+
+        // Idempotency for invoice webhook events.
+        modelBuilder.Entity<TenantInvoice>()
+            .HasIndex(i => i.StripeInvoiceId)
+            .IsUnique();
+        modelBuilder.Entity<TenantInvoice>()
+            .HasIndex(i => i.TenantId);
 
         // Find Pending payments that need an overdue email (NULL = not yet notified).
         modelBuilder.Entity<Payment>()
