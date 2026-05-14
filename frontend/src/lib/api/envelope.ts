@@ -14,6 +14,7 @@ export class ApiError extends Error {
   readonly errors: string[];
   readonly traceId: string | null;
   readonly status: number;
+  readonly response: { status: number };
 
   constructor(opts: {
     error: string;
@@ -27,6 +28,7 @@ export class ApiError extends Error {
     this.errors = opts.errors ?? [];
     this.traceId = opts.traceId ?? null;
     this.status = opts.status;
+    this.response = { status: opts.status };
   }
 }
 
