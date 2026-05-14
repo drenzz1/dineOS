@@ -8,7 +8,15 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async rewrites() {
+    const backendUrl = process.env.API_URL ?? "http://localhost:5138";
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
+      },
+    ];
+  },
 };
 
 export default withBundleAnalyzer(nextConfig);
