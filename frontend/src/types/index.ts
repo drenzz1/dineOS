@@ -1,3 +1,12 @@
+export type {
+  SalesByMethod,
+  SalesReport,
+  OrdersByStatus,
+  OrdersByType,
+  OrdersReport,
+  StaffByRole,
+  StaffReport,
+} from "./reports";
 export { OrderStatus } from "./order";
 export type { Order, OrderItem, OrderType } from "./order";
 export { MenuCategory } from "./menu";
