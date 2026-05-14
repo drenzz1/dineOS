@@ -25,6 +25,7 @@ const mockOrder: Order = {
   orderType: 'pickup',
   status: 'New' as Order['status'],
   items: [],
+  total: 0,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

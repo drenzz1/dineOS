@@ -22,7 +22,7 @@ function atTime(hour: number, minute: number): string {
   return d.toISOString();
 }
 
-const MOCK_ORDERS_TODAY: Order[] = [
+const MOCK_ORDERS_TODAY: Omit<Order, "total">[] = [
   {
     id: "day-001",
     orderType: "dine-in",
@@ -187,7 +187,8 @@ function computeSummary(orders: Order[]): DailySummary {
 async function fetchOrdersForDate(date: string): Promise<Order[]> {
   await new Promise<void>((resolve) => setTimeout(resolve, 500));
   const today = new Date().toISOString().split("T")[0];
-  return date === today ? MOCK_ORDERS_TODAY : [];
+  const source = date === today ? MOCK_ORDERS_TODAY : [];
+  return source.map((o) => ({ ...o, total: itemsTotal(o.items) }));
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

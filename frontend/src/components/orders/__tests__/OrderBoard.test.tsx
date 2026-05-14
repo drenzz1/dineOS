@@ -21,6 +21,7 @@ const mockOrder: Order = {
   tableNumber: 3,
   status: OrderStatus.New,
   items: [{ id: "item-001", name: "Margherita Pizza", quantity: 1, unitPrice: 12.99 }],
+  total: 12.99,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

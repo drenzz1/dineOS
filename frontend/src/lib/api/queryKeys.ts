@@ -36,8 +36,16 @@ export const queryKeys = {
         tenantId,
         { status: ["New", "InProgress"] },
       ] as const,
-    payments: (tenantId: string | null) =>
-      [...queryKeys.orders.all, tenantId, "payments"] as const,
+  },
+  payments: {
+    all: ["payments"] as const,
+    openOrders: (tenantId: string | null) =>
+      [...queryKeys.payments.all, tenantId, "openOrders"] as const,
+  },
+  billing: {
+    all: ["billing"] as const,
+    subscription: (tenantId: string | null) =>
+      [...queryKeys.billing.all, tenantId, "subscription"] as const,
   },
   staff: {
     all: ["staff"] as const,

@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { label: "Reports", href: "/reports" },
   { label: "Shifts", href: "/shifts" },
   { label: "Staff", href: "/staff" },
+  { label: "Billing", href: "/settings/billing" },
 ];
 
 const ROLE_NAV_ITEMS: Record<Exclude<Role, "SuperAdmin">, NavItem[]> = {
@@ -31,6 +32,8 @@ const ROLE_NAV_ITEMS: Record<Exclude<Role, "SuperAdmin">, NavItem[]> = {
   ),
   KitchenStaff: navItems.filter(({ href }) => href === "/kitchen"),
 };
+
+// Billing is Manager-only; the filter above already excludes it from Cashier/KitchenStaff.
 
 function mergeClasses(...classes: Array<string | undefined | false>): string {
   return classes.filter(Boolean).join(" ");

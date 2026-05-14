@@ -172,6 +172,11 @@ export default function RestaurantOnboardForm() {
         {errors.plan && (
           <p className="text-sm text-red-600">{errors.plan.message}</p>
         )}
+        <p className="rounded-md bg-zinc-50 px-3 py-2 text-[11px] text-zinc-600">
+          Selecting <strong>Pro</strong> here provisions the plan without
+          charging. The owner subscribes via Stripe in <em>Settings → Billing</em>{" "}
+          once they sign in.
+        </p>
       </div>
 
       {/* Actions */}

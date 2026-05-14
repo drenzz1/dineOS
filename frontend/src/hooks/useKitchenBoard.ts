@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
 import { OrderStatus } from "@/types/order";
-import type { Order } from "@/types/order";
+import type { Order, OrderItem } from "@/types/order";
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -11,7 +11,11 @@ function ago(minutes: number): string {
   return new Date(Date.now() - minutes * 60_000).toISOString();
 }
 
-const MOCK_KITCHEN_ORDERS: Order[] = [
+function itemsTotal(items: OrderItem[]): number {
+  return items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+}
+
+const MOCK_KITCHEN_ORDERS: Omit<Order, "total">[] = [
   {
     id: "ktc-001",
     orderType: "dine-in",
@@ -72,7 +76,7 @@ async function fetchKitchenOrders(): Promise<Order[]> {
   return MOCK_KITCHEN_ORDERS.filter(
     (o) =>
       o.status === OrderStatus.New || o.status === OrderStatus.InProgress
-  );
+  ).map((o) => ({ ...o, total: itemsTotal(o.items) }));
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

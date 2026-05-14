@@ -22,6 +22,7 @@ export interface Order {
   tableNumber?: number;
   status: OrderStatus;
   items: OrderItem[];
+  total: number;
   notes?: string;
   createdAt: string;
   updatedAt: string;
