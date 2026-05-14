@@ -46,8 +46,15 @@ export const queryKeys = {
   },
   shifts: {
     all: ["shifts"] as const,
+    list: (tenantId: string | null, date?: string) =>
+      date
+        ? ([...queryKeys.shifts.all, tenantId, "list", date] as const)
+        : ([...queryKeys.shifts.all, tenantId, "list"] as const),
+  },
+  shiftNotes: {
+    all: ["shiftNotes"] as const,
     list: (tenantId: string | null) =>
-      [...queryKeys.shifts.all, tenantId, "list"] as const,
+      [...queryKeys.shiftNotes.all, tenantId, "list"] as const,
   },
   adminUsers: {
     all: ["adminUsers"] as const,

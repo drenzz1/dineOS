@@ -8,6 +8,7 @@ import type { ShiftNoteFormValues } from "@/lib/validations/shiftNote";
 import { saveShiftNote } from "@/lib/api/shiftApi";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
+import { useMe } from "@/hooks/useMe";
 import { Button } from "@/components/ui/Button";
 
 const PRIORITIES = [
@@ -23,6 +24,7 @@ interface ShiftNoteFormProps {
 export default function ShiftNoteForm({ onClose }: ShiftNoteFormProps) {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
+  const { user } = useMe();
 
   const {
     register,
@@ -38,9 +40,10 @@ export default function ShiftNoteForm({ onClose }: ShiftNoteFormProps) {
   });
 
   const { mutate, isPending } = useMutation({
-    mutationFn: saveShiftNote,
+    mutationFn: (data: ShiftNoteFormValues) =>
+      saveShiftNote(data, user?.name ?? user?.username ?? ""),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.shifts.list(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.shiftNotes.list(tenantId) });
       onClose();
     },
   });

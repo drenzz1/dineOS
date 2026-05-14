@@ -9,3 +9,13 @@ export interface ShiftSummary {
   author: string;
   createdAt: string;
 }
+
+export interface Shift {
+  id: string;
+  tenantId: string;
+  staffMemberId: string;
+  staffName: string;
+  startTime: string;
+  endTime: string;
+  notes?: string;
+}
