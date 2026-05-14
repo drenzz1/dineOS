@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 
 interface ShiftNoteCardProps {
   note: ShiftSummary;
+  canDelete: boolean;
   onDelete: (id: string) => void;
 }
 
@@ -21,7 +22,7 @@ function formatDate(iso: string) {
   });
 }
 
-export default function ShiftNoteCard({ note, onDelete }: ShiftNoteCardProps) {
+export default function ShiftNoteCard({ note, canDelete, onDelete }: ShiftNoteCardProps) {
   return (
     <li className="rounded-md border border-border bg-surface shadow-sm p-4 space-y-2 transition-[box-shadow,border-color] duration-200 hover:shadow-md hover:border-border-strong">
       <div className="flex items-start justify-between gap-3">
@@ -37,13 +38,15 @@ export default function ShiftNoteCard({ note, onDelete }: ShiftNoteCardProps) {
             {note.title}
           </p>
         </div>
-        <Button
-          variant="danger"
-          size="sm"
-          onClick={() => onDelete(note.id)}
-        >
-          Delete
-        </Button>
+        {canDelete && (
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => onDelete(note.id)}
+          >
+            Delete
+          </Button>
+        )}
       </div>
 
       <p className="line-clamp-2 text-[13px] text-fg-muted leading-relaxed">
