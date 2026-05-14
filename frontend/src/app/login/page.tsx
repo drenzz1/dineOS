@@ -19,6 +19,7 @@ function setDevAuthCookies(role: AppRole): void {
   clearAuthCookies();
   document.cookie = "access_token=dev; path=/";
   document.cookie = `role=${role}; path=/`;
+  document.cookie = "refresh_token=dev; path=/";
 }
 
 export default function LoginPage() {
