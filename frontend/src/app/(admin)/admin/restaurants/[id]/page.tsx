@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getRestaurant,
   updateRestaurantStatus,
   updateRestaurantPlan,
   deleteRestaurant,
+  resendEmailVerification,
 } from "@/lib/api/restaurantApi";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { type ApiError } from "@/lib/api/envelope";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/hooks/useToast";
@@ -86,6 +89,23 @@ export default function RestaurantDetailPage() {
     },
   });
 
+  const { mutate: resendVerification, isPending: isResending } = useMutation({
+    mutationFn: () => resendEmailVerification(Number(id)),
+    onSuccess: (data) => {
+      const title = data.jobId
+        ? `Verification email queued. JobId=${data.jobId}`
+        : "Verification email queued.";
+      toast({ title, variant: "success" });
+    },
+    onError: (error) => {
+      if ((error as ApiError).status === 429) {
+        toast({ title: "Rate limit reached. Please wait before retrying.", variant: "error" });
+      } else {
+        toast({ title: (error as Error).message, variant: "error" });
+      }
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -123,6 +143,19 @@ export default function RestaurantDetailPage() {
           <p className="text-sm text-zinc-500">{restaurant.city}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            isLoading={isResending}
+            onClick={() => resendVerification()}
+          >
+            Resend Verification Email
+          </Button>
+          <Link
+            href={`/admin/restaurants/${id}/verify-email`}
+            className="inline-flex h-[34px] items-center justify-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 text-[13px] font-[550] tracking-[-0.005em] text-fg shadow-xs transition-[background-color,transform,box-shadow,color,border-color] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[0.5px] hover:bg-surface-2 active:translate-y-0"
+          >
+            Verify Email →
+          </Link>
           <Button
             variant={restaurant.status === "Active" ? "danger" : "primary"}
             onClick={() => setConfirmOpen(true)}
@@ -178,6 +211,25 @@ export default function RestaurantDetailPage() {
               style={{ width: `${staffPct}%` }}
             />
           </div>
+        </div>
+      </section>
+
+      {/* Email Verification */}
+      <section>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+          Email Verification
+        </h2>
+        <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4">
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              restaurant.ownerEmailVerified
+                ? "bg-green-100 text-green-700"
+                : "bg-amber-100 text-amber-700"
+            }`}
+          >
+            {restaurant.ownerEmailVerified ? "Verified" : "Not verified"}
+          </span>
+          <span className="text-sm text-zinc-500">{restaurant.ownerEmail}</span>
         </div>
       </section>
 

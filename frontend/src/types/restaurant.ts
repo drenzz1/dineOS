@@ -15,4 +15,5 @@ export interface Restaurant {
   revenue: number;
   createdAt: string;
   tenantId: number;
+  ownerEmailVerified: boolean;
 }

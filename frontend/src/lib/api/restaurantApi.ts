@@ -76,3 +76,26 @@ export async function deleteRestaurant(id: number): Promise<void> {
     throw toApiError(error);
   }
 }
+
+export async function resendEmailVerification(tenantId: number): Promise<{ jobId?: string }> {
+  try {
+    const res = await apiClient.post<ApiResponse<null>>(
+      `/v1/admin/restaurants/${tenantId}/email-verification/resend`
+    );
+    const match = res.data.message?.match(/JobId=([^\s]+)/);
+    return { jobId: match?.[1] };
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
+
+export async function confirmEmailVerification(tenantId: number, code: string): Promise<void> {
+  try {
+    await apiClient.post<ApiResponse<boolean>>(
+      `/v1/admin/restaurants/${tenantId}/email-verification/confirm`,
+      { code }
+    );
+  } catch (error) {
+    throw toApiError(error);
+  }
+}

@@ -8,5 +8,5 @@ export { shiftNoteSchema } from "./shiftNote";
 export type { ShiftNoteFormValues } from "./shiftNote";
 export { shiftSchema } from "./shift";
 export type { ShiftFormValues } from "./shift";
-export { restaurantSchema } from "./restaurant";
-export type { RestaurantFormValues } from "./restaurant";
+export { restaurantSchema, emailVerificationSchema } from "./restaurant";
+export type { RestaurantFormValues, EmailVerificationFormValues } from "./restaurant";
