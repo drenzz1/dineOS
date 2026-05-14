@@ -12,5 +12,6 @@ public record RestaurantDto(
     int TotalOrders,
     int StaffCount,
     decimal Revenue,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool OwnerEmailVerified
 );

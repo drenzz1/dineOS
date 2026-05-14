@@ -10,3 +10,12 @@ export const restaurantSchema = z.object({
 });
 
 export type RestaurantFormValues = z.infer<typeof restaurantSchema>;
+
+export const emailVerificationSchema = z.object({
+  code: z
+    .string()
+    .length(6, "Code must be exactly 6 digits")
+    .regex(/^\d{6}$/, "Code must be exactly 6 digits"),
+});
+
+export type EmailVerificationFormValues = z.infer<typeof emailVerificationSchema>;

@@ -55,7 +55,8 @@ public class AdminRestaurantService(
                 t.TotalOrders,
                 t.StaffCount,
                 t.Revenue,
-                t.CreatedAt))
+                t.CreatedAt,
+                t.OwnerEmailVerified))
             .ToListAsync(ct);
 
         return ServiceResult<PagedResponse<RestaurantDto>>.Ok(
@@ -209,7 +210,8 @@ public class AdminRestaurantService(
         t.TotalOrders,
         t.StaffCount,
         t.Revenue,
-        t.CreatedAt);
+        t.CreatedAt,
+        t.OwnerEmailVerified);
 
     private static string GenerateSlug(string name) =>
         Regex.Replace(name.ToLower().Trim(), @"[^a-z0-9]+", "-").Trim('-');
