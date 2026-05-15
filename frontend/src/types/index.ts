@@ -16,3 +16,5 @@ export type { AppRole, MeResponse } from "./me";
 export type { Priority, Shift, ShiftSummary } from "./shift";
 export type { AdminUser, UserStatus } from "./admin";
 export type { Restaurant, RestaurantPlan, RestaurantStatus } from "./restaurant";
+export type { RestaurantProfile } from "./restaurantProfile";
+export type { RestaurantTable } from "./restaurantTable";
