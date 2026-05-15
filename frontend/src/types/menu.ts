@@ -15,3 +15,21 @@ export interface MenuItem {
   description?: string;
   imageUrl?: string;
 }
+
+// ─── Backend DTOs ─────────────────────────────────────────────────────────────
+
+export type MenuItemDto = {
+  id: number;
+  tenantId: number;
+  name: string;
+  price: number;
+  category: string;
+  description?: string | null;
+  imageUrl?: string | null;
+};
+
+export type MenuCategoryDto = {
+  id: number;
+  tenantId: number;
+  name: string;
+};
