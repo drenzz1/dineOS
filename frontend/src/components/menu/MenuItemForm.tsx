@@ -7,7 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { menuItemSchema } from "@/lib/validations/menuItem";
 import type { MenuItemFormValues } from "@/lib/validations/menuItem";
-import { saveMenuItem } from "@/lib/api/menuApi";
+import { saveMenuItem, uploadMenuItemImage } from "@/lib/api/menuApi";
+import { handleApiError } from "@/lib/api/errorToast";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
 import { MenuCategory } from "@/types";
@@ -16,7 +17,7 @@ import { Button } from "@/components/ui/Button";
 interface MenuItemFormProps {
   onClose: () => void;
   categories?: string[];
-  defaultValues?: Partial<MenuItemFormValues> & { id?: string };
+  defaultValues?: Partial<MenuItemFormValues> & { id?: string; imageUrl?: string };
 }
 
 export default function MenuItemForm({ onClose, categories, defaultValues }: MenuItemFormProps) {
@@ -41,11 +42,20 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
   });
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (data: MenuItemFormValues) =>
-      saveMenuItem(data, defaultValues?.id),
+    mutationFn: async (data: MenuItemFormValues) => {
+      const item = await saveMenuItem(data, defaultValues?.id, defaultValues?.imageUrl);
+      if (data.imageFile instanceof File) {
+        await uploadMenuItemImage(item.id, data.imageFile);
+      }
+      return item;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.list(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.menuItems.all });
       onClose();
+    },
+    onError: (error) => {
+      handleApiError(error);
     },
   });
 
@@ -69,6 +79,9 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
   }
 
   const imageFile = watch("imageFile");
+
+  const existingImageUrl = defaultValues?.imageUrl;
+  const showExistingImage = existingImageUrl && !imageFile && !preview;
 
   return (
     <form onSubmit={handleSubmit((d) => mutate(d))} noValidate className="space-y-4">
@@ -160,8 +173,22 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
       <div className="space-y-2">
         <p className="text-sm font-medium text-zinc-700">
           Image{" "}
-          <span className="font-normal text-zinc-400">(optional, max 2 MB)</span>
+          <span className="font-normal text-zinc-400">(optional, max 5 MB — JPEG / PNG / WebP)</span>
         </p>
+
+        {showExistingImage && (
+          <div className="flex items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+            <Image
+              src={existingImageUrl}
+              alt="Current image"
+              width={48}
+              height={48}
+              unoptimized
+              className="h-12 w-12 rounded object-cover"
+            />
+            <p className="min-w-0 flex-1 truncate text-sm text-zinc-600">Current image</p>
+          </div>
+        )}
 
         {imageFile ? (
           <div className="flex items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
@@ -211,13 +238,13 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
                 browse
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   className="sr-only"
                   onChange={(e) => handleFile(e.target.files?.[0])}
                 />
               </label>
             </p>
-            <p className="mt-1 text-xs text-zinc-400">PNG, JPG, GIF up to 2 MB</p>
+            <p className="mt-1 text-xs text-zinc-400">PNG, JPG, WebP up to 5 MB</p>
           </div>
         )}
         {errors.imageFile?.message && (

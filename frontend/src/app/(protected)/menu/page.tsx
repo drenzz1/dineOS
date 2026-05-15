@@ -9,6 +9,7 @@ import {
   addCategory,
   deleteMenuItem,
 } from "@/lib/api/menuApi";
+import { handleApiError } from "@/lib/api/errorToast";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
 import { Button } from "@/components/ui/Button";
@@ -68,19 +69,22 @@ export default function MenuPage() {
   const filteredItems = items.filter((i) => i.category === activeCategory);
 
   const { mutate: doAddCategory } = useMutation({
-    mutationFn: addCategory,
-    onSuccess: (updated) => {
-      queryClient.setQueryData(queryKeys.menuCategories.list(tenantId), updated);
+    mutationFn: (name: string) => addCategory(name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.menuCategories.list(tenantId) });
       setNewCategory("");
     },
+    onError: (error) => handleApiError(error),
   });
 
   const { mutate: doDelete, isPending: isDeleting } = useMutation({
     mutationFn: deleteMenuItem,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.list(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.menuItems.all });
       setDeleteTarget(null);
     },
+    onError: (error) => handleApiError(error),
   });
 
   function handleCategoryKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -163,6 +167,7 @@ export default function MenuPage() {
                   price: editTarget.price,
                   category: editTarget.category,
                   description: editTarget.description,
+                  imageUrl: editTarget.imageUrl,
                 }
               : undefined
           }
