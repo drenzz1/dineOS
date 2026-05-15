@@ -101,4 +101,14 @@ export const queryKeys = {
     manager: (tenantId: string | null) =>
       ["dashboard", tenantId, "manager"] as const,
   },
+  restaurantProfile: {
+    all: ["restaurantProfile"] as const,
+    current: (tenantId: string | null) =>
+      [...queryKeys.restaurantProfile.all, tenantId] as const,
+  },
+  restaurantTables: {
+    all: ["restaurantTables"] as const,
+    list: (tenantId: string | null) =>
+      [...queryKeys.restaurantTables.all, tenantId, "list"] as const,
+  },
 } as const;

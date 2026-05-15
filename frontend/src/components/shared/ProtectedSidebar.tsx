@@ -22,6 +22,8 @@ const navItems: NavItem[] = [
   { label: "Reports", href: "/reports" },
   { label: "Shifts", href: "/shifts" },
   { label: "Staff", href: "/staff" },
+  { label: "Profile", href: "/settings/profile" },
+  { label: "Tables", href: "/settings/tables" },
   { label: "Billing", href: "/settings/billing" },
 ];
 
