@@ -8,10 +8,14 @@ import {
   getCategories,
   addCategory,
   deleteMenuItem,
+  saveMenuItem,
 } from "@/lib/api/menuApi";
+import { describeMenuItem } from "@/lib/api/aiApi";
 import { handleApiError } from "@/lib/api/errorToast";
+import { ApiError } from "@/lib/api/envelope";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
+import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import MenuItemForm from "@/components/menu/MenuItemForm";
@@ -49,11 +53,16 @@ const MenuItemTable = dynamic(
 export default function MenuPage() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
+  const role = useAuthStore((s) => s.role);
+  const isManager = role === "Manager" || role === "SuperAdmin";
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<MenuItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MenuItem | null>(null);
+  const [describeTarget, setDescribeTarget] = useState<MenuItem | null>(null);
+  const [draftDescription, setDraftDescription] = useState<string | null>(null);
+  const [describeErrorMsg, setDescribeErrorMsg] = useState<string | null>(null);
 
   const { data: categories = [], isLoading: isLoadingCategories } = useQuery({
     queryKey: queryKeys.menuCategories.list(tenantId),
@@ -86,6 +95,57 @@ export default function MenuPage() {
     },
     onError: (error) => handleApiError(error),
   });
+
+  const { mutate: doDescribe, isPending: isDescribing } = useMutation({
+    mutationFn: (item: MenuItem) => describeMenuItem(item.id),
+    onSuccess: (suggestion) => {
+      setDraftDescription(suggestion.suggestedDescription);
+      setDescribeErrorMsg(null);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        if (error.status === 429) {
+          setDescribeErrorMsg("Try again in a minute");
+          return;
+        }
+        if (error.status === 422) {
+          setDescribeErrorMsg("AI unavailable, fill in manually");
+          return;
+        }
+      }
+      setDescribeErrorMsg("Something went wrong, please try again");
+    },
+  });
+
+  const { mutate: doSaveDescription, isPending: isSavingDescription } = useMutation({
+    mutationFn: (item: MenuItem) =>
+      saveMenuItem(
+        { name: item.name, price: item.price, category: item.category, description: draftDescription ?? "" },
+        item.id,
+        item.imageUrl
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.menu.list(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.menuItems.all });
+      setDescribeTarget(null);
+      setDraftDescription(null);
+      setDescribeErrorMsg(null);
+    },
+    onError: (error) => handleApiError(error),
+  });
+
+  function openDescribeModal(item: MenuItem) {
+    setDescribeTarget(item);
+    setDraftDescription(null);
+    setDescribeErrorMsg(null);
+    doDescribe(item);
+  }
+
+  function closeDescribeModal() {
+    setDescribeTarget(null);
+    setDraftDescription(null);
+    setDescribeErrorMsg(null);
+  }
 
   function handleCategoryKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && newCategory.trim()) {
@@ -147,6 +207,7 @@ export default function MenuPage() {
           items={filteredItems}
           onEdit={(item) => setEditTarget(item)}
           onDelete={(item) => setDeleteTarget(item)}
+          onDescribe={isManager ? openDescribeModal : undefined}
         />
       )}
 
@@ -172,6 +233,69 @@ export default function MenuPage() {
               : undefined
           }
         />
+      </Modal>
+
+      {/* AI Describe modal */}
+      <Modal
+        isOpen={describeTarget !== null}
+        onClose={closeDescribeModal}
+        title={`Describe with AI — ${describeTarget?.name ?? ""}`}
+      >
+        <div className="space-y-4">
+          {isDescribing && (
+            <div className="flex flex-col items-center gap-3 py-6">
+              <svg
+                className="h-5 w-5 animate-spin text-accent"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              <p className="text-[13px] text-fg-muted">Generating description…</p>
+            </div>
+          )}
+
+          {!isDescribing && describeErrorMsg && (
+            <div className="space-y-4">
+              <p className="rounded-md border border-status-cancelled-border bg-status-cancelled-bg px-4 py-3 text-[13px] text-status-cancelled-fg">
+                {describeErrorMsg}
+              </p>
+              <div className="flex justify-end">
+                <Button variant="secondary" onClick={closeDescribeModal}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!isDescribing && draftDescription !== null && !describeErrorMsg && (
+            <div className="space-y-3">
+              <label htmlFor="ai-description" className="block text-[13px] font-medium text-fg">
+                Suggested description
+              </label>
+              <textarea
+                id="ai-description"
+                rows={4}
+                value={draftDescription}
+                onChange={(e) => setDraftDescription(e.target.value)}
+                className="block w-full resize-none rounded-sm border border-border-strong bg-surface px-3 py-2 text-[13px] text-fg placeholder:text-fg-subtle transition-[border-color,box-shadow] duration-150 focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/25"
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={closeDescribeModal}>
+                  Cancel
+                </Button>
+                <Button
+                  isLoading={isSavingDescription}
+                  onClick={() => describeTarget && doSaveDescription(describeTarget)}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
 
       {/* Delete confirmation modal */}
