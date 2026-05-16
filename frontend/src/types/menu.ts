@@ -33,3 +33,19 @@ export type MenuCategoryDto = {
   tenantId: number;
   name: string;
 };
+
+export type AiSuggestionMetadata = {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  latencyMs: number;
+};
+
+export type MenuItemDescriptionSuggestion = {
+  menuItemId: number;
+  itemName: string;
+  category: string;
+  suggestedDescription: string;
+  suggestedAllergens: string[];
+  metadata: AiSuggestionMetadata;
+};

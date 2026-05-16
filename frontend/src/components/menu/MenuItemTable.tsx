@@ -9,12 +9,14 @@ interface MenuItemTableProps {
   items: MenuItem[];
   onEdit: (item: MenuItem) => void;
   onDelete: (item: MenuItem) => void;
+  onDescribe?: (item: MenuItem) => void;
 }
 
 export default function MenuItemTable({
   items,
   onEdit,
   onDelete,
+  onDescribe,
 }: MenuItemTableProps) {
   if (items.length === 0) {
     return (
@@ -62,6 +64,15 @@ export default function MenuItemTable({
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="flex items-center justify-end gap-2">
+                  {onDescribe && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onDescribe(item)}
+                    >
+                      ✨ Describe
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
