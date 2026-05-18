@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import BillingCenter from "@/components/billing/BillingCenter";
 
 export default function BillingPage() {
@@ -12,7 +13,9 @@ export default function BillingPage() {
         </p>
       </div>
 
-      <BillingCenter />
+      <Suspense>
+        <BillingCenter />
+      </Suspense>
     </div>
   );
 }

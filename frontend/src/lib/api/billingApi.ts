@@ -4,6 +4,7 @@ import type {
   BillingCycle,
   BillingSubscription,
   StripeRedirect,
+  TenantInvoice,
 } from "@/types/billing";
 
 interface BillingSubscriptionDto {
@@ -57,6 +58,17 @@ export async function createPortalSession(): Promise<StripeRedirect> {
   try {
     const res = await apiClient.post<ApiResponse<StripeRedirectDto>>(
       "/v1/billing/portal-session"
+    );
+    return unwrap(res);
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
+
+export async function getInvoices(): Promise<TenantInvoice[]> {
+  try {
+    const res = await apiClient.get<ApiResponse<TenantInvoice[]>>(
+      "/v1/billing/invoices"
     );
     return unwrap(res);
   } catch (error) {

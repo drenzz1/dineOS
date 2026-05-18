@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -11,9 +12,10 @@ import { queryKeys } from "@/lib/api/queryKeys";
 import {
   createCheckoutSession,
   createPortalSession,
+  getInvoices,
   getSubscription,
 } from "@/lib/api/billingApi";
-import type { BillingCycle, BillingSubscription } from "@/types/billing";
+import type { BillingCycle, BillingSubscription, TenantInvoice } from "@/types/billing";
 
 const PLAN_PRICES: Record<BillingCycle, { label: string; sublabel: string }> = {
   Monthly: { label: "€29 / month", sublabel: "Billed monthly · cancel anytime" },
@@ -42,6 +44,17 @@ function statusBadge(sub: BillingSubscription): { label: string; tone: string } 
   }
 }
 
+function invoiceStatusBadge(status: string): { label: string; tone: string } {
+  switch (status) {
+    case "paid":
+      return { label: "Paid", tone: "bg-status-ready-soft text-status-ready-solid" };
+    case "open":
+      return { label: "Open", tone: "bg-status-stalled-amber-soft text-status-stalled-amber-solid" };
+    default:
+      return { label: status, tone: "bg-surface-2 text-fg-muted" };
+  }
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString(undefined, {
@@ -51,10 +64,43 @@ function formatDate(iso: string | null): string {
   });
 }
 
+function formatMoney(amount: number, currency: string): string {
+  const symbol = currency.toLowerCase() === "usd" ? "$" : "€";
+  return `${symbol}${amount.toFixed(2)}`;
+}
+
 export default function BillingCenter() {
   const { tenantId } = useTenant();
   const { toast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [cycle, setCycle] = useState<BillingCycle>("Monthly");
+
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status === "success") {
+      toast({
+        title: "Subscription activated",
+        description: "Welcome to dineOS Pro!",
+        variant: "success",
+      });
+      router.replace("/settings/billing");
+    } else if (status === "cancelled") {
+      toast({
+        title: "Checkout cancelled",
+        description: "You can subscribe any time from this page.",
+        variant: "warning",
+      });
+      router.replace("/settings/billing");
+    } else if (status === "error") {
+      toast({
+        title: "Payment failed",
+        description: "Your payment could not be processed. Please try again.",
+        variant: "error",
+      });
+      router.replace("/settings/billing");
+    }
+  }, [searchParams, toast, router]);
 
   const {
     data: subscription,
@@ -63,6 +109,12 @@ export default function BillingCenter() {
   } = useQuery({
     queryKey: queryKeys.billing.subscription(tenantId),
     queryFn: getSubscription,
+  });
+
+  const { data: invoices = [], isLoading: invoicesLoading } = useQuery<TenantInvoice[]>({
+    queryKey: queryKeys.billing.invoices(tenantId),
+    queryFn: getInvoices,
+    enabled: !!subscription?.hasStripeSubscription,
   });
 
   const checkoutMutation = useMutation({
@@ -201,6 +253,65 @@ export default function BillingCenter() {
               You will be redirected to Stripe to complete payment.
             </p>
           </div>
+        </section>
+      )}
+
+      {subscription.hasStripeSubscription && (
+        <section className="rounded-lg border border-border bg-surface shadow-sm">
+          <div className="border-b border-border px-5 py-4">
+            <h2 className="text-base font-semibold text-fg">Invoice history</h2>
+            <p className="text-[12px] text-fg-muted">
+              Your past dineOS subscription invoices.
+            </p>
+          </div>
+          {invoicesLoading ? (
+            <div className="space-y-3 p-5">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : invoices.length === 0 ? (
+            <EmptyState
+              title="No invoices yet"
+              description="Your invoices will appear here once a payment has been processed."
+            />
+          ) : (
+            <div className="divide-y divide-border">
+              {invoices.map((invoice) => {
+                const invBadge = invoiceStatusBadge(invoice.status);
+                return (
+                  <div
+                    key={invoice.id}
+                    className="flex items-center justify-between gap-3 px-5 py-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${invBadge.tone}`}
+                      >
+                        {invBadge.label}
+                      </span>
+                      <span className="text-sm font-medium text-fg">
+                        {formatMoney(invoice.amount, invoice.currency)}
+                      </span>
+                      <span className="shrink-0 text-xs text-fg-muted">
+                        {formatDate(invoice.paidAt ?? invoice.createdAt)}
+                      </span>
+                    </div>
+                    {invoice.hostedInvoiceUrl && (
+                      <a
+                        href={invoice.hostedInvoiceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 text-xs font-medium text-accent hover:underline"
+                      >
+                        View
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
       )}
     </div>

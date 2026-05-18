@@ -27,3 +27,20 @@ public sealed record OverduePaymentEmailModel(
 {
     public sealed record Row(long PaymentId, long OrderId, decimal Amount, int AgeMinutes);
 }
+
+public sealed record SubscriptionActivatedEmailModel(
+    string    OwnerName,
+    string    RestaurantName,
+    string    BillingCycle,
+    DateTime? CurrentPeriodEnd);
+
+public sealed record PaymentFailedEmailModel(
+    string  OwnerName,
+    string  RestaurantName,
+    decimal Amount,
+    string  Currency,
+    string? HostedInvoiceUrl);
+
+public sealed record SubscriptionCanceledEmailModel(
+    string OwnerName,
+    string RestaurantName);

@@ -58,6 +58,16 @@ public class BillingController(IBillingService billingService) : ControllerBase
     public async Task<IActionResult> CreatePortalSession(CancellationToken ct) =>
         (await billingService.CreatePortalSessionAsync(ct)).ToActionResult();
 
+    /// <summary>Returns the current tenant's invoice history, newest first.</summary>
+    [HttpGet("invoices")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
+    [EnableRateLimiting("authenticated")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<TenantInvoiceDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetInvoices(CancellationToken ct) =>
+        (await billingService.GetInvoicesAsync(ct)).ToActionResult();
+
     /// <summary>Stripe webhook target. Anonymous — authenticated via the <c>Stripe-Signature</c> header.</summary>
     /// <remarks>
     /// Stripe sends subscription lifecycle and invoice events here. The request

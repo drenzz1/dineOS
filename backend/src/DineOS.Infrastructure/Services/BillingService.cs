@@ -5,11 +5,15 @@ using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Options;
 using DineOS.Domain.Entities;
 using DineOS.Domain.Enums;
+using DineOS.Infrastructure.Jobs;
 using DineOS.Infrastructure.Persistence;
+using DineOS.Infrastructure.Persistence.Messaging;
 using FluentValidation;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using Stripe;
 using Stripe.Checkout;
 
@@ -20,6 +24,7 @@ public class BillingService(
     ITenantService tenantService,
     IValidator<CreateCheckoutSessionRequest> checkoutValidator,
     IOptions<StripeOptions> options,
+    IBackgroundJobClient backgroundJobs,
     ILogger<BillingService> logger) : IBillingService
 {
     private readonly StripeOptions _opts = options.Value;
@@ -148,6 +153,29 @@ public class BillingService(
         });
     }
 
+    public async Task<ServiceResult<IReadOnlyList<TenantInvoiceDto>>> GetInvoicesAsync(CancellationToken ct = default)
+    {
+        if (tenantService.TenantId is not { } tenantId)
+            return ServiceResult<IReadOnlyList<TenantInvoiceDto>>.BadRequest("Tenant context is required.");
+
+        var invoices = await db.TenantInvoices
+            .Where(i => i.TenantId == tenantId)
+            .OrderByDescending(i => i.CreatedAt)
+            .Select(i => new TenantInvoiceDto
+            {
+                Id               = i.Id,
+                Amount           = i.Amount,
+                Currency         = i.Currency,
+                Status           = i.Status,
+                PaidAt           = i.PaidAt,
+                HostedInvoiceUrl = i.HostedInvoiceUrl,
+                CreatedAt        = i.CreatedAt,
+            })
+            .ToListAsync(ct);
+
+        return ServiceResult<IReadOnlyList<TenantInvoiceDto>>.Ok(invoices);
+    }
+
     public async Task<ServiceResult<string>> HandleWebhookAsync(
         string eventJson,
         string signature,
@@ -167,6 +195,34 @@ public class BillingService(
             return ServiceResult<string>.BadRequest("Invalid webhook signature.");
         }
 
+        // Idempotency — skip duplicate deliveries before any side effects.
+        if (await db.ProcessedMessages.AnyAsync(m => m.MessageId == stripeEvent.Id, ct))
+        {
+            logger.LogInformation(
+                "Duplicate Stripe webhook skipped: EventId={EventId} Type={Type}",
+                stripeEvent.Id, stripeEvent.Type);
+            return ServiceResult<string>.Ok(stripeEvent.Id, "Webhook already processed.");
+        }
+
+        db.ProcessedMessages.Add(new ProcessedMessage
+        {
+            MessageId   = stripeEvent.Id,
+            MessageType = stripeEvent.Type,
+            TenantId    = 0,
+            ProcessedAt = DateTime.UtcNow,
+        });
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            logger.LogInformation(
+                "Duplicate Stripe webhook skipped after insert conflict: EventId={EventId} Type={Type}",
+                stripeEvent.Id, stripeEvent.Type);
+            return ServiceResult<string>.Ok(stripeEvent.Id, "Webhook already processed.");
+        }
+
         switch (stripeEvent.Type)
         {
             case "customer.subscription.created":
@@ -179,8 +235,11 @@ public class BillingService(
                 break;
 
             case "invoice.paid":
+                await ApplyInvoiceAsync((Invoice)stripeEvent.Data.Object, false, ct);
+                break;
+
             case "invoice.payment_failed":
-                await ApplyInvoiceAsync((Invoice)stripeEvent.Data.Object, ct);
+                await ApplyInvoiceAsync((Invoice)stripeEvent.Data.Object, true, ct);
                 break;
 
             default:
@@ -189,6 +248,63 @@ public class BillingService(
         }
 
         return ServiceResult<string>.Ok(stripeEvent.Id, "Webhook handled.");
+    }
+
+    // Called from SignupService to avoid duplicating the session-creation logic.
+    internal async Task<ServiceResult<Session>> BuildCheckoutSessionAsync(
+        Tenant tenant,
+        BillingCycle cycle,
+        CancellationToken ct)
+    {
+        if (!_opts.IsConfigured)
+            return ServiceResult<Session>.BadRequest("Stripe billing is not configured on this server.");
+
+        var priceId = cycle switch
+        {
+            BillingCycle.Monthly => _opts.ProMonthlyPriceId,
+            BillingCycle.Annual  => _opts.ProAnnualPriceId,
+            _ => throw new InvalidOperationException("Unsupported billing cycle.")
+        };
+
+        if (string.IsNullOrWhiteSpace(priceId))
+            return ServiceResult<Session>.BadRequest($"Stripe price is not configured for {cycle} billing.");
+
+        StripeConfiguration.ApiKey = _opts.SecretKey;
+
+        var customerId = tenant.StripeCustomerId;
+        if (string.IsNullOrWhiteSpace(customerId))
+        {
+            var customer = await new CustomerService().CreateAsync(new CustomerCreateOptions
+            {
+                Email    = tenant.OwnerEmail,
+                Name     = tenant.Name,
+                Metadata = new Dictionary<string, string> { ["tenantId"] = tenant.Id.ToString() }
+            }, cancellationToken: ct);
+            customerId = customer.Id;
+            tenant.StripeCustomerId = customerId;
+            await db.SaveChangesAsync(ct);
+        }
+
+        var session = await new SessionService().CreateAsync(new SessionCreateOptions
+        {
+            Mode      = "subscription",
+            Customer  = customerId,
+            LineItems = new List<SessionLineItemOptions> { new() { Price = priceId, Quantity = 1 } },
+            SuccessUrl        = _opts.CheckoutSuccessUrl,
+            CancelUrl         = _opts.CheckoutCancelUrl,
+            Locale            = "auto",
+            ClientReferenceId = tenant.Id.ToString(),
+            SubscriptionData  = new SessionSubscriptionDataOptions
+            {
+                Metadata = new Dictionary<string, string>
+                {
+                    ["tenantId"] = tenant.Id.ToString(),
+                    ["cycle"]    = cycle.ToString()
+                }
+            }
+        }, cancellationToken: ct);
+
+        return ServiceResult<Session>.Ok(session);
     }
 
     private async Task ApplySubscriptionAsync(Subscription sub, CancellationToken ct)
@@ -201,6 +317,8 @@ public class BillingService(
             logger.LogWarning("Stripe subscription event for unknown customer {CustomerId}", sub.CustomerId);
             return;
         }
+
+        var wasAlreadyPro = tenant.Plan == SubscriptionPlan.Pro;
 
         tenant.StripeSubscriptionId = sub.Id;
         tenant.BillingStatus        = MapStatus(sub.Status);
@@ -215,6 +333,14 @@ public class BillingService(
         logger.LogInformation(
             "Stripe subscription applied: TenantId={TenantId} Status={Status} Cycle={Cycle}",
             tenant.Id, tenant.BillingStatus, tenant.BillingCycle);
+
+        if (!wasAlreadyPro && tenant.Plan == SubscriptionPlan.Pro)
+        {
+            backgroundJobs.Enqueue<SubscriptionActivatedEmailJob>(
+                job => job.SendAsync(tenant.Id, CancellationToken.None));
+            logger.LogInformation(
+                "Subscription activated email enqueued: TenantId={TenantId}", tenant.Id);
+        }
     }
 
     private async Task ApplySubscriptionDeletedAsync(Subscription sub, CancellationToken ct)
@@ -233,9 +359,14 @@ public class BillingService(
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation("Stripe subscription canceled for TenantId={TenantId}", tenant.Id);
+
+        backgroundJobs.Enqueue<SubscriptionCanceledEmailJob>(
+            job => job.SendAsync(tenant.Id, CancellationToken.None));
+        logger.LogInformation(
+            "Subscription canceled email enqueued: TenantId={TenantId}", tenant.Id);
     }
 
-    private async Task ApplyInvoiceAsync(Invoice invoice, CancellationToken ct)
+    private async Task ApplyInvoiceAsync(Invoice invoice, bool isPaymentFailed, CancellationToken ct)
     {
         var tenant = await db.Tenants
             .IgnoreQueryFilters()
@@ -250,9 +381,10 @@ public class BillingService(
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(i => i.StripeInvoiceId == invoice.Id, ct);
 
+        TenantInvoice invoiceRecord;
         if (existing is null)
         {
-            db.TenantInvoices.Add(new TenantInvoice
+            invoiceRecord = new TenantInvoice
             {
                 TenantId         = tenant.Id,
                 StripeInvoiceId  = invoice.Id,
@@ -261,31 +393,45 @@ public class BillingService(
                 Status           = invoice.Status,
                 PaidAt           = invoice.Status == "paid" ? DateTime.UtcNow : null,
                 HostedInvoiceUrl = invoice.HostedInvoiceUrl,
-            });
+            };
+            db.TenantInvoices.Add(invoiceRecord);
         }
         else
         {
             existing.Status           = invoice.Status;
             existing.PaidAt           = invoice.Status == "paid" ? existing.PaidAt ?? DateTime.UtcNow : existing.PaidAt;
             existing.HostedInvoiceUrl = invoice.HostedInvoiceUrl;
+            invoiceRecord = existing;
         }
 
-        if (invoice.Status == "payment_failed")
+        if (isPaymentFailed)
             tenant.BillingStatus = BillingStatus.PastDue;
 
+        // SaveChangesAsync before enqueue so invoiceRecord.Id is populated
+        // (EF sets the identity value after the INSERT) and the job can read
+        // fresh data from the database when it executes.
         await db.SaveChangesAsync(ct);
+
+        if (isPaymentFailed)
+        {
+            backgroundJobs.Enqueue<PaymentFailedEmailJob>(
+                job => job.SendAsync(tenant.Id, invoiceRecord.Id, CancellationToken.None));
+            logger.LogInformation(
+                "Payment failed email enqueued: TenantId={TenantId} InvoiceId={InvoiceId}",
+                tenant.Id, invoiceRecord.Id);
+        }
     }
 
     private static BillingStatus MapStatus(string stripeStatus) => stripeStatus switch
     {
-        "trialing"          => BillingStatus.Trialing,
-        "active"            => BillingStatus.Active,
-        "past_due"          => BillingStatus.PastDue,
-        "canceled"          => BillingStatus.Canceled,
-        "incomplete"        => BillingStatus.Incomplete,
-        "incomplete_expired"=> BillingStatus.Canceled,
-        "unpaid"            => BillingStatus.PastDue,
-        _                   => BillingStatus.None,
+        "trialing"           => BillingStatus.Trialing,
+        "active"             => BillingStatus.Active,
+        "past_due"           => BillingStatus.PastDue,
+        "canceled"           => BillingStatus.Canceled,
+        "incomplete"         => BillingStatus.Incomplete,
+        "incomplete_expired" => BillingStatus.Canceled,
+        "unpaid"             => BillingStatus.PastDue,
+        _                    => BillingStatus.None,
     };
 
     private BillingCycle? InferCycle(Subscription sub)
@@ -296,4 +442,7 @@ public class BillingService(
         if (priceId == _opts.ProAnnualPriceId)  return BillingCycle.Annual;
         return null;
     }
+
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 }

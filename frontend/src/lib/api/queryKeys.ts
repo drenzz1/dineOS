@@ -48,6 +48,8 @@ export const queryKeys = {
     all: ["billing"] as const,
     subscription: (tenantId: string | null) =>
       [...queryKeys.billing.all, tenantId, "subscription"] as const,
+    invoices: (tenantId: string | null) =>
+      [...queryKeys.billing.all, tenantId, "invoices"] as const,
   },
   staff: {
     all: ["staff"] as const,

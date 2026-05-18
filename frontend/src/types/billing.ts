@@ -21,3 +21,13 @@ export interface BillingSubscription {
 export interface StripeRedirect {
   url: string;
 }
+
+export interface TenantInvoice {
+  id: number;
+  amount: number;
+  currency: string;
+  status: string;
+  paidAt: string | null;
+  hostedInvoiceUrl: string | null;
+  createdAt: string;
+}
