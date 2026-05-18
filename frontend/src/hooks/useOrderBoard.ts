@@ -4,6 +4,7 @@ import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
 import { OrderStatus } from "@/types/order";
 import type { Order } from "@/types/order";
+import { useOrderHub } from "@/lib/realtime/orderHub";
 
 type GroupedOrders = Record<OrderStatus, Order[]>;
 
@@ -22,6 +23,7 @@ const EMPTY_GROUPS: GroupedOrders = {
 
 export function useOrderBoard(filters: OrderBoardFilters = {}) {
   const { tenantId } = useTenant();
+  useOrderHub();
   const normalizedFilters = {
     date: filters.date,
     status: filters.status ?? "all",
@@ -29,8 +31,6 @@ export function useOrderBoard(filters: OrderBoardFilters = {}) {
   const { data: orders = [], isLoading, isError } = useQuery({
     queryKey: queryKeys.orders.list(tenantId, normalizedFilters),
     queryFn: () => getOrders(normalizedFilters),
-    // Poll every 30 s until SignalR real-time updates are wired up
-    refetchInterval: 30_000,
   });
 
   const grouped: GroupedOrders = orders.reduce<GroupedOrders>(

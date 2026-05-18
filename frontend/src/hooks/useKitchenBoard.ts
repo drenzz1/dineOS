@@ -4,6 +4,7 @@ import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
 import { OrderStatus } from "@/types/order";
 import type { Order, OrderItem } from "@/types/order";
+import { useOrderHub } from "@/lib/realtime/orderHub";
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -91,11 +92,10 @@ export interface UseKitchenBoardResult {
 
 export function useKitchenBoard(): UseKitchenBoardResult {
   const { tenantId } = useTenant();
+  useOrderHub();
   const { data: orders = [], isLoading, isError } = useQuery({
     queryKey: queryKeys.orders.kitchen(tenantId),
     queryFn: fetchKitchenOrders,
-    // TODO: replace polling with SignalR when backend is ready
-    refetchInterval: 10_000,
   });
 
   const newOrders = orders
