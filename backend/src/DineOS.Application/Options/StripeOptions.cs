@@ -26,7 +26,5 @@ public sealed class StripeOptions
     public string PortalReturnUrl { get; init; } = "http://localhost:3000/settings/billing";
 
     public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(SecretKey) &&
-        !string.IsNullOrWhiteSpace(ProMonthlyPriceId) &&
-        !string.IsNullOrWhiteSpace(ProAnnualPriceId);
+        !string.IsNullOrWhiteSpace(SecretKey);
 }
