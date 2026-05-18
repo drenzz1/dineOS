@@ -131,6 +131,9 @@ public static class DependencyInjection
         services.AddScoped<AccountVerificationEmailJob>();
         services.AddScoped<DailyPaymentSummaryJob>();
         services.AddScoped<OverduePaymentNotificationJob>();
+        services.AddScoped<SubscriptionActivatedEmailJob>();
+        services.AddScoped<SubscriptionCanceledEmailJob>();
+        services.AddScoped<PaymentFailedEmailJob>();
         services.AddHostedService<RecurringJobRegistrar>();
 
         // ── AI (Anthropic) ─────────────────────────────────────────────────

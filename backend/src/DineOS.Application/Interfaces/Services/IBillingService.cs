@@ -18,6 +18,9 @@ public interface IBillingService
     /// <summary>Returns the current subscription state for the caller's tenant.</summary>
     Task<ServiceResult<BillingSubscriptionDto>> GetSubscriptionAsync(CancellationToken ct = default);
 
+    /// <summary>Returns the invoice history for the caller's tenant, newest first.</summary>
+    Task<ServiceResult<IReadOnlyList<TenantInvoiceDto>>> GetInvoicesAsync(CancellationToken ct = default);
+
     /// <summary>
     /// Applies a verified Stripe webhook event to the database. The event must
     /// already have its signature verified by the controller before calling

@@ -1,0 +1,25 @@
+@model DineOS.Application.Notifications.PaymentFailedEmailModel
+@{
+    Layout = "_Layout.cshtml";
+    ViewBag.Title = "DineOS — payment failed";
+}
+<h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Payment failed</h2>
+<p style="margin:0 0 16px;">Hi @Model.OwnerName,</p>
+<p style="margin:0 0 16px;">
+  A payment of <strong>@Model.Amount.ToString("C")</strong> for your <strong>@Model.RestaurantName</strong>
+  dineOS subscription could not be processed. Please update your payment method to keep your subscription active.
+</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.HostedInvoiceUrl))
+{
+<p style="margin:20px 0;">
+  <a href="@Model.HostedInvoiceUrl"
+     style="display:inline-block;padding:10px 20px;background:#0f172a;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">
+    View invoice
+  </a>
+</p>
+}
+
+<p style="margin:16px 0 0;color:#94a3b8;font-size:13px;">
+  You can also update your payment method from the Billing page in your dineOS settings.
+</p>
