@@ -39,6 +39,16 @@ public class BillingService(
         if (!_opts.IsConfigured)
             return ServiceResult<StripeRedirectDto>.BadRequest("Stripe billing is not configured on this server.");
 
+        var priceId = cycle switch
+        {
+            BillingCycle.Monthly => _opts.ProMonthlyPriceId,
+            BillingCycle.Annual  => _opts.ProAnnualPriceId,
+            _ => throw new InvalidOperationException("Unsupported billing cycle.")
+        };
+
+        if (string.IsNullOrWhiteSpace(priceId))
+            return ServiceResult<StripeRedirectDto>.BadRequest($"Stripe price is not configured for {cycle} billing.");
+
         if (tenantService.TenantId is not { } tenantId)
             return ServiceResult<StripeRedirectDto>.BadRequest("Tenant context is required.");
 
@@ -61,13 +71,6 @@ public class BillingService(
             tenant.StripeCustomerId = customerId;
             await db.SaveChangesAsync(ct);
         }
-
-        var priceId = cycle switch
-        {
-            BillingCycle.Monthly => _opts.ProMonthlyPriceId,
-            BillingCycle.Annual  => _opts.ProAnnualPriceId,
-            _ => throw new InvalidOperationException("Unsupported billing cycle.")
-        };
 
         var session = await new SessionService().CreateAsync(new SessionCreateOptions
         {

@@ -40,9 +40,12 @@ next-env.d.ts
 .pnpm-store/
 
 # Deployment and tooling
+AGENTS.md
 .claude/settings.local.json
+.claude/skills/gitnexus/
 .vercel/
 .netlify/
+.gitnexus/
 
 # OS and editor files
 .DS_Store

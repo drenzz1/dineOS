@@ -111,6 +111,74 @@ Important settings:
 | `FileStorage__UrlBasePath` | URL prefix for returned image paths (default `/uploads`) |
 | `FileStorage__MaxBytes` | Maximum upload size in bytes (default `5242880` = 5 MB) |
 | `FileStorage__ServeLocally` | Set to `true` to serve uploaded files outside Development environment |
+| `Stripe__SecretKey` | Stripe test secret key for local billing smoke tests |
+| `Stripe__WebhookSecret` | Stripe CLI webhook signing secret from `stripe listen` |
+| `Stripe__ProMonthlyPriceId` | Stripe Price ID for the dineOS Pro Monthly test subscription |
+| `Stripe__ProAnnualPriceId` | Stripe Price ID for the annual Pro subscription, when available |
+
+## Stripe Local Development
+
+`src/DineOS.Api/appsettings.Development.json` is tracked, so do not put real Stripe
+secrets in it. Keep the committed `Stripe` values empty and supply local values
+with environment variables or .NET user-secrets:
+
+```bash
+cd backend/src/DineOS.Api
+dotnet user-secrets init
+dotnet user-secrets set "Stripe:SecretKey" "sk_test_..."
+dotnet user-secrets set "Stripe:WebhookSecret" "whsec_..."
+dotnet user-secrets set "Stripe:ProMonthlyPriceId" "price_..."
+```
+
+To create the monthly test price in Stripe test mode:
+
+```bash
+stripe products create --name "dineOS Pro Monthly"
+stripe prices create \
+  --currency usd \
+  --unit-amount 5000 \
+  --recurring interval=month \
+  --product prod_...
+```
+
+Copy the returned `price_...` value into `Stripe:ProMonthlyPriceId` or
+`Stripe__ProMonthlyPriceId`.
+
+Run the local webhook forwarder in a separate terminal and copy the printed
+`whsec_...` value into `Stripe:WebhookSecret`:
+
+```bash
+stripe listen --forward-to localhost:5001/api/v1/billing/webhook
+```
+
+For SDK `dotnet run`, the default HTTP profile uses `http://localhost:5138`, so
+forward to that port instead:
+
+```bash
+stripe listen --forward-to localhost:5138/api/v1/billing/webhook
+```
+
+Use Stripe's successful test card in Checkout:
+
+```text
+4242 4242 4242 4242
+Any future expiry
+Any CVC
+Any ZIP
+```
+
+Smoke test the subscription flow by starting the API, signing in as a SuperAdmin
+tenant user, then calling:
+
+```http
+POST /api/v1/billing/checkout-session
+Content-Type: application/json
+
+{ "cycle": "Monthly" }
+```
+
+The response should contain a real Stripe Checkout URL. Complete the test
+payment and confirm the Stripe CLI logs a `200` for the webhook request.
 
 ## Auth
 
