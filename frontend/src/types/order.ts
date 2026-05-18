@@ -27,3 +27,9 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
 }
+
+export type KitchenQueueSummary = {
+  pending: number;
+  inProgress: number;
+  ready: number;
+};
