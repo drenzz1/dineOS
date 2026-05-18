@@ -8,7 +8,7 @@ export type {
   StaffReport,
 } from "./reports";
 export { OrderStatus } from "./order";
-export type { Order, OrderItem, OrderType } from "./order";
+export type { Order, OrderItem, OrderType, KitchenQueueSummary } from "./order";
 export { MenuCategory } from "./menu";
 export type { MenuItem } from "./menu";
 export type { Role, StaffMember } from "./staff";

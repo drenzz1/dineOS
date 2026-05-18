@@ -1,101 +1,42 @@
-// TODO: replace with real API call when backend is ready
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
 import { OrderStatus } from "@/types/order";
-import type { Order, OrderItem } from "@/types/order";
+import type { KitchenQueueSummary, Order } from "@/types/order";
+import { getKitchenOrders, getKitchenQueue } from "@/lib/api/kitchenApi";
 import { useOrderHub } from "@/lib/realtime/orderHub";
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-function ago(minutes: number): string {
-  return new Date(Date.now() - minutes * 60_000).toISOString();
-}
-
-function itemsTotal(items: OrderItem[]): number {
-  return items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
-}
-
-const MOCK_KITCHEN_ORDERS: Omit<Order, "total">[] = [
-  {
-    id: "ktc-001",
-    orderType: "dine-in",
-    tableNumber: 3,
-    status: OrderStatus.New,
-    items: [
-      { id: "k1i1", name: "Margherita Pizza", quantity: 1, unitPrice: 12.99 },
-      { id: "k1i2", name: "Caesar Salad", quantity: 2, unitPrice: 8.99 },
-      { id: "k1i3", name: "Sparkling Water", quantity: 2, unitPrice: 1.99 },
-    ],
-    createdAt: ago(3),
-    updatedAt: ago(3),
-  },
-  {
-    id: "ktc-002",
-    orderType: "pickup",
-    status: OrderStatus.New,
-    items: [
-      { id: "k2i1", name: "Pepperoni Pizza", quantity: 2, unitPrice: 14.99 },
-      { id: "k2i2", name: "Coca Cola", quantity: 2, unitPrice: 2.99 },
-    ],
-    createdAt: ago(7),
-    updatedAt: ago(7),
-  },
-  {
-    id: "ktc-003",
-    orderType: "dine-in",
-    tableNumber: 1,
-    status: OrderStatus.InProgress,
-    items: [
-      { id: "k3i1", name: "Pasta Carbonara", quantity: 1, unitPrice: 13.99 },
-      { id: "k3i2", name: "Tiramisu", quantity: 1, unitPrice: 5.99 },
-    ],
-    notes: "Nut allergy — no pesto",
-    createdAt: ago(15),
-    updatedAt: ago(12),
-  },
-  {
-    id: "ktc-004",
-    orderType: "dine-in",
-    tableNumber: 6,
-    status: OrderStatus.InProgress,
-    items: [
-      { id: "k4i1", name: "Margherita Pizza", quantity: 2, unitPrice: 12.99 },
-      { id: "k4i2", name: "Pepperoni Pizza", quantity: 1, unitPrice: 14.99 },
-      { id: "k4i3", name: "Sparkling Water", quantity: 3, unitPrice: 1.99 },
-    ],
-    notes: "Extra crispy base on all pizzas",
-    createdAt: ago(8),
-    updatedAt: ago(6),
-  },
-];
-
-// ─── Fetch function ───────────────────────────────────────────────────────────
-
-async function fetchKitchenOrders(): Promise<Order[]> {
-  await new Promise<void>((resolve) => setTimeout(resolve, 300));
-  return MOCK_KITCHEN_ORDERS.filter(
-    (o) =>
-      o.status === OrderStatus.New || o.status === OrderStatus.InProgress
-  ).map((o) => ({ ...o, total: itemsTotal(o.items) }));
-}
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export interface UseKitchenBoardResult {
   newOrders: Order[];
   inProgressOrders: Order[];
+  queue: KitchenQueueSummary;
   isEmpty: boolean;
   isLoading: boolean;
   isError: boolean;
 }
 
+const EMPTY_QUEUE: KitchenQueueSummary = {
+  pending: 0,
+  inProgress: 0,
+  ready: 0,
+};
+
 export function useKitchenBoard(): UseKitchenBoardResult {
   const { tenantId } = useTenant();
   useOrderHub();
-  const { data: orders = [], isLoading, isError } = useQuery({
+
+  const {
+    data: orders = [],
+    isLoading: ordersLoading,
+    isError: ordersError,
+  } = useQuery({
     queryKey: queryKeys.orders.kitchen(tenantId),
-    queryFn: fetchKitchenOrders,
+    queryFn: getKitchenOrders,
+  });
+
+  const { data: queue = EMPTY_QUEUE, isError: queueError } = useQuery({
+    queryKey: queryKeys.orders.kitchenQueue(tenantId),
+    queryFn: getKitchenQueue,
   });
 
   const newOrders = orders
@@ -112,11 +53,14 @@ export function useKitchenBoard(): UseKitchenBoardResult {
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
 
+  const activeOrders = newOrders.length + inProgressOrders.length;
+
   return {
     newOrders,
     inProgressOrders,
-    isEmpty: orders.length === 0,
-    isLoading,
-    isError,
+    queue,
+    isEmpty: activeOrders === 0,
+    isLoading: ordersLoading,
+    isError: ordersError || queueError,
   };
 }

@@ -36,6 +36,8 @@ export const queryKeys = {
         tenantId,
         { status: ["New", "InProgress"] },
       ] as const,
+    kitchenQueue: (tenantId: string | null) =>
+      [...queryKeys.orders.all, tenantId, "kitchenQueue"] as const,
   },
   payments: {
     all: ["payments"] as const,

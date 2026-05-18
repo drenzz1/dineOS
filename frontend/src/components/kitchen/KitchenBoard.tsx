@@ -3,6 +3,27 @@
 import KitchenTicket from "./KitchenTicket";
 import { useKitchenBoard } from "@/hooks/useKitchenBoard";
 
+// ─── Queue counter chip ───────────────────────────────────────────────────────
+
+interface QueueChipProps {
+  label: string;
+  count: number;
+  accentClass: string;
+}
+
+function QueueChip({ label, count, accentClass }: QueueChipProps) {
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold ${accentClass}`}
+    >
+      <span className="uppercase tracking-wider">{label}</span>
+      <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-bold">
+        {count}
+      </span>
+    </div>
+  );
+}
+
 // ─── Section header ───────────────────────────────────────────────────────────
 
 interface SectionHeadingProps {
@@ -54,14 +75,14 @@ function TicketSkeleton() {
 // ─── Board ────────────────────────────────────────────────────────────────────
 
 export default function KitchenBoard() {
-  const { newOrders, inProgressOrders, isEmpty, isLoading, isError } =
+  const { newOrders, inProgressOrders, queue, isEmpty, isLoading, isError } =
     useKitchenBoard();
 
   return (
     // -m-6 cancels the parent layout's p-6 so the dark bg is edge-to-edge
     <div className="-m-6 min-h-screen bg-zinc-900 p-4 md:p-6 lg:p-8">
       {/* Board header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white md:text-3xl lg:text-4xl">
           Kitchen Display
         </h1>
@@ -70,6 +91,25 @@ export default function KitchenBoard() {
             Loading…
           </span>
         )}
+      </div>
+
+      {/* Queue counter strip */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <QueueChip
+          label="Pending"
+          count={queue.pending}
+          accentClass="border-blue-500/40 text-blue-300"
+        />
+        <QueueChip
+          label="In Progress"
+          count={queue.inProgress}
+          accentClass="border-amber-400/40 text-amber-300"
+        />
+        <QueueChip
+          label="Ready"
+          count={queue.ready}
+          accentClass="border-green-500/40 text-green-300"
+        />
       </div>
 
       {/* Error state */}

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { updateOrderStatus } from "@/lib/api/ordersApi";
+import { updateKitchenOrderStatus } from "@/lib/api/kitchenApi";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { OrderStatus } from "@/types/order";
 import type { Order } from "@/types/order";
@@ -48,7 +48,8 @@ export default function KitchenTicket({ order }: KitchenTicketProps) {
   }, [order.createdAt]);
 
   const { mutate: changeStatus, isPending } = useMutation({
-    mutationFn: (status: OrderStatus) => updateOrderStatus(order.id, status),
+    mutationFn: (status: OrderStatus) =>
+      updateKitchenOrderStatus(order.id, status),
     onSuccess: () => {
       // Invalidate all order queries so the board, order list, and daily
       // summary all stay in sync after a status change.
