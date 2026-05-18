@@ -113,6 +113,9 @@ public class AppDbContext : DbContext
             .HasIndex(t => t.StripeSubscriptionId)
             .IsUnique()
             .HasFilter("\"StripeSubscriptionId\" IS NOT NULL");
+        modelBuilder.Entity<Tenant>()
+            .HasIndex(t => t.StripeSessionId)
+            .HasFilter("\"StripeSessionId\" IS NOT NULL");
 
         // Idempotency for invoice webhook events.
         modelBuilder.Entity<TenantInvoice>()

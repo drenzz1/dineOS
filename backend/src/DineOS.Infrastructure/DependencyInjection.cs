@@ -64,7 +64,13 @@ public static class DependencyInjection
         services.AddSingleton<IDatabaseMigrator, EfDatabaseMigrator>();
 
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
-        services.AddScoped<IBillingService, BillingService>();
+        // BillingService is registered by both its interface and its concrete
+        // type. SignupService (#204) depends on the concrete to reuse the
+        // internal BuildCheckoutSessionAsync helper without leaking it onto
+        // the public interface.
+        services.AddScoped<BillingService>();
+        services.AddScoped<IBillingService>(sp => sp.GetRequiredService<BillingService>());
+        services.AddScoped<ISignupService, SignupService>();
 
         services.Configure<RabbitMqOptions>(configuration.GetSection(RabbitMqOptions.SectionName));
         services.AddSingleton<RabbitMqConnectionProvider>();
