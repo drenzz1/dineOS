@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -10,6 +10,14 @@ const POLL_INTERVAL_MS = 3_000;
 const TIMEOUT_MS = 5 * 60 * 1_000;
 
 export default function SignupSuccessPage() {
+  return (
+    <Suspense fallback={<StatusShell><LoadingState /></StatusShell>}>
+      <SignupSuccessInner />
+    </Suspense>
+  );
+}
+
+function SignupSuccessInner() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId") ?? "";
 
@@ -92,12 +100,18 @@ export default function SignupSuccessPage() {
 
   return (
     <StatusShell>
-      <div className="space-y-4 text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900" />
-        <h1 className="text-xl font-semibold text-zinc-900">Confirming your payment…</h1>
-        <p className="text-sm text-zinc-500">This usually takes just a few seconds.</p>
-      </div>
+      <LoadingState />
     </StatusShell>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="space-y-4 text-center">
+      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900" />
+      <h1 className="text-xl font-semibold text-zinc-900">Confirming your payment…</h1>
+      <p className="text-sm text-zinc-500">This usually takes just a few seconds.</p>
+    </div>
   );
 }
 
