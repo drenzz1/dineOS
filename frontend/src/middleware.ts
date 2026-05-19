@@ -10,7 +10,7 @@ function isValidRole(value: string): value is Role {
 
 const CASHIER_ALLOWED = ["/orders", "/payments", "/kitchen", "/shifts"];
 const KITCHEN_STAFF_ALLOWED = ["/kitchen", "/shifts"];
-const PUBLIC_PATHS = ["/", "/login", "/auth/callback"];
+const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/signup", "/signup/success"];
 
 function isAllowed(pathname: string, allowed: string[]): boolean {
   return allowed.some(

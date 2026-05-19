@@ -12,6 +12,8 @@ export { restaurantSchema, emailVerificationSchema } from "./restaurant";
 export type { RestaurantFormValues, EmailVerificationFormValues } from "./restaurant";
 export { loginSchema } from "./login";
 export type { LoginFormValues } from "./login";
+export { signupSchema } from "./signup";
+export type { SignupFormValues } from "./signup";
 export { restaurantProfileSchema } from "./restaurantProfile";
 export type { RestaurantProfileFormValues } from "./restaurantProfile";
 export {
