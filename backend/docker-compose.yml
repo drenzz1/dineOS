@@ -19,6 +19,8 @@ services:
       - Keycloak__ClientId=dineos-frontend
       - Keycloak__GrantType=password
       - Keycloak__RequireHttpsMetadata=false
+      - Keycloak__AdminClientId=dineos-admin
+      - Keycloak__AdminClientSecret=dev-admin-secret-change-me
       - Redis__ConnectionString=redis:6379
       - RabbitMq__Enabled=true
       - RabbitMq__HostName=rabbitmq

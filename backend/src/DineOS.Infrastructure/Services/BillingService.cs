@@ -5,6 +5,7 @@ using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Options;
 using DineOS.Domain.Entities;
 using DineOS.Domain.Enums;
+using DineOS.Infrastructure.Auth;
 using DineOS.Infrastructure.Jobs;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Persistence.Messaging;
@@ -328,7 +329,17 @@ public class BillingService(
             "Public signup completed: TenantId={TenantId} SessionId={SessionId} CustomerId={CustomerId} SubscriptionId={SubscriptionId}",
             tenant.Id, session.Id, tenant.StripeCustomerId, tenant.StripeSubscriptionId);
 
-        // TODO #TBD-3: trigger owner Keycloak provisioning (TenantPaymentCompleted event).
+        // Owner provisioning runs in Hangfire so transient Keycloak/SMTP
+        // outages retry without blocking — or losing — the webhook delivery
+        // (which the dedupe row above has already marked processed).
+        if (tenant.KeycloakUserId is null)
+        {
+            var tempPassword = TempPasswordGenerator.Generate(12);
+            backgroundJobs.Enqueue<OwnerProvisioningJob>(
+                j => j.RunAsync(tenant.Id, tempPassword, CancellationToken.None));
+            logger.LogInformation(
+                "Owner provisioning job enqueued: TenantId={TenantId}", tenant.Id);
+        }
     }
 
     private async Task ApplySubscriptionAsync(Subscription sub, CancellationToken ct)

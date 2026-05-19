@@ -28,4 +28,9 @@ public class Tenant : BaseAuditingEntity
     public BillingStatus BillingStatus { get; set; } = BillingStatus.None;
     public BillingCycle? BillingCycle { get; set; }
     public DateTime? CurrentPeriodEnd { get; set; }
+
+    // Populated by the Stripe checkout.session.completed webhook (#205) when
+    // the owner's Keycloak account is provisioned. Doubles as the idempotency
+    // guard for that flow: provisioning is skipped when this is non-null.
+    public string? KeycloakUserId { get; set; }
 }

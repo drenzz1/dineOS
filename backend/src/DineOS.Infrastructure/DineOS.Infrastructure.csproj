@@ -36,6 +36,7 @@
   <ItemGroup>
     <!-- Work around dotnet/sdk:10.0.100 passing recursive globs literally in Linux builds. -->
     <Compile Include="DependencyInjection.cs" />
+    <Compile Include="Auth/*.cs" />
     <Compile Include="Jobs/*.cs" />
     <Compile Include="Messaging/*.cs" />
     <Compile Include="Persistence/*.cs" />

@@ -44,3 +44,10 @@ public sealed record PaymentFailedEmailModel(
 public sealed record SubscriptionCanceledEmailModel(
     string OwnerName,
     string RestaurantName);
+
+public sealed record OwnerWelcomeEmailModel(
+    string OwnerName,
+    string RestaurantName,
+    string Email,
+    string TempPassword,
+    string AccountUrl);
