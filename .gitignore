@@ -93,3 +93,6 @@ backend/src/*/bin\\Debug/
 backend/src/*/bin\\Release/
 backend/tests/*/bin\\Debug/
 backend/tests/*/bin\\Release/
+
+# ai-os local workspace (memory + per-feature research/plan)
+.ai-os/
