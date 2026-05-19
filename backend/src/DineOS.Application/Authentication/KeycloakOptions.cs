@@ -16,6 +16,13 @@ public sealed class KeycloakOptions
     public bool RequireHttpsMetadata { get; set; }
     public string? AdminClientId { get; set; }
     public string? AdminClientSecret { get; set; }
+    public string? AdminBaseUrl { get; set; }
+
+    public string GetAdminBaseUrl() =>
+        TrimTrailingSlash(
+            !string.IsNullOrWhiteSpace(AdminBaseUrl) ? AdminBaseUrl
+            : !string.IsNullOrWhiteSpace(AuthServerUrl) ? AuthServerUrl
+            : throw new InvalidOperationException("Keycloak:AdminBaseUrl or Keycloak:AuthServerUrl must be configured."));
 
     public string? GetIssuerAuthority()
     {

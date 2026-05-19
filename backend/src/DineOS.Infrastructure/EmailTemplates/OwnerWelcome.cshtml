@@ -1,0 +1,29 @@
+@model DineOS.Application.Notifications.OwnerWelcomeEmailModel
+@{
+    Layout = "_Layout.cshtml";
+    ViewBag.Title = "Welcome to DineOS";
+}
+<h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Your DineOS account is ready</h2>
+<p style="margin:0 0 16px;">Hi @Model.OwnerName,</p>
+<p style="margin:0 0 16px;">
+  Payment confirmed — your restaurant <strong>@Model.RestaurantName</strong> is live on DineOS.
+  Use the credentials below to sign in for the first time. You'll be asked to set a new password.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;width:100%;background:#f1f5f9;border-radius:8px;">
+  <tr>
+    <td style="padding:16px 18px;">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;">Email</div>
+      <div style="font-size:15px;font-weight:600;color:#0f172a;margin-top:2px;">@Model.Email</div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:0 18px 16px;">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;">Temporary password</div>
+      <div style="font-family:Menlo,Consolas,monospace;font-size:18px;font-weight:700;color:#0f172a;margin-top:2px;letter-spacing:1px;">@Model.TempPassword</div>
+    </td>
+  </tr>
+</table>
+<p style="margin:0 0 16px;">
+  <a href="@Model.AccountUrl" style="display:inline-block;padding:12px 20px;background:#0f172a;color:#ffffff;border-radius:8px;text-decoration:none;font-weight:600;">Set your password</a>
+</p>
+<p style="margin:16px 0 0;color:#94a3b8;font-size:13px;">For your security, the temporary password is single-use and must be changed on first sign-in.</p>

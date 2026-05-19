@@ -3,6 +3,7 @@ using DineOS.Application.Interfaces.Repositories;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Authentication;
 using DineOS.Application.Options;
+using DineOS.Infrastructure.Auth;
 using DineOS.Infrastructure.Jobs;
 using DineOS.Infrastructure.Messaging;
 using DineOS.Infrastructure.Persistence;
@@ -32,6 +33,10 @@ public static class DependencyInjection
         services.Configure<KeycloakOptions>(configuration.GetSection(KeycloakOptions.SectionName));
         services.AddHttpClient(KeycloakAuthService.HttpClientName);
         services.AddScoped<IKeycloakAuthService, KeycloakAuthService>();
+        // Admin client caches the service-account token in-memory across
+        // requests, so it must be a Singleton (all deps are Singleton-safe).
+        services.AddHttpClient(KeycloakAdminClient.HttpClientName);
+        services.AddSingleton<IKeycloakAdminClient, KeycloakAdminClient>();
 
         services.AddScoped<AuditInterceptor>();
         services.AddScoped<SoftDeleteInterceptor>();
@@ -140,6 +145,8 @@ public static class DependencyInjection
         services.AddScoped<SubscriptionActivatedEmailJob>();
         services.AddScoped<SubscriptionCanceledEmailJob>();
         services.AddScoped<PaymentFailedEmailJob>();
+        services.AddScoped<OwnerWelcomeEmailJob>();
+        services.AddScoped<OwnerProvisioningJob>();
         services.AddHostedService<RecurringJobRegistrar>();
 
         // ── AI (Anthropic) ─────────────────────────────────────────────────
