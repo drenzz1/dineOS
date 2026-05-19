@@ -1,1 +1,8 @@
 .claude/worktrees/
+
+# Local docker compose overrides — may contain Stripe / other secrets.
+docker-compose.override.yml
+docker-compose.override.yaml
+.env
+.env.*
+!.env.example

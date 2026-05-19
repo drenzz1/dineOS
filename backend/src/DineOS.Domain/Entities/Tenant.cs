@@ -24,6 +24,7 @@ public class Tenant : BaseAuditingEntity
     // get them populated by the BillingController + Stripe webhook.
     public string? StripeCustomerId { get; set; }
     public string? StripeSubscriptionId { get; set; }
+    public string? StripeSessionId { get; set; }
     public BillingStatus BillingStatus { get; set; } = BillingStatus.None;
     public BillingCycle? BillingCycle { get; set; }
     public DateTime? CurrentPeriodEnd { get; set; }

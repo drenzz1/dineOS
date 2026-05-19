@@ -50,7 +50,6 @@ public class BillingService(
             BillingCycle.Annual  => _opts.ProAnnualPriceId,
             _ => throw new InvalidOperationException("Unsupported billing cycle.")
         };
-
         if (string.IsNullOrWhiteSpace(priceId))
             return ServiceResult<StripeRedirectDto>.BadRequest($"Stripe price is not configured for {cycle} billing.");
 
@@ -60,6 +59,38 @@ public class BillingService(
         var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, ct);
         if (tenant is null)
             return ServiceResult<StripeRedirectDto>.NotFound($"Tenant {tenantId} not found.");
+
+        var sessionResult = await BuildCheckoutSessionAsync(tenant, cycle, ct);
+        if (!sessionResult.IsSuccess)
+            return ServiceResult<StripeRedirectDto>.BadRequest(sessionResult.Message ?? "Failed to create checkout session.");
+
+        return ServiceResult<StripeRedirectDto>.Ok(new StripeRedirectDto { Url = sessionResult.Value!.Url });
+    }
+
+    /// <summary>
+    /// Creates a Stripe Checkout session for the given tenant. Used by both the
+    /// authenticated billing flow and the public signup flow (#204). Caller is
+    /// responsible for persisting any returned IDs (the tenant entity is
+    /// updated in-place but NOT saved here, except for the lazy customer-id
+    /// creation which is its own atomic save).
+    /// </summary>
+    internal async Task<ServiceResult<Session>> BuildCheckoutSessionAsync(
+        Tenant tenant,
+        BillingCycle cycle,
+        CancellationToken ct)
+    {
+        if (!_opts.IsConfigured)
+            return ServiceResult<Session>.BadRequest("Stripe billing is not configured on this server.");
+
+        var priceId = cycle switch
+        {
+            BillingCycle.Monthly => _opts.ProMonthlyPriceId,
+            BillingCycle.Annual  => _opts.ProAnnualPriceId,
+            _ => throw new InvalidOperationException("Unsupported billing cycle.")
+        };
+
+        if (string.IsNullOrWhiteSpace(priceId))
+            return ServiceResult<Session>.BadRequest($"Stripe price is not configured for {cycle} billing.");
 
         StripeConfiguration.ApiKey = _opts.SecretKey;
 
@@ -103,7 +134,7 @@ public class BillingService(
             "Stripe checkout session created: TenantId={TenantId} SessionId={SessionId} Cycle={Cycle}",
             tenant.Id, session.Id, cycle);
 
-        return ServiceResult<StripeRedirectDto>.Ok(new StripeRedirectDto { Url = session.Url });
+        return ServiceResult<Session>.Ok(session);
     }
 
     public async Task<ServiceResult<StripeRedirectDto>> CreatePortalSessionAsync(CancellationToken ct = default)
@@ -225,6 +256,10 @@ public class BillingService(
 
         switch (stripeEvent.Type)
         {
+            case "checkout.session.completed":
+                await ApplyCheckoutCompletedAsync((Session)stripeEvent.Data.Object, ct);
+                break;
+
             case "customer.subscription.created":
             case "customer.subscription.updated":
                 await ApplySubscriptionAsync((Subscription)stripeEvent.Data.Object, ct);
@@ -250,61 +285,50 @@ public class BillingService(
         return ServiceResult<string>.Ok(stripeEvent.Id, "Webhook handled.");
     }
 
-    // Called from SignupService to avoid duplicating the session-creation logic.
-    internal async Task<ServiceResult<Session>> BuildCheckoutSessionAsync(
-        Tenant tenant,
-        BillingCycle cycle,
-        CancellationToken ct)
+    private async Task ApplyCheckoutCompletedAsync(Session session, CancellationToken ct)
     {
-        if (!_opts.IsConfigured)
-            return ServiceResult<Session>.BadRequest("Stripe billing is not configured on this server.");
-
-        var priceId = cycle switch
+        // Public signup flow (#204): client_reference_id is the pending tenant id.
+        // For the authenticated upgrade flow, the subscription webhook handles
+        // state transitions, so this branch is a no-op there.
+        if (!long.TryParse(session.ClientReferenceId, out var tenantId))
         {
-            BillingCycle.Monthly => _opts.ProMonthlyPriceId,
-            BillingCycle.Annual  => _opts.ProAnnualPriceId,
-            _ => throw new InvalidOperationException("Unsupported billing cycle.")
-        };
-
-        if (string.IsNullOrWhiteSpace(priceId))
-            return ServiceResult<Session>.BadRequest($"Stripe price is not configured for {cycle} billing.");
-
-        StripeConfiguration.ApiKey = _opts.SecretKey;
-
-        var customerId = tenant.StripeCustomerId;
-        if (string.IsNullOrWhiteSpace(customerId))
-        {
-            var customer = await new CustomerService().CreateAsync(new CustomerCreateOptions
-            {
-                Email    = tenant.OwnerEmail,
-                Name     = tenant.Name,
-                Metadata = new Dictionary<string, string> { ["tenantId"] = tenant.Id.ToString() }
-            }, cancellationToken: ct);
-            customerId = customer.Id;
-            tenant.StripeCustomerId = customerId;
-            await db.SaveChangesAsync(ct);
+            logger.LogWarning(
+                "Stripe checkout.session.completed missing or invalid client_reference_id: SessionId={SessionId}",
+                session.Id);
+            return;
         }
 
-        var session = await new SessionService().CreateAsync(new SessionCreateOptions
+        var tenant = await db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
+        if (tenant is null)
         {
-            Mode      = "subscription",
-            Customer  = customerId,
-            LineItems = new List<SessionLineItemOptions> { new() { Price = priceId, Quantity = 1 } },
-            SuccessUrl        = _opts.CheckoutSuccessUrl,
-            CancelUrl         = _opts.CheckoutCancelUrl,
-            Locale            = "auto",
-            ClientReferenceId = tenant.Id.ToString(),
-            SubscriptionData  = new SessionSubscriptionDataOptions
-            {
-                Metadata = new Dictionary<string, string>
-                {
-                    ["tenantId"] = tenant.Id.ToString(),
-                    ["cycle"]    = cycle.ToString()
-                }
-            }
-        }, cancellationToken: ct);
+            logger.LogWarning(
+                "Stripe checkout.session.completed for unknown tenant: TenantId={TenantId} SessionId={SessionId}",
+                tenantId, session.Id);
+            return;
+        }
 
-        return ServiceResult<Session>.Ok(session);
+        if (tenant.BillingStatus != BillingStatus.Incomplete)
+        {
+            logger.LogInformation(
+                "Stripe checkout.session.completed ignored — tenant already provisioned: TenantId={TenantId} Status={Status}",
+                tenant.Id, tenant.BillingStatus);
+            return;
+        }
+
+        tenant.BillingStatus       = BillingStatus.Active;
+        tenant.Plan                = SubscriptionPlan.Pro;
+        tenant.StripeCustomerId    = session.CustomerId    ?? tenant.StripeCustomerId;
+        tenant.StripeSubscriptionId = session.SubscriptionId ?? tenant.StripeSubscriptionId;
+
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation(
+            "Public signup completed: TenantId={TenantId} SessionId={SessionId} CustomerId={CustomerId} SubscriptionId={SubscriptionId}",
+            tenant.Id, session.Id, tenant.StripeCustomerId, tenant.StripeSubscriptionId);
+
+        // TODO #TBD-3: trigger owner Keycloak provisioning (TenantPaymentCompleted event).
     }
 
     private async Task ApplySubscriptionAsync(Subscription sub, CancellationToken ct)
