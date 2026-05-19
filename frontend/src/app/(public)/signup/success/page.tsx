@@ -13,7 +13,7 @@ export default function SignupSuccessPage() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId") ?? "";
 
-  const startedAt = useRef<number>(Date.now());
+  const startedAt = useRef<number | null>(null);
   const [timedOut, setTimedOut] = useState(false);
 
   const { data, isError } = useQuery({
@@ -23,13 +23,14 @@ export default function SignupSuccessPage() {
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       if (status === "Active" || status === "Failed") return false;
-      if (Date.now() - startedAt.current >= TIMEOUT_MS) return false;
+      if (startedAt.current !== null && Date.now() - startedAt.current >= TIMEOUT_MS) return false;
       return POLL_INTERVAL_MS;
     },
   });
 
   // Separate timeout effect — stops polling after 5 min without a terminal status
   useEffect(() => {
+    if (startedAt.current === null) startedAt.current = Date.now();
     if (timedOut || data?.status === "Active" || data?.status === "Failed") return;
     const remaining = TIMEOUT_MS - (Date.now() - startedAt.current);
     const id = setTimeout(() => setTimedOut(true), remaining);

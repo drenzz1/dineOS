@@ -6,6 +6,7 @@ using DineOS.Domain.Entities;
 using DineOS.Domain.Enums;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Services;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -27,11 +28,13 @@ public class SignupServiceTests
             tenantSvc);
 
         var opts = Options.Create(stripeOptions ?? new StripeOptions());
+        var backgroundJobs = Substitute.For<IBackgroundJobClient>();
         var billing = new BillingService(
             db,
             tenantSvc,
             new DineOS.Application.Billing.CreateCheckoutSessionRequestValidator(),
             opts,
+            backgroundJobs,
             NullLogger<BillingService>.Instance);
 
         var svc = new SignupService(

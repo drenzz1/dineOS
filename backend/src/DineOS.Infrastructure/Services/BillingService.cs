@@ -285,63 +285,6 @@ public class BillingService(
         return ServiceResult<string>.Ok(stripeEvent.Id, "Webhook handled.");
     }
 
-    // Called from SignupService to avoid duplicating the session-creation logic.
-    internal async Task<ServiceResult<Session>> BuildCheckoutSessionAsync(
-        Tenant tenant,
-        BillingCycle cycle,
-        CancellationToken ct)
-    {
-        if (!_opts.IsConfigured)
-            return ServiceResult<Session>.BadRequest("Stripe billing is not configured on this server.");
-
-        var priceId = cycle switch
-        {
-            BillingCycle.Monthly => _opts.ProMonthlyPriceId,
-            BillingCycle.Annual  => _opts.ProAnnualPriceId,
-            _ => throw new InvalidOperationException("Unsupported billing cycle.")
-        };
-
-        if (string.IsNullOrWhiteSpace(priceId))
-            return ServiceResult<Session>.BadRequest($"Stripe price is not configured for {cycle} billing.");
-
-        StripeConfiguration.ApiKey = _opts.SecretKey;
-
-        var customerId = tenant.StripeCustomerId;
-        if (string.IsNullOrWhiteSpace(customerId))
-        {
-            var customer = await new CustomerService().CreateAsync(new CustomerCreateOptions
-            {
-                Email    = tenant.OwnerEmail,
-                Name     = tenant.Name,
-                Metadata = new Dictionary<string, string> { ["tenantId"] = tenant.Id.ToString() }
-            }, cancellationToken: ct);
-            customerId = customer.Id;
-            tenant.StripeCustomerId = customerId;
-            await db.SaveChangesAsync(ct);
-        }
-
-        var session = await new SessionService().CreateAsync(new SessionCreateOptions
-        {
-            Mode      = "subscription",
-            Customer  = customerId,
-            LineItems = new List<SessionLineItemOptions> { new() { Price = priceId, Quantity = 1 } },
-            SuccessUrl        = _opts.CheckoutSuccessUrl,
-            CancelUrl         = _opts.CheckoutCancelUrl,
-            Locale            = "auto",
-            ClientReferenceId = tenant.Id.ToString(),
-            SubscriptionData  = new SessionSubscriptionDataOptions
-            {
-                Metadata = new Dictionary<string, string>
-                {
-                    ["tenantId"] = tenant.Id.ToString(),
-                    ["cycle"]    = cycle.ToString()
-                }
-            }
-        }, cancellationToken: ct);
-
-        return ServiceResult<Session>.Ok(session);
-    }
-
     private async Task ApplyCheckoutCompletedAsync(Session session, CancellationToken ct)
     {
         // Public signup flow (#204): client_reference_id is the pending tenant id.
