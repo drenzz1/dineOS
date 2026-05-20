@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -86,6 +87,16 @@ export default function LoginPage() {
             Sign in
           </Button>
         </form>
+
+        <p className="text-center text-sm text-zinc-500">
+          New to dineOS?{" "}
+          <Link
+            href="/signup"
+            className="font-medium text-zinc-900 underline underline-offset-2"
+          >
+            Create an account — $50/mo
+          </Link>
+        </p>
       </div>
     </main>
   );

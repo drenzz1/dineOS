@@ -1,126 +1,184 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/Button";
 import { getSignupStatus } from "@/lib/api/signupApi";
+import { queryKeys } from "@/lib/api/queryKeys";
 
-const POLL_INTERVAL_MS = 3_000;
-const TIMEOUT_MS = 5 * 60 * 1_000;
+const SIGNUP_SESSION_KEY = "dineos.signup.lastSessionId";
+const POLL_MS = 2_000;
+const SOFT_CAP_MS = 30_000;
+
+type PanelTone = "success" | "info" | "warning" | "error";
 
 export default function SignupSuccessPage() {
   return (
-    <Suspense fallback={<StatusShell><LoadingState /></StatusShell>}>
-      <SignupSuccessInner />
-    </Suspense>
+    <main className="mx-auto flex min-h-screen max-w-xl items-center justify-center px-6 py-12">
+      <Suspense
+        fallback={
+          <Panel title="Loading…" tone="info">
+            <p className="text-sm text-fg-muted">Preparing your account…</p>
+          </Panel>
+        }
+      >
+        <SuccessInner />
+      </Suspense>
+    </main>
   );
 }
 
-function SignupSuccessInner() {
-  const searchParams = useSearchParams();
-  const sessionId = searchParams.get("sessionId") ?? "";
+function readStoredSessionId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = sessionStorage.getItem(SIGNUP_SESSION_KEY);
+    return stored && stored.length > 0 ? stored : null;
+  } catch {
+    return null;
+  }
+}
 
-  const startedAt = useRef<number | null>(null);
-  const [timedOut, setTimedOut] = useState(false);
+function SuccessInner() {
+  const search = useSearchParams();
+  const fromUrl = search.get("session_id");
+  const [storedSessionId] = useState<string | null>(() => readStoredSessionId());
+  const sessionId =
+    fromUrl && fromUrl.length > 0 ? fromUrl : storedSessionId;
 
-  const { data, isError } = useQuery({
-    queryKey: ["signup-status", sessionId],
-    queryFn: () => getSignupStatus(sessionId),
-    enabled: Boolean(sessionId) && !timedOut,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
+  const [softCapReached, setSoftCapReached] = useState(false);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const handle = setTimeout(() => setSoftCapReached(true), SOFT_CAP_MS);
+    return () => clearTimeout(handle);
+  }, [sessionId]);
+
+  const query = useQuery({
+    queryKey: queryKeys.signup.status(sessionId ?? ""),
+    queryFn: () => getSignupStatus(sessionId as string),
+    enabled: Boolean(sessionId) && !softCapReached,
+    refetchInterval: (q) => {
+      const status = q.state.data?.status;
       if (status === "Active" || status === "Failed") return false;
-      if (startedAt.current !== null && Date.now() - startedAt.current >= TIMEOUT_MS) return false;
-      return POLL_INTERVAL_MS;
+      return POLL_MS;
     },
+    refetchIntervalInBackground: true,
   });
 
-  // Separate timeout effect — stops polling after 5 min without a terminal status
+  const status = query.data?.status;
+
   useEffect(() => {
-    if (startedAt.current === null) startedAt.current = Date.now();
-    if (timedOut || data?.status === "Active" || data?.status === "Failed") return;
-    const remaining = TIMEOUT_MS - (Date.now() - startedAt.current);
-    const id = setTimeout(() => setTimedOut(true), remaining);
-    return () => clearTimeout(id);
-  }, [timedOut, data?.status]);
+    if (status === "Active" || status === "Failed") {
+      try {
+        sessionStorage.removeItem(SIGNUP_SESSION_KEY);
+      } catch {
+        // ignore
+      }
+    }
+  }, [status]);
 
   if (!sessionId) {
-    return <StatusShell>Invalid signup link. Please start over.</StatusShell>;
-  }
-
-  if (data?.status === "Active") {
     return (
-      <StatusShell>
-        <div className="space-y-4 text-center">
-          <div className="text-4xl">🎉</div>
-          <h1 className="text-xl font-semibold text-zinc-900">You&apos;re all set!</h1>
-          <p className="text-sm text-zinc-500">
-            Payment confirmed. Your restaurant account is ready.
-          </p>
-          <Link
-            href="/login"
-            className="inline-block rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-          >
-            Sign in to your account
+      <Panel title="Missing session" tone="warning">
+        <p className="text-sm text-fg-muted">
+          We couldn&apos;t find your checkout session. If you completed payment,
+          please refresh in a moment, or{" "}
+          <Link href="/signup" className="underline underline-offset-2">
+            start over
           </Link>
-        </div>
-      </StatusShell>
+          .
+        </p>
+      </Panel>
     );
   }
 
-  if (data?.status === "Failed" || isError) {
+  if (status === "Active") {
     return (
-      <StatusShell>
-        <div className="space-y-3 text-center">
-          <h1 className="text-xl font-semibold text-zinc-900">Payment not completed</h1>
-          <p className="text-sm text-zinc-500">
-            We couldn&apos;t confirm your payment. If you were charged, contact support.
-          </p>
-          <a href="/signup" className="text-sm text-zinc-900 underline underline-offset-2">
-            Try again
-          </a>
-        </div>
-      </StatusShell>
+      <Panel title="You're in." tone="success">
+        <p className="text-sm text-fg-muted">
+          Your restaurant is provisioned. Check your email for a temporary
+          password to complete sign-in.
+        </p>
+        <Link
+          href="/login"
+          className="mt-6 inline-flex h-[34px] items-center justify-center rounded-md bg-accent px-3 text-[13px] font-[550] text-accent-fg hover:bg-accent-hover"
+        >
+          Go to sign in
+        </Link>
+      </Panel>
     );
   }
 
-  if (timedOut) {
+  if (status === "Failed") {
     return (
-      <StatusShell>
-        <div className="space-y-3 text-center">
-          <h1 className="text-xl font-semibold text-zinc-900">Still processing…</h1>
-          <p className="text-sm text-zinc-500">
-            This is taking longer than expected. Check your email for confirmation or contact support.
-          </p>
-        </div>
-      </StatusShell>
+      <Panel title="Payment didn't complete" tone="error">
+        <p className="text-sm text-fg-muted">
+          Something went wrong with your subscription. You can try again — no
+          charge has been made.
+        </p>
+        <Link
+          href="/signup"
+          className="mt-6 inline-flex h-[34px] items-center justify-center rounded-md bg-accent px-3 text-[13px] font-[550] text-accent-fg hover:bg-accent-hover"
+        >
+          Try again
+        </Link>
+      </Panel>
+    );
+  }
+
+  if (softCapReached) {
+    return (
+      <Panel title="Still processing…" tone="info">
+        <p className="text-sm text-fg-muted">
+          Your payment was received. We&apos;re finishing setting up your
+          restaurant — this can take a moment.
+        </p>
+        <Button
+          className="mt-6"
+          onClick={() => {
+            setSoftCapReached(false);
+            void query.refetch();
+          }}
+        >
+          Check again
+        </Button>
+      </Panel>
     );
   }
 
   return (
-    <StatusShell>
-      <LoadingState />
-    </StatusShell>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="space-y-4 text-center">
-      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900" />
-      <h1 className="text-xl font-semibold text-zinc-900">Confirming your payment…</h1>
-      <p className="text-sm text-zinc-500">This usually takes just a few seconds.</p>
-    </div>
-  );
-}
-
-function StatusShell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50">
-      <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-        {children}
+    <Panel title="Setting up your restaurant…" tone="info">
+      <p className="text-sm text-fg-muted">
+        Hang tight — this usually takes a few seconds.
+      </p>
+      <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-surface-2">
+        <div className="h-full w-1/3 animate-pulse bg-accent" />
       </div>
-    </main>
+    </Panel>
+  );
+}
+
+interface PanelProps {
+  title: string;
+  tone: PanelTone;
+  children: ReactNode;
+}
+
+function Panel({ title, tone, children }: PanelProps) {
+  const ringByTone: Record<PanelTone, string> = {
+    success: "ring-status-ready-solid/30 bg-surface",
+    info: "ring-border bg-surface",
+    warning: "ring-status-stalled-amber-solid/30 bg-surface",
+    error: "ring-status-cancelled-solid/30 bg-surface",
+  };
+  return (
+    <section
+      className={`w-full rounded-2xl p-8 ring-1 ${ringByTone[tone]}`}
+    >
+      <h1 className="text-xl font-semibold text-fg">{title}</h1>
+      <div className="mt-3 text-sm text-fg-muted">{children}</div>
+    </section>
   );
 }

@@ -22,6 +22,7 @@ namespace DineOS.Tests.Integration;
 /// MenuItem records are seeded directly via the factory's service scope.
 /// </summary>
 [Collection("IntegrationTests")]
+[Trait("Category", "Integration")]
 public class MenuItemImageUploadTests(CustomWebApplicationFactory factory)
 {
     private static readonly JsonSerializerOptions JsonOpts =

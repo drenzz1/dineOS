@@ -96,3 +96,6 @@ backend/tests/*/bin\\Release/
 
 # ai-os local workspace (memory + per-feature research/plan)
 .ai-os/
+.claude/agents/*
+backend/tests/DineOS.Tests/integration.runsettings
+backend/tests/DineOS.Tests/default.runsettings

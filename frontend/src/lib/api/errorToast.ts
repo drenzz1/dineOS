@@ -48,6 +48,19 @@ export function handleApiError(error: unknown): void {
     return;
   }
 
+  if (status === 503) {
+    _toast({
+      title: "Service unavailable",
+      description:
+        (message && message.length > 0
+          ? message
+          : "A required service is temporarily unavailable. Please try again in a few minutes.") +
+        devSuffix,
+      variant: "error",
+    });
+    return;
+  }
+
   _toast({
     title: "Something went wrong",
     description: message + devSuffix,

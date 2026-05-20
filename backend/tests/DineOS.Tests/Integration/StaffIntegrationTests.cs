@@ -18,6 +18,7 @@ namespace DineOS.Tests.Integration;
 /// does not guarantee intra-class ordering, so no test assumes another has run first.
 /// </summary>
 [Collection("IntegrationTests")]
+[Trait("Category", "Integration")]
 public class StaffIntegrationTests(CustomWebApplicationFactory factory)
 {
     private static readonly JsonSerializerOptions JsonOpts =
