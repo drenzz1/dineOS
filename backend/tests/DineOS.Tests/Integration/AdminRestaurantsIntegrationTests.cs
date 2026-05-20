@@ -18,6 +18,7 @@ namespace DineOS.Tests.Integration;
 /// Create tests use unique names to avoid slug conflicts across runs.
 /// </summary>
 [Collection("IntegrationTests")]
+[Trait("Category", "Integration")]
 public class AdminRestaurantsIntegrationTests(CustomWebApplicationFactory factory)
 {
     private static readonly JsonSerializerOptions JsonOpts =

@@ -39,7 +39,7 @@ jobs:
           dotnet test tests/DineOS.Tests/DineOS.Tests.csproj \
             --no-build \
             --configuration Release \
-            --filter "Category!=LiveAuth" \
+            --settings tests/DineOS.Tests/ci.runsettings \
             --collect:"XPlat Code Coverage" \
             --results-directory ./TestResults \
             --logger "trx;LogFileName=test-results.trx"

@@ -115,4 +115,9 @@ export const queryKeys = {
     list: (tenantId: string | null) =>
       [...queryKeys.restaurantTables.all, tenantId, "list"] as const,
   },
+  signup: {
+    all: ["signup"] as const,
+    status: (sessionId: string) =>
+      [...queryKeys.signup.all, "status", sessionId] as const,
+  },
 } as const;

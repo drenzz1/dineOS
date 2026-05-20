@@ -23,6 +23,7 @@ namespace DineOS.Tests.Integration;
 /// Orders creation API yet.
 /// </summary>
 [Collection("IntegrationTests")]
+[Trait("Category", "Integration")]
 public class PaymentsIntegrationTests(CustomWebApplicationFactory factory)
 {
     private static readonly JsonSerializerOptions JsonOpts =

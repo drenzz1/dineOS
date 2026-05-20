@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { useToast } from "@/hooks/useToast";
 import { signupSchema, type SignupFormValues } from "@/lib/validations/signup";
-import { startSignup } from "@/lib/api/signupApi";
+import { startSignup, type SignupResult } from "@/lib/api/signupApi";
 import { ApiError } from "@/lib/api/envelope";
 
+const SIGNUP_SESSION_KEY = "dineos.signup.lastSessionId";
+
 export default function SignupPage() {
-  const router = useRouter();
-  const [formError, setFormError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const {
     register,
@@ -29,35 +31,53 @@ export default function SignupPage() {
     },
   });
 
-  async function onSubmit(values: SignupFormValues) {
-    setFormError(null);
-    try {
-      const { sessionId } = await startSignup(values);
-      router.push(`/signup/success?sessionId=${encodeURIComponent(sessionId)}`);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 503) {
-          setFormError("Our billing system is temporarily unavailable. Please try again in a few minutes.");
-        } else {
-          setFormError(err.error);
-        }
+  const mutation = useMutation<SignupResult, unknown, SignupFormValues>({
+    mutationFn: startSignup,
+    onSuccess: (result) => {
+      try {
+        sessionStorage.setItem(SIGNUP_SESSION_KEY, result.sessionId);
+      } catch {
+        // sessionStorage may be unavailable in some browsing modes; safe to ignore.
+      }
+      // Hard navigation: Stripe Checkout is cross-origin, router.push won't work.
+      window.location.assign(result.checkoutUrl);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 503) {
+        toast({
+          title: "Billing temporarily unavailable",
+          description:
+            "Our payment provider is down. Please try again in a few minutes.",
+          variant: "error",
+        });
         return;
       }
-      setFormError("Something went wrong. Please try again.");
-    }
+      // 400 / 422 / 429 / 500 are surfaced by the global MutationCache → handleApiError bridge.
+    },
+  });
+
+  function onSubmit(values: SignupFormValues): void {
+    mutation.mutate(values);
   }
 
   return (
-    <main id="main-content" className="flex min-h-screen items-center justify-center bg-zinc-50">
-      <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-8 shadow-sm space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-900">Start your free trial</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Set up your restaurant on dineOS. You&apos;ll complete payment on the next step.
-          </p>
-        </div>
+    <main
+      id="main-content"
+      className="mx-auto grid min-h-screen max-w-5xl gap-10 px-6 py-12 md:grid-cols-[1fr_22rem]"
+    >
+      <section>
+        <h1 className="text-3xl font-semibold tracking-tight text-fg">
+          Start your restaurant on dineOS
+        </h1>
+        <p className="mt-2 text-sm text-fg-muted">
+          No trial — full access from day one for $50/month.
+        </p>
 
-        <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          noValidate
+          onSubmit={handleSubmit(onSubmit)}
+          className="mt-8 grid gap-5"
+        >
           <Input
             id="restaurantName"
             label="Restaurant name"
@@ -67,14 +87,14 @@ export default function SignupPage() {
           />
           <Input
             id="ownerName"
-            label="Your name"
+            label="Owner name"
             autoComplete="name"
             error={errors.ownerName?.message}
             {...register("ownerName")}
           />
           <Input
             id="ownerEmail"
-            label="Email address"
+            label="Owner email"
             type="email"
             autoComplete="email"
             error={errors.ownerEmail?.message}
@@ -96,24 +116,47 @@ export default function SignupPage() {
             {...register("city")}
           />
 
-          {formError && (
-            <p role="alert" className="text-sm text-red-600">
-              {formError}
-            </p>
-          )}
-
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? "Please wait…" : "Continue to payment"}
+          <Button
+            type="submit"
+            block
+            isLoading={mutation.isPending || isSubmitting}
+          >
+            Continue to payment
           </Button>
-        </form>
 
-        <p className="text-center text-sm text-zinc-500">
-          Already have an account?{" "}
-          <a href="/login" className="text-zinc-900 underline underline-offset-2">
-            Sign in
-          </a>
+          <p className="text-xs text-fg-subtle">
+            You&apos;ll be redirected to Stripe to complete payment. After
+            payment, we&apos;ll email you a temporary password to sign in.
+          </p>
+        </form>
+      </section>
+
+      <aside className="h-fit rounded-2xl border border-border bg-surface-2 p-6">
+        <h2 className="text-lg font-semibold text-fg">dineOS Pro</h2>
+        <p className="mt-1 text-3xl font-bold text-fg">
+          $50
+          <span className="text-base font-medium text-fg-muted">/month</span>
         </p>
-      </div>
+        <ul className="mt-4 space-y-2 text-sm text-fg-muted">
+          <li>• Unlimited orders &amp; tables</li>
+          <li>• Realtime kitchen board</li>
+          <li>• Staff &amp; shift management</li>
+          <li>• Stripe-powered payments</li>
+          <li>• Email + chat support</li>
+        </ul>
+        <p className="mt-6 text-xs text-fg-subtle">
+          Cancel any time. Billed monthly.
+        </p>
+        <p className="mt-4 text-sm text-fg-muted">
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            className="font-medium text-fg underline underline-offset-2"
+          >
+            Sign in
+          </Link>
+        </p>
+      </aside>
     </main>
   );
 }

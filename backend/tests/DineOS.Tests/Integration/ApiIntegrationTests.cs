@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace DineOS.Tests.Integration;
 
 [Collection("IntegrationTests")]
+[Trait("Category", "Integration")]
 public class ApiIntegrationTests(CustomWebApplicationFactory factory)
 {
     private static readonly JsonSerializerOptions JsonOpts =

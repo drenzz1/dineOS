@@ -1,17 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Default run settings for DineOS.Tests.
-  Excludes live Keycloak integration tests from the standard test run so that
-  a plain "dotnet test" never tries to pull Docker images or start containers.
+  Excludes live Keycloak (Category=LiveAuth) AND Testcontainers-backed
+  integration tests (Category=Integration) from the standard test run so a
+  plain "dotnet test" never tries to pull Docker images or start containers.
 
-  To run ONLY the live tests:
+  To run ONLY the Testcontainers integration tests (requires Docker):
+      dotnet test tests/DineOS.Tests/DineOS.Tests.csproj -c Release -f "Category=Integration"
+
+  To run ONLY the live Keycloak tests (requires Docker):
       dotnet test tests/DineOS.Tests/DineOS.Tests.csproj -c Release -f "Category=LiveAuth"
 
-  To run everything (fast + live, requires Docker):
-      dotnet test tests/DineOS.Tests/DineOS.Tests.csproj -c Release -f "Category=LiveAuth|Category!=LiveAuth"
+  To run everything (fast + integration + live, requires Docker):
+      dotnet test tests/DineOS.Tests/DineOS.Tests.csproj -c Release
 -->
 <RunSettings>
   <RunConfiguration>
-    <TestCaseFilter>Category!=LiveAuth</TestCaseFilter>
+    <TestCaseFilter>Category!=LiveAuth&amp;Category!=Integration</TestCaseFilter>
   </RunConfiguration>
 </RunSettings>

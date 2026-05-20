@@ -7,6 +7,7 @@ using System.Text.Json;
 namespace DineOS.Tests.Integration;
 
 [Collection("IntegrationTests")]
+[Trait("Category", "Integration")]
 public class AuthValidationIntegrationTests(CustomWebApplicationFactory factory)
 {
     [Fact]

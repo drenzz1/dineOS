@@ -17,6 +17,7 @@ namespace DineOS.Tests.Integration;
 ///   - Structured 401/403 error bodies (UseStatusCodePages)
 /// </summary>
 [Collection("IntegrationTests")]
+[Trait("Category", "Integration")]
 public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
 {
     private static readonly JsonSerializerOptions JsonOpts =

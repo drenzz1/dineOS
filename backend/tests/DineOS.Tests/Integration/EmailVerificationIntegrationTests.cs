@@ -18,6 +18,7 @@ namespace DineOS.Tests.Integration;
 /// rate limit plus the in-row FailedAttempts cap. See issue #173.
 /// </summary>
 [Collection("IntegrationTests")]
+[Trait("Category", "Integration")]
 public class EmailVerificationIntegrationTests(CustomWebApplicationFactory factory)
 {
     private const long SeededTenantId = 1L;
