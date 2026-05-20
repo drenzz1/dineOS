@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CI coverage run: include fast unit tests and Testcontainers-backed integration
+  tests, but exclude live Keycloak tests because those run in their own job.
+-->
+<RunSettings>
+  <RunConfiguration>
+    <TestCaseFilter>Category!=LiveAuth</TestCaseFilter>
+  </RunConfiguration>
+</RunSettings>
