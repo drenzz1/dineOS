@@ -231,8 +231,8 @@ export default function Home() {
             <Link href="/login" className="hidden h-[34px] items-center rounded-md px-3.5 text-[13px] font-semibold text-fg-muted hover:text-fg sm:inline-flex">
               Sign in
             </Link>
-            <Link href="/login" className="inline-flex h-[34px] items-center rounded-md bg-accent px-3.5 text-[13px] font-semibold text-accent-fg shadow-xs transition hover:-translate-y-px hover:bg-accent-hover">
-              Start free trial
+            <Link href="/signup" className="inline-flex h-[34px] items-center rounded-md bg-accent px-3.5 text-[13px] font-semibold text-accent-fg shadow-xs transition hover:-translate-y-px hover:bg-accent-hover">
+              Get started
             </Link>
           </div>
         </div>
@@ -389,7 +389,7 @@ export default function Home() {
                 <b className="ml-2 text-[13px]">Restaurants</b>
                 <span className="ml-auto font-mono text-[11px] text-cool-700">8</span>
               </div>
-              {["Olio & Sale|Scale|$48.2k|Healthy", "Harbor & Hearth|Scale|$62.1k|Healthy", "Noor Kitchen|Growth|$21.4k|Healthy", "Biblioteca Cafe|Starter|$9.8k|Attention", "Tsukemen Club|Growth|$4.2k|Critical"].map((row) => {
+              {["Olio & Sale|Pro|$48.2k|Healthy", "Harbor & Hearth|Pro|$62.1k|Healthy", "Noor Kitchen|Pro|$21.4k|Healthy", "Biblioteca Cafe|Pro|$9.8k|Attention", "Tsukemen Club|Pro|$4.2k|Critical"].map((row) => {
                 const [name, plan, revenue, health] = row.split("|");
                 const healthClass = health === "Healthy" ? "text-[var(--success)]" : health === "Attention" ? "text-[var(--warning)]" : "text-[var(--danger)]";
                 return (
@@ -497,10 +497,10 @@ export default function Home() {
         <div className="absolute left-1/2 top-[-300px] h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,oklch(0.68_0.17_42/.25),transparent_65%)]" />
         <div className="relative mx-auto max-w-3xl">
           <h2 className="text-[38px] font-semibold leading-tight tracking-[-0.03em] md:text-[52px]">Run your restaurant on software your team actually likes.</h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-warm-400">Try dineOS free for 30 days. We will help you import your menu, train your staff, and cut over in a single weekend.</p>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-warm-400">Poke around the demo with seeded credentials, or get started on the $50 Pro plan. We will help you import your menu, train your staff, and cut over in a single weekend.</p>
           <div className="mt-8 flex flex-col justify-center gap-2.5 sm:flex-row">
-            <Link href="/login" className="inline-flex h-11 items-center justify-center rounded-[9px] bg-accent px-5 text-sm font-semibold text-white hover:bg-accent-hover">Start free trial</Link>
-            <a href="#pricing" className="inline-flex h-11 items-center justify-center rounded-[9px] border border-white/15 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur hover:bg-white/15">Book a walkthrough</a>
+            <Link href="/signup" className="inline-flex h-11 items-center justify-center rounded-[9px] bg-accent px-5 text-sm font-semibold text-white hover:bg-accent-hover">Get started</Link>
+            <Link href="/login" className="inline-flex h-11 items-center justify-center rounded-[9px] border border-white/15 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur hover:bg-white/15">Try the demo</Link>
           </div>
         </div>
       </section>
