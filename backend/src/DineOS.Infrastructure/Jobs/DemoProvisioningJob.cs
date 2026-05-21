@@ -60,11 +60,14 @@ public sealed class DemoProvisioningJob(
         if (demoUser.KeycloakUserId is null)
         {
             keycloakUserId = await keycloakAdmin.CreateUserAsync(
-                email:           demoUser.Email,
-                firstName:       "Demo",
-                lastName:        "User",
-                tempPassword:    tempPassword,
-                requiredActions: Array.Empty<string>(),
+                email:              demoUser.Email,
+                firstName:          "Demo",
+                lastName:           "User",
+                tempPassword:       tempPassword,
+                requiredActions:    Array.Empty<string>(),
+                // Demo: emailed creds ARE the credential — UPDATE_PASSWORD
+                // would break the frontend's password-grant login.
+                temporaryPassword:  false,
                 ct);
             demoUser.KeycloakUserId = keycloakUserId;
         }

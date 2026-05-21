@@ -31,6 +31,10 @@
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
     <EnableDefaultRazorGenerateItems>false</EnableDefaultRazorGenerateItems>
     <EnableDefaultRazorComponentItems>false</EnableDefaultRazorComponentItems>
+    <!-- Required by RazorLight at runtime: ships the entry assembly's
+         reference assemblies + .deps.json so templates can be compiled
+         on demand inside the published Docker image. -->
+    <PreserveCompilationContext>true</PreserveCompilationContext>
   </PropertyGroup>
 
   <ItemGroup>

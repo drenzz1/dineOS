@@ -55,11 +55,12 @@ public sealed class OwnerProvisioningJob(
         var (firstName, lastName) = SplitOwnerName(tenant.OwnerName);
 
         var userId = await keycloakAdmin.CreateUserAsync(
-            email:           tenant.OwnerEmail,
-            firstName:       firstName,
-            lastName:        lastName,
-            tempPassword:    tempPassword,
-            requiredActions: new[] { "UPDATE_PASSWORD", "VERIFY_EMAIL" },
+            email:              tenant.OwnerEmail,
+            firstName:          firstName,
+            lastName:           lastName,
+            tempPassword:       tempPassword,
+            requiredActions:    new[] { "UPDATE_PASSWORD", "VERIFY_EMAIL" },
+            temporaryPassword:  true,
             ct);
 
         tenant.KeycloakUserId = userId;

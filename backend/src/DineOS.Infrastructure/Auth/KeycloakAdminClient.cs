@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using DineOS.Application.Authentication;
 using DineOS.Application.Interfaces.Services;
@@ -51,6 +53,7 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
         string lastName,
         string tempPassword,
         IReadOnlyList<string> requiredActions,
+        bool temporaryPassword,
         CancellationToken ct)
     {
         var realm = RequireRealm();
@@ -67,8 +70,8 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
             requiredActions,
             credentials = new[]
             {
-                new { type = "password", value = tempPassword, temporary = true }
-            }
+                new { type = "password", value = tempPassword, temporary = temporaryPassword },
+            },
         };
 
         using var response = await http.PostAsJsonAsync(
@@ -138,55 +141,62 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
         }
     }
 
-    public async Task SetUserEnabledAsync(string userId, bool enabled, CancellationToken ct)
+    public Task SetUserEnabledAsync(string userId, bool enabled, CancellationToken ct) =>
+        MergeUserAsync(userId, obj => obj["enabled"] = enabled, "enabled flag update", ct);
+
+    public Task SetUserAttributeAsync(string userId, string attributeName, string value, CancellationToken ct) =>
+        MergeUserAsync(userId, obj =>
+        {
+            var attrs = obj["attributes"] as JsonObject ?? new JsonObject();
+            attrs[attributeName] = new JsonArray(value);
+            obj["attributes"] = attrs;
+        }, $"attribute '{attributeName}' update", ct);
+
+    /// <summary>
+    /// Read-modify-write for <c>PUT /users/{id}</c>. Keycloak 24's user PUT
+    /// endpoint treats absent fields as "set to null" — sending only
+    /// <c>{"attributes": …}</c> wipes email/firstName/lastName and any other
+    /// core profile field. Always GET first, mutate the full representation,
+    /// then PUT it back.
+    /// </summary>
+    private async Task MergeUserAsync(
+        string userId,
+        Action<JsonObject> mutate,
+        string operation,
+        CancellationToken ct)
     {
         var realm = RequireRealm();
         using var http = await CreateAuthenticatedClientAsync(ct);
 
-        using var request = new HttpRequestMessage(
-            HttpMethod.Put,
-            $"admin/realms/{realm}/users/{userId}")
+        using var getResponse = await http.GetAsync($"admin/realms/{realm}/users/{userId}", ct);
+        if (!getResponse.IsSuccessStatusCode)
         {
-            Content = JsonContent.Create(new { enabled }, options: JsonOptions),
-        };
-
-        using var response = await http.SendAsync(request, ct);
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync(ct);
+            var body = await getResponse.Content.ReadAsStringAsync(ct);
             throw new KeycloakAdminException(
-                (int)response.StatusCode,
-                $"Keycloak user enabled flag update failed: {body}");
+                (int)getResponse.StatusCode,
+                $"Keycloak user lookup before {operation} failed: {body}");
         }
-    }
 
-    public async Task SetUserAttributeAsync(string userId, string attributeName, string value, CancellationToken ct)
-    {
-        var realm = RequireRealm();
-        using var http = await CreateAuthenticatedClientAsync(ct);
+        var node = await getResponse.Content.ReadFromJsonAsync<JsonNode>(JsonOptions, ct)
+            ?? throw new KeycloakAdminException(
+                500, $"Keycloak user lookup before {operation} returned empty body.");
 
-        // Keycloak's user update merges attributes — we PUT just the one key.
-        var payload = new
+        if (node is not JsonObject obj)
         {
-            attributes = new Dictionary<string, string[]>
-            {
-                [attributeName] = new[] { value },
-            },
-        };
-
-        using var request = new HttpRequestMessage(
-            HttpMethod.Put,
-            $"admin/realms/{realm}/users/{userId}")
-        {
-            Content = JsonContent.Create(payload, options: JsonOptions),
-        };
-
-        using var response = await http.SendAsync(request, ct);
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync(ct);
             throw new KeycloakAdminException(
-                (int)response.StatusCode, $"Keycloak user attribute update failed: {body}");
+                500, $"Keycloak user lookup before {operation} returned a non-object payload.");
+        }
+
+        mutate(obj);
+
+        using var content = new StringContent(obj.ToJsonString(JsonOptions), Encoding.UTF8, "application/json");
+        using var putResponse = await http.PutAsync($"admin/realms/{realm}/users/{userId}", content, ct);
+        if (!putResponse.IsSuccessStatusCode)
+        {
+            var body = await putResponse.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)putResponse.StatusCode,
+                $"Keycloak user {operation} failed: {body}");
         }
     }
 

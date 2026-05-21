@@ -11,16 +11,40 @@
   "accessTokenLifespan": 300,
   "roles": {
     "realm": [
-      { "name": "SuperAdmin",   "composite": false, "clientRole": false },
-      { "name": "Manager",      "composite": false, "clientRole": false },
-      { "name": "Cashier",      "composite": false, "clientRole": false },
-      { "name": "KitchenStaff", "composite": false, "clientRole": false },
-      { "name": "Owner",        "composite": false, "clientRole": false },
+      {
+        "name": "SuperAdmin",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "Manager",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "Cashier",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "KitchenStaff",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "Owner",
+        "composite": false,
+        "clientRole": false
+      },
       {
         "name": "Demo",
         "description": "Composite role for shared demo tenant access (#216). Includes Manager.",
         "composite": true,
-        "composites": { "realm": ["Manager"] },
+        "composites": {
+          "realm": [
+            "Manager"
+          ]
+        },
         "clientRole": false
       }
     ]
@@ -29,7 +53,7 @@
     {
       "clientId": "dineos-api",
       "name": "DineOS API",
-      "description": "Backend resource server — accepts bearer tokens only",
+      "description": "Backend resource server \u2014 accepts bearer tokens only",
       "enabled": true,
       "bearerOnly": true,
       "publicClient": false,
@@ -52,7 +76,7 @@
     {
       "clientId": "dineos-frontend",
       "name": "DineOS Frontend",
-      "description": "Public SPA client — used by the frontend and for local dev token fetching",
+      "description": "Public SPA client \u2014 used by the frontend and for local dev token fetching",
       "enabled": true,
       "publicClient": true,
       "bearerOnly": false,
@@ -105,7 +129,12 @@
       "enabled": true,
       "serviceAccountClientId": "dineos-admin",
       "clientRoles": {
-        "realm-management": ["manage-users", "view-users", "query-users", "manage-realm"]
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-users",
+          "manage-realm"
+        ]
       }
     },
     {
@@ -116,9 +145,15 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [
-        { "type": "password", "value": "Test1234!", "temporary": false }
+        {
+          "type": "password",
+          "value": "Test1234!",
+          "temporary": false
+        }
       ],
-      "realmRoles": ["SuperAdmin"]
+      "realmRoles": [
+        "SuperAdmin"
+      ]
     },
     {
       "username": "manager@dineos.dev",
@@ -128,12 +163,20 @@
       "enabled": true,
       "emailVerified": true,
       "attributes": {
-        "tenant_id": ["1"]
+        "tenant_id": [
+          "1"
+        ]
       },
       "credentials": [
-        { "type": "password", "value": "Test1234!", "temporary": false }
+        {
+          "type": "password",
+          "value": "Test1234!",
+          "temporary": false
+        }
       ],
-      "realmRoles": ["Manager"]
+      "realmRoles": [
+        "Manager"
+      ]
     },
     {
       "username": "cashier@dineos.dev",
@@ -143,12 +186,20 @@
       "enabled": true,
       "emailVerified": true,
       "attributes": {
-        "tenant_id": ["1"]
+        "tenant_id": [
+          "1"
+        ]
       },
       "credentials": [
-        { "type": "password", "value": "Test1234!", "temporary": false }
+        {
+          "type": "password",
+          "value": "Test1234!",
+          "temporary": false
+        }
       ],
-      "realmRoles": ["Cashier"]
+      "realmRoles": [
+        "Cashier"
+      ]
     },
     {
       "username": "kitchen@dineos.dev",
@@ -158,12 +209,32 @@
       "enabled": true,
       "emailVerified": true,
       "attributes": {
-        "tenant_id": ["1"]
+        "tenant_id": [
+          "1"
+        ]
       },
       "credentials": [
-        { "type": "password", "value": "Test1234!", "temporary": false }
+        {
+          "type": "password",
+          "value": "Test1234!",
+          "temporary": false
+        }
       ],
-      "realmRoles": ["KitchenStaff"]
+      "realmRoles": [
+        "KitchenStaff"
+      ]
     }
-  ]
+  ],
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\": [{\"name\": \"username\", \"displayName\": \"${username}\", \"validations\": {\"length\": {\"min\": 3, \"max\": 255}, \"username-prohibited-characters\": {}, \"up-username-not-idn-homograph\": {}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"email\", \"displayName\": \"${email}\", \"validations\": {\"email\": {}, \"length\": {\"max\": 255}}, \"required\": {\"roles\": [\"user\"]}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"firstName\", \"displayName\": \"${firstName}\", \"validations\": {\"length\": {\"max\": 255}, \"person-name-prohibited-characters\": {}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"lastName\", \"displayName\": \"${lastName}\", \"validations\": {\"length\": {\"max\": 255}, \"person-name-prohibited-characters\": {}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}], \"unmanagedAttributePolicy\": \"ENABLED\"}"
+          ]
+        }
+      }
+    ]
+  }
 }

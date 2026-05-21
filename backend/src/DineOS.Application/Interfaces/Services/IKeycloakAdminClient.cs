@@ -12,6 +12,10 @@ public interface IKeycloakAdminClient
     /// Creates a Keycloak user in the configured realm and returns the
     /// Keycloak user id. If a user with the same email already exists,
     /// returns that user's id instead of failing.
+    /// Pass <c>temporaryPassword: true</c> for tenant owners (Keycloak adds
+    /// <c>UPDATE_PASSWORD</c> automatically) and <c>false</c> for demo users
+    /// (direct-grant login from the frontend fails with
+    /// <c>resolve_required_actions</c> otherwise).
     /// </summary>
     Task<string> CreateUserAsync(
         string email,
@@ -19,6 +23,7 @@ public interface IKeycloakAdminClient
         string lastName,
         string tempPassword,
         IReadOnlyList<string> requiredActions,
+        bool temporaryPassword,
         CancellationToken ct);
 
     /// <summary>
