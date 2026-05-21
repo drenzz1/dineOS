@@ -147,7 +147,15 @@ public static class DependencyInjection
         services.AddScoped<PaymentFailedEmailJob>();
         services.AddScoped<OwnerWelcomeEmailJob>();
         services.AddScoped<OwnerProvisioningJob>();
+        services.AddScoped<DemoProvisioningJob>();
+        services.AddScoped<DemoWelcomeEmailJob>();
+        services.AddScoped<DemoCredentialsResendJob>();
+        services.AddScoped<DemoCleanupJob>();
         services.AddHostedService<RecurringJobRegistrar>();
+
+        // ── Demo access (#216) ─────────────────────────────────────────────
+        services.Configure<DemoOptions>(configuration.GetSection(DemoOptions.SectionName));
+        services.AddScoped<IDemoAccessService, DemoAccessService>();
 
         // ── AI (Anthropic) ─────────────────────────────────────────────────
         services.AddOptions<AiProviderOptions>()

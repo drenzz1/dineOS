@@ -116,6 +116,80 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
         }
     }
 
+    public async Task ResetPasswordAsync(string userId, string newPassword, bool temporary, CancellationToken ct)
+    {
+        var realm = RequireRealm();
+        using var http = await CreateAuthenticatedClientAsync(ct);
+
+        var payload = new { type = "password", value = newPassword, temporary };
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"admin/realms/{realm}/users/{userId}/reset-password")
+        {
+            Content = JsonContent.Create(payload, options: JsonOptions),
+        };
+
+        using var response = await http.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)response.StatusCode, $"Keycloak password reset failed: {body}");
+        }
+    }
+
+    public async Task SetUserEnabledAsync(string userId, bool enabled, CancellationToken ct)
+    {
+        var realm = RequireRealm();
+        using var http = await CreateAuthenticatedClientAsync(ct);
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"admin/realms/{realm}/users/{userId}")
+        {
+            Content = JsonContent.Create(new { enabled }, options: JsonOptions),
+        };
+
+        using var response = await http.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)response.StatusCode,
+                $"Keycloak user enabled flag update failed: {body}");
+        }
+    }
+
+    public async Task SetUserAttributeAsync(string userId, string attributeName, string value, CancellationToken ct)
+    {
+        var realm = RequireRealm();
+        using var http = await CreateAuthenticatedClientAsync(ct);
+
+        // Keycloak's user update merges attributes — we PUT just the one key.
+        var payload = new
+        {
+            attributes = new Dictionary<string, string[]>
+            {
+                [attributeName] = new[] { value },
+            },
+        };
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"admin/realms/{realm}/users/{userId}")
+        {
+            Content = JsonContent.Create(payload, options: JsonOptions),
+        };
+
+        using var response = await http.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)response.StatusCode, $"Keycloak user attribute update failed: {body}");
+        }
+    }
+
     private async Task<RealmRole> GetOrCreateRealmRoleAsync(
         HttpClient http, string realm, string roleName, CancellationToken ct)
     {

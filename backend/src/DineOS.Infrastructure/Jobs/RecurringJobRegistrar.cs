@@ -13,6 +13,7 @@ namespace DineOS.Infrastructure.Jobs;
 public sealed class RecurringJobRegistrar(
     IRecurringJobManager recurring,
     IOptions<PaymentNotificationOptions> options,
+    IOptions<DemoOptions> demoOptions,
     ILogger<RecurringJobRegistrar> logger) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
@@ -29,9 +30,22 @@ public sealed class RecurringJobRegistrar(
             job => job.RunAsync(CancellationToken.None),
             opts.OverdueScanCron);
 
+        var demo = demoOptions.Value;
+        if (demo.Enabled)
+        {
+            recurring.AddOrUpdate<DemoCleanupJob>(
+                DemoCleanupJob.RecurringJobId,
+                job => job.RunAsync(CancellationToken.None),
+                demo.CleanupCron);
+        }
+        else
+        {
+            recurring.RemoveIfExists(DemoCleanupJob.RecurringJobId);
+        }
+
         logger.LogInformation(
-            "Recurring jobs registered: DailySummary={DailyCron} OverdueScan={OverdueCron}",
-            opts.DailySummaryCron, opts.OverdueScanCron);
+            "Recurring jobs registered: DailySummary={DailyCron} OverdueScan={OverdueCron} DemoCleanup={DemoCron} DemoEnabled={DemoEnabled}",
+            opts.DailySummaryCron, opts.OverdueScanCron, demo.CleanupCron, demo.Enabled);
 
         return Task.CompletedTask;
     }

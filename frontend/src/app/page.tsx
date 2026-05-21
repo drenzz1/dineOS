@@ -46,17 +46,17 @@ const values = [
 const plans = [
   {
     name: "Demo",
-    description: "Poke around the live app with seeded credentials. No card, no commitment.",
+    description: "Drop your email — we'll send credentials to a shared demo restaurant. No card, no commitment.",
     price: "$0",
     suffix: "",
     featured: false,
     cta: "Try the demo",
-    href: "/login",
+    href: "/demo",
     features: [
-      "Sign in with a seeded demo account",
+      "Credentials emailed in under a minute",
       "Full Order Board, Kitchen Display, and Manager Dashboard",
       "Sample menu, tables, and staff already loaded",
-      "Reset any time",
+      "7-day access — re-request any time",
     ],
   },
   {
@@ -254,7 +254,7 @@ export default function Home() {
               One platform for the floor, the line, and the back office. dineOS replaces disconnected tools with a single system that moves at service speed.
             </p>
             <div className="mt-8 flex flex-col gap-2.5 sm:flex-row">
-              <Link href="/login" className="inline-flex h-11 items-center justify-center rounded-[9px] bg-accent px-5 text-sm font-semibold text-accent-fg shadow-xs transition hover:-translate-y-px hover:bg-accent-hover">
+              <Link href="/demo" className="inline-flex h-11 items-center justify-center rounded-[9px] bg-accent px-5 text-sm font-semibold text-accent-fg shadow-xs transition hover:-translate-y-px hover:bg-accent-hover">
                 Try the live demo
               </Link>
               <a href="#product" className="inline-flex h-11 items-center justify-center rounded-[9px] border border-border-strong bg-surface px-5 text-sm font-semibold text-fg shadow-xs transition hover:-translate-y-px hover:bg-surface-2">
@@ -500,7 +500,7 @@ export default function Home() {
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-warm-400">Poke around the demo with seeded credentials, or get started on the $50 Pro plan. We will help you import your menu, train your staff, and cut over in a single weekend.</p>
           <div className="mt-8 flex flex-col justify-center gap-2.5 sm:flex-row">
             <Link href="/signup" className="inline-flex h-11 items-center justify-center rounded-[9px] bg-accent px-5 text-sm font-semibold text-white hover:bg-accent-hover">Get started</Link>
-            <Link href="/login" className="inline-flex h-11 items-center justify-center rounded-[9px] border border-white/15 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur hover:bg-white/15">Try the demo</Link>
+            <Link href="/demo" className="inline-flex h-11 items-center justify-center rounded-[9px] border border-white/15 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur hover:bg-white/15">Try the demo</Link>
           </div>
         </div>
       </section>

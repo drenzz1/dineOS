@@ -14,6 +14,8 @@ export { loginSchema } from "./login";
 export type { LoginFormValues } from "./login";
 export { signupSchema } from "./signup";
 export type { SignupFormValues } from "./signup";
+export { demoRequestSchema } from "./demo";
+export type { DemoRequestFormValues } from "./demo";
 export { restaurantProfileSchema } from "./restaurantProfile";
 export type { RestaurantProfileFormValues } from "./restaurantProfile";
 export {

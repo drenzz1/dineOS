@@ -27,4 +27,24 @@ public interface IKeycloakAdminClient
     /// realm-export was imported before the role was defined).
     /// </summary>
     Task AssignRealmRoleAsync(string userId, string roleName, CancellationToken ct);
+
+    /// <summary>
+    /// Replaces the given user's password. Used by the demo-access flow (#216)
+    /// when a visitor re-requests credentials within the TTL — the old password
+    /// is invalidated and a fresh one is emailed.
+    /// </summary>
+    Task ResetPasswordAsync(string userId, string newPassword, bool temporary, CancellationToken ct);
+
+    /// <summary>
+    /// Sets the <c>enabled</c> flag on a Keycloak user. Used by the demo
+    /// cleanup job to disable expired demo users (#216).
+    /// </summary>
+    Task SetUserEnabledAsync(string userId, bool enabled, CancellationToken ct);
+
+    /// <summary>
+    /// Sets one custom user attribute on a Keycloak user. Used by the
+    /// demo-access flow to stamp the demo tenant id so the JWT carries the
+    /// <c>tenant_id</c> claim the API tenancy filter expects.
+    /// </summary>
+    Task SetUserAttributeAsync(string userId, string attributeName, string value, CancellationToken ct);
 }

@@ -15,7 +15,14 @@
       { "name": "Manager",      "composite": false, "clientRole": false },
       { "name": "Cashier",      "composite": false, "clientRole": false },
       { "name": "KitchenStaff", "composite": false, "clientRole": false },
-      { "name": "Owner",        "composite": false, "clientRole": false }
+      { "name": "Owner",        "composite": false, "clientRole": false },
+      {
+        "name": "Demo",
+        "description": "Composite role for shared demo tenant access (#216). Includes Manager.",
+        "composite": true,
+        "composites": { "realm": ["Manager"] },
+        "clientRole": false
+      }
     ]
   },
   "clients": [

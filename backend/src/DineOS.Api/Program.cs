@@ -186,6 +186,68 @@ try
                     QueueLimit = 0,
                 }));
 
+        // Demo access (#216). Partitioned on a composite (email + IP) key when
+        // the body carries an email; otherwise by IP alone. 3 requests/hour
+        // per email keeps re-submits cheap while blocking enumeration; the
+        // IP-only bucket (set to a higher 10/hour ceiling) catches bots that
+        // sweep many emails from one host.
+        options.AddPolicy("demo-request", httpContext =>
+        {
+            string emailKey = string.Empty;
+            if (httpContext.Request.HasJsonContentType()
+                && httpContext.Request.ContentLength is > 0 and < 4096)
+            {
+                httpContext.Request.EnableBuffering();
+                using var reader = new StreamReader(
+                    httpContext.Request.Body, leaveOpen: true);
+                var bodyText = reader.ReadToEnd();
+                httpContext.Request.Body.Position = 0;
+                try
+                {
+                    using var doc = JsonDocument.Parse(bodyText);
+                    if (doc.RootElement.TryGetProperty("email", out var emailEl) &&
+                        emailEl.ValueKind == JsonValueKind.String)
+                    {
+                        var email = emailEl.GetString();
+                        if (!string.IsNullOrWhiteSpace(email))
+                            emailKey = email.Trim().ToLowerInvariant();
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Malformed JSON falls through; the controller returns 400.
+                }
+            }
+
+            var ipKey = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            // When email is present, bucket on email (tighter limit). Otherwise
+            // bucket on IP. Both partitions share the same policy options
+            // exposed to the user; the per-IP path gets the looser ceiling.
+            if (!string.IsNullOrEmpty(emailKey))
+            {
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: $"demo-email:{emailKey}",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 3,
+                        Window = TimeSpan.FromHours(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                    });
+            }
+
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: $"demo-ip:{ipKey}",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromHours(1),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0,
+                });
+        });
+
         options.OnRejected = async (context, cancellationToken) =>
         {
             context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;

@@ -51,3 +51,11 @@ public sealed record OwnerWelcomeEmailModel(
     string Email,
     string TempPassword,
     string AccountUrl);
+
+public sealed record DemoWelcomeEmailModel(
+    string   Email,
+    string   TempPassword,
+    string   LoginUrl,
+    DateTime ExpiresAt,
+    string   DemoTenantName,
+    bool     IsReissue);

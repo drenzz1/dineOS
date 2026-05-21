@@ -120,4 +120,8 @@ export const queryKeys = {
     status: (sessionId: string) =>
       [...queryKeys.signup.all, "status", sessionId] as const,
   },
+  demo: {
+    all: ["demo"] as const,
+    request: () => [...queryKeys.demo.all, "request"] as const,
+  },
 } as const;
