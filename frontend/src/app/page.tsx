@@ -45,28 +45,34 @@ const values = [
 
 const plans = [
   {
-    name: "Starter",
-    description: "For a single room finding its feet.",
-    price: "$99",
-    suffix: "/ month",
-    featured: false,
-    features: ["Up to 1 location, 12 staff accounts", "Order board and kitchen display", "Basic reporting", "Email support"],
-  },
-  {
-    name: "Growth",
-    description: "For restaurants scaling their team and shifts.",
-    price: "$249",
-    suffix: "/ month",
-    featured: true,
-    features: ["Up to 3 locations, unlimited staff", "Everything in Starter", "Labor and prep-time analytics", "Shift handoff notes and alerts"],
-  },
-  {
-    name: "Scale",
-    description: "For groups, franchisors, and hospitality operators.",
-    price: "Custom",
+    name: "Demo",
+    description: "Poke around the live app with seeded credentials. No card, no commitment.",
+    price: "$0",
     suffix: "",
     featured: false,
-    features: ["Unlimited locations", "Platform console and rollups", "SSO, audit log, SLA", "Dedicated success partner"],
+    cta: "Try the demo",
+    href: "/login",
+    features: [
+      "Sign in with a seeded demo account",
+      "Full Order Board, Kitchen Display, and Manager Dashboard",
+      "Sample menu, tables, and staff already loaded",
+      "Reset any time",
+    ],
+  },
+  {
+    name: "Pro",
+    description: "Everything you need to run one restaurant on dineOS.",
+    price: "$50",
+    suffix: "/ month",
+    featured: true,
+    cta: "Get started",
+    href: "/signup",
+    features: [
+      "One restaurant, unlimited staff accounts",
+      "Order Board, Kitchen Display, and Manager Dashboard",
+      "Live KPIs, shift notes, and prep-time reports",
+      "Stripe-managed billing and invoices",
+    ],
   },
 ];
 
@@ -457,10 +463,10 @@ export default function Home() {
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto mb-14 max-w-2xl text-center">
             <span className="mb-2.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">Pricing</span>
-            <h2 className="text-[34px] font-semibold leading-tight tracking-[-0.03em] md:text-[40px]">One restaurant or one hundred: priced per room.</h2>
-            <p className="mt-3 text-[15px] leading-6 text-fg-muted">Every plan includes the Order Board, Kitchen Display, and Manager Dashboard.</p>
+            <h2 className="text-[34px] font-semibold leading-tight tracking-[-0.03em] md:text-[40px]">Try the demo, or run your restaurant for $50 a month.</h2>
+            <p className="mt-3 text-[15px] leading-6 text-fg-muted">Start with a hands-on demo. When you&rsquo;re ready, one plan covers everything dineOS does.</p>
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="mx-auto grid max-w-3xl gap-4 lg:grid-cols-2">
             {plans.map((plan) => (
               <article key={plan.name} className={`relative rounded-[14px] border bg-surface p-7 ${plan.featured ? "border-accent shadow-[0_0_0_3px_var(--accent-soft)] lg:-translate-y-1" : "border-border"}`}>
                 {plan.featured ? <span className="absolute -top-3 left-5 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">Most popular</span> : null}
@@ -470,8 +476,8 @@ export default function Home() {
                   <span className="font-mono text-[40px] font-semibold tracking-[-0.03em]">{plan.price}</span>
                   {plan.suffix ? <span className="ml-1 text-[12.5px] font-medium text-fg-subtle">{plan.suffix}</span> : null}
                 </div>
-                <Link href="/login" className={`mt-4 inline-flex h-[34px] w-full items-center justify-center rounded-md px-3.5 text-[13px] font-semibold shadow-xs ${plan.featured ? "bg-accent text-accent-fg hover:bg-accent-hover" : "border border-border-strong bg-surface text-fg hover:bg-surface-2"}`}>
-                  {plan.name === "Scale" ? "Talk to sales" : "Start free trial"}
+                <Link href={plan.href} className={`mt-4 inline-flex h-[34px] w-full items-center justify-center rounded-md px-3.5 text-[13px] font-semibold shadow-xs ${plan.featured ? "bg-accent text-accent-fg hover:bg-accent-hover" : "border border-border-strong bg-surface text-fg hover:bg-surface-2"}`}>
+                  {plan.cta}
                 </Link>
                 <ul className="mt-4 space-y-2.5">
                   {plan.features.map((feature) => (
