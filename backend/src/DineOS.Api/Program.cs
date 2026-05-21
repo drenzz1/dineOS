@@ -200,7 +200,10 @@ try
                 httpContext.Request.EnableBuffering();
                 using var reader = new StreamReader(
                     httpContext.Request.Body, leaveOpen: true);
-                var bodyText = reader.ReadToEnd();
+                // AddPolicy is a sync callback, but Microsoft.AspNetCore.TestHost
+                // (and Kestrel with AllowSynchronousIO=false) forbids Stream.Read
+                // on the request body. Await the async read and unwrap.
+                var bodyText = reader.ReadToEndAsync().GetAwaiter().GetResult();
                 httpContext.Request.Body.Position = 0;
                 try
                 {
