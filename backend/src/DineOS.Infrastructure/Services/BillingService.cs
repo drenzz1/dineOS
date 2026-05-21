@@ -219,7 +219,11 @@ public class BillingService(
         Event stripeEvent;
         try
         {
-            stripeEvent = EventUtility.ConstructEvent(eventJson, signature, _opts.WebhookSecret);
+            stripeEvent = EventUtility.ConstructEvent(
+                eventJson,
+                signature,
+                _opts.WebhookSecret,
+                throwOnApiVersionMismatch: false);
         }
         catch (StripeException ex)
         {

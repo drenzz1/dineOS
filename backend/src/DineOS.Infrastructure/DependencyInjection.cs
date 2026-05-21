@@ -106,6 +106,9 @@ public static class DependencyInjection
         });
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
         services.AddSingleton<ICacheService, RedisCacheService>();
+        services.AddSingleton<ISetupTokenStore, SetupTokenStore>();
+
+        services.Configure<FrontendOptions>(configuration.GetSection(FrontendOptions.SectionName));
 
         // ── Email ──────────────────────────────────────────────────────────
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));

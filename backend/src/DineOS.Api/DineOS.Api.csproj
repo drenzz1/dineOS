@@ -31,6 +31,7 @@
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
     <EnableDefaultRazorGenerateItems>false</EnableDefaultRazorGenerateItems>
     <EnableDefaultRazorComponentItems>false</EnableDefaultRazorComponentItems>
+    <PreserveCompilationContext>true</PreserveCompilationContext>
   </PropertyGroup>
 
   <ItemGroup>

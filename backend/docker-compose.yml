@@ -10,6 +10,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dineos;Username=dineos;Password=dineos_dev
       - AllowedOrigins__0=http://localhost:3000
+      - Frontend__BaseUrl=http://localhost:3000
       - Keycloak__Realm=dineos
       - Keycloak__Authority=http://localhost:8080/realms/dineos
       - Keycloak__AuthServerUrl=http://keycloak:8080

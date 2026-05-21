@@ -7,23 +7,17 @@
 <p style="margin:0 0 16px;">Hi @Model.OwnerName,</p>
 <p style="margin:0 0 16px;">
   Payment confirmed — your restaurant <strong>@Model.RestaurantName</strong> is live on DineOS.
-  Use the credentials below to sign in for the first time. You'll be asked to set a new password.
+  Set your password using the secure link below, then sign in at <strong>@Model.Email</strong>.
 </p>
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;width:100%;background:#f1f5f9;border-radius:8px;">
-  <tr>
-    <td style="padding:16px 18px;">
-      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;">Email</div>
-      <div style="font-size:15px;font-weight:600;color:#0f172a;margin-top:2px;">@Model.Email</div>
-    </td>
-  </tr>
-  <tr>
-    <td style="padding:0 18px 16px;">
-      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;">Temporary password</div>
-      <div style="font-family:Menlo,Consolas,monospace;font-size:18px;font-weight:700;color:#0f172a;margin-top:2px;letter-spacing:1px;">@Model.TempPassword</div>
-    </td>
-  </tr>
-</table>
-<p style="margin:0 0 16px;">
-  <a href="@Model.AccountUrl" style="display:inline-block;padding:12px 20px;background:#0f172a;color:#ffffff;border-radius:8px;text-decoration:none;font-weight:600;">Set your password</a>
+<p style="margin:24px 0;">
+  <a href="@Model.SetPasswordUrl" style="display:inline-block;padding:14px 22px;background:#0f172a;color:#ffffff;border-radius:8px;text-decoration:none;font-weight:600;">Set your password</a>
 </p>
-<p style="margin:16px 0 0;color:#94a3b8;font-size:13px;">For your security, the temporary password is single-use and must be changed on first sign-in.</p>
+<p style="margin:0 0 8px;color:#475569;font-size:13px;">
+  Or copy this link into your browser:
+</p>
+<p style="margin:0 0 16px;color:#0f172a;font-size:13px;word-break:break-all;">
+  <a href="@Model.SetPasswordUrl" style="color:#0f172a;text-decoration:underline;">@Model.SetPasswordUrl</a>
+</p>
+<p style="margin:16px 0 0;color:#94a3b8;font-size:13px;">
+  This link is single-use and expires in 24 hours. If you didn't sign up for DineOS, you can safely ignore this email.
+</p>

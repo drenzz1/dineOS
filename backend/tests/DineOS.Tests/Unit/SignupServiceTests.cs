@@ -37,10 +37,16 @@ public class SignupServiceTests
             backgroundJobs,
             NullLogger<BillingService>.Instance);
 
+        var keycloakAdmin = Substitute.For<IKeycloakAdminClient>();
+        var setupTokens   = Substitute.For<ISetupTokenStore>();
+
         var svc = new SignupService(
             db,
             billing,
             new SignupRequestValidator(),
+            new SetPasswordRequestValidator(),
+            keycloakAdmin,
+            setupTokens,
             opts,
             NullLogger<SignupService>.Instance);
 

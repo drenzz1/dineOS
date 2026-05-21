@@ -23,4 +23,14 @@ public interface ISignupService
     Task<ServiceResult<SignupStatusResponse>> GetStatusAsync(
         string sessionId,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Completes the dineOS-hosted set-password flow: validates the one-time
+    /// Redis-backed token, calls the Keycloak admin API to set the user's
+    /// password, clears UPDATE_PASSWORD / VERIFY_EMAIL required actions, and
+    /// invalidates the token so the email link can't be replayed.
+    /// </summary>
+    Task<ServiceResult<string>> CompleteSetupAsync(
+        SetPasswordRequest request,
+        CancellationToken ct = default);
 }

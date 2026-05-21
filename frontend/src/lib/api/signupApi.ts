@@ -38,3 +38,17 @@ export async function getSignupStatus(sessionId: string): Promise<SignupStatus> 
     throw toApiError(error);
   }
 }
+
+export interface SetPasswordPayload {
+  token: string;
+  newPassword: string;
+}
+
+export async function setPassword(payload: SetPasswordPayload): Promise<string> {
+  try {
+    const res = await apiClient.post<ApiResponse<string>>("/v1/signup/set-password", payload);
+    return unwrap(res);
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
