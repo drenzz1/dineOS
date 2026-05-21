@@ -12,6 +12,13 @@ const ROLE_DEFAULTS: Record<AppRole, string> = {
 };
 
 export function getPrimaryRole(roles: string[]): AppRole {
+  // The "Demo" realm role is composite-over-Manager in Keycloak (#216);
+  // Keycloak doesn't expand composites into realm_access.roles in the JWT,
+  // so the frontend resolves it explicitly here.
+  if (roles.includes("Demo")) {
+    return "Manager";
+  }
+
   const role = ROLE_PRIORITY.find((candidate) => roles.includes(candidate));
 
   if (!role) {
