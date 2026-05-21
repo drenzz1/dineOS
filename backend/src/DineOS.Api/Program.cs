@@ -391,6 +391,9 @@ try
     // Auto-apply pending migrations on startup
     await app.Services.GetRequiredService<IDatabaseMigrator>().MigrateAsync();
 
+    // Demo tenant seed (#216) — idempotent; gated by Demo:Enabled.
+    await app.Services.GetRequiredService<IDemoTenantSeeder>().SeedAsync();
+
     // ── Middleware pipeline ───────────────────────────────────────────────────────
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseMiddleware<ExceptionMiddleware>();

@@ -8,6 +8,7 @@ using DineOS.Infrastructure.Jobs;
 using DineOS.Infrastructure.Messaging;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Persistence.Interceptors;
+using DineOS.Infrastructure.Persistence.Seed;
 using DineOS.Infrastructure.Repositories;
 using DineOS.Infrastructure.Services;
 using Hangfire;
@@ -156,6 +157,7 @@ public static class DependencyInjection
         // ── Demo access (#216) ─────────────────────────────────────────────
         services.Configure<DemoOptions>(configuration.GetSection(DemoOptions.SectionName));
         services.AddScoped<IDemoAccessService, DemoAccessService>();
+        services.AddSingleton<IDemoTenantSeeder, DemoTenantSeeder>();
 
         // ── AI (Anthropic) ─────────────────────────────────────────────────
         services.AddOptions<AiProviderOptions>()

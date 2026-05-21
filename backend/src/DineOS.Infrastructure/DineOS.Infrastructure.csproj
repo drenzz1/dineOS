@@ -43,6 +43,7 @@
     <Compile Include="Persistence/Interceptors/*.cs" />
     <Compile Include="Persistence/Messaging/*.cs" />
     <Compile Include="Persistence/Migrations/*.cs" />
+    <Compile Include="Persistence/Seed/*.cs" />
     <Compile Include="Repositories/*.cs" />
     <Compile Include="Services/*.cs" />
   </ItemGroup>
