@@ -1,8 +1,10 @@
 using DineOS.Application.Interfaces.Services;
+using DineOS.Application.Options;
 using DineOS.Infrastructure.Persistence;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DineOS.Infrastructure.Jobs;
 
@@ -21,10 +23,13 @@ namespace DineOS.Infrastructure.Jobs;
 public sealed class OwnerProvisioningJob(
     AppDbContext db,
     IKeycloakAdminClient keycloakAdmin,
+    ISetupTokenStore setupTokens,
+    IOptions<FrontendOptions> frontendOptions,
     IBackgroundJobClient backgroundJobs,
     ILogger<OwnerProvisioningJob> logger)
 {
     private const string OwnerRoleName = "Owner";
+    private static readonly TimeSpan SetupTokenTtl = TimeSpan.FromHours(24);
 
     [AutomaticRetry(
         Attempts = 5,
@@ -67,8 +72,12 @@ public sealed class OwnerProvisioningJob(
 
         await keycloakAdmin.AssignRealmRoleAsync(userId, OwnerRoleName, ct);
 
+        var token = await setupTokens.IssueAsync(tenant.Id, SetupTokenTtl, ct);
+        var baseUrl = frontendOptions.Value.BaseUrl.TrimEnd('/');
+        var setPasswordUrl = $"{baseUrl}/set-password?token={token}";
+
         backgroundJobs.Enqueue<OwnerWelcomeEmailJob>(
-            job => job.SendAsync(tenant.Id, tempPassword, CancellationToken.None));
+            job => job.SendAsync(tenant.Id, setPasswordUrl, CancellationToken.None));
 
         logger.LogInformation(
             "Owner provisioned: TenantId={TenantId} KeycloakUserId={KeycloakUserId} Email={OwnerEmail}",
@@ -77,13 +86,19 @@ public sealed class OwnerProvisioningJob(
 
     private static (string First, string Last) SplitOwnerName(string ownerName)
     {
+        // Keycloak's User Profile treats users with a null/empty lastName as
+        // incomplete and blocks password-grant logins with `resolve_required_actions`.
+        // Fall back to repeating the first name so the profile is always complete.
         if (string.IsNullOrWhiteSpace(ownerName))
-            return ("Owner", "");
+            return ("Owner", "Owner");
 
         var trimmed = ownerName.Trim();
         var spaceIndex = trimmed.IndexOf(' ');
-        return spaceIndex < 0
-            ? (trimmed, "")
-            : (trimmed[..spaceIndex], trimmed[(spaceIndex + 1)..].Trim());
+        if (spaceIndex < 0)
+            return (trimmed, trimmed);
+
+        var last = trimmed[(spaceIndex + 1)..].Trim();
+        return (trimmed[..spaceIndex],
+            string.IsNullOrWhiteSpace(last) ? trimmed[..spaceIndex] : last);
     }
 }

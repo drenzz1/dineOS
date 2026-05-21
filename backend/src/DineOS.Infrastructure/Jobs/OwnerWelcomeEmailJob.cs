@@ -1,29 +1,27 @@
-using DineOS.Application.Authentication;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Notifications;
 using DineOS.Infrastructure.Persistence;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace DineOS.Infrastructure.Jobs;
 
 /// <summary>
 /// Hangfire job: sends the post-checkout welcome email to a tenant owner
-/// containing the Keycloak temp password and a link to the account console.
-/// Enqueued by <c>BillingService.ApplyCheckoutCompletedAsync</c> (#205).
+/// containing a single-use link to the dineOS <c>/set-password</c> page.
+/// Enqueued by <see cref="OwnerProvisioningJob"/> after the Keycloak user
+/// has been created and the setup token has been persisted in Redis.
 /// </summary>
 /// <remarks>
-/// The temp password is serialized into Hangfire's Postgres job arguments.
-/// That is acceptable because it is single-use and Keycloak forces a reset
-/// on first login; job rows are short-lived under the existing retention.
+/// The setup URL is serialized into Hangfire's Postgres job arguments. The
+/// Redis token behind it has a 24h TTL and is invalidated on first use, so
+/// even if a job row leaks the token's blast radius is bounded.
 /// </remarks>
 public sealed class OwnerWelcomeEmailJob(
     AppDbContext db,
     IEmailSender emailSender,
     IEmailTemplateRenderer templates,
-    IOptions<KeycloakOptions> keycloakOptions,
     ILogger<OwnerWelcomeEmailJob> logger) : IEmailJob
 {
     public const string Subject = "Welcome to DineOS — set your password";
@@ -32,7 +30,7 @@ public sealed class OwnerWelcomeEmailJob(
         Attempts = 3,
         DelaysInSeconds = new[] { 10, 30, 90 },
         OnAttemptsExceeded = AttemptsExceededAction.Fail)]
-    public async Task SendAsync(long tenantId, string tempPassword, CancellationToken ct)
+    public async Task SendAsync(long tenantId, string setPasswordUrl, CancellationToken ct)
     {
         var tenant = await db.Tenants
             .IgnoreQueryFilters()
@@ -46,27 +44,21 @@ public sealed class OwnerWelcomeEmailJob(
             return;
         }
 
-        var opts = keycloakOptions.Value;
-        var publicUrl = (opts.PublicAuthServerUrl ?? opts.AuthServerUrl ?? string.Empty).TrimEnd('/');
-        var accountUrl = $"{publicUrl}/realms/{opts.Realm}/account";
-
         var model = new OwnerWelcomeEmailModel(
             OwnerName:      tenant.OwnerName,
             RestaurantName: tenant.Name,
             Email:          tenant.OwnerEmail,
-            TempPassword:   tempPassword,
-            AccountUrl:     accountUrl);
+            SetPasswordUrl: setPasswordUrl);
 
         var html = await templates.RenderAsync("OwnerWelcome", model, ct);
         var text = $"""
                     Hi {tenant.OwnerName},
 
                     Your DineOS account for {tenant.Name} is ready.
+                    Sign-in email: {tenant.OwnerEmail}
 
-                      Email:    {tenant.OwnerEmail}
-                      Password: {tempPassword}
-
-                    Set a new password on first sign-in: {accountUrl}
+                    Set your password (single-use link, expires in 24 hours):
+                    {setPasswordUrl}
                     """;
 
         await emailSender.SendAsync(tenant.OwnerEmail, Subject, text, html, ct);

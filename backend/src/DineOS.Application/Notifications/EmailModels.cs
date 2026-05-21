@@ -49,5 +49,4 @@ public sealed record OwnerWelcomeEmailModel(
     string OwnerName,
     string RestaurantName,
     string Email,
-    string TempPassword,
-    string AccountUrl);
+    string SetPasswordUrl);

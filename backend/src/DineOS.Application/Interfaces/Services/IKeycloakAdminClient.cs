@@ -27,4 +27,24 @@ public interface IKeycloakAdminClient
     /// realm-export was imported before the role was defined).
     /// </summary>
     Task AssignRealmRoleAsync(string userId, string roleName, CancellationToken ct);
+
+    /// <summary>
+    /// Resets the given Keycloak user's password to a new permanent value.
+    /// Used after the owner submits the dineOS <c>/set-password</c> form so
+    /// they never have to interact with Keycloak's stock account console.
+    /// </summary>
+    Task SetPasswordAsync(string userId, string newPassword, CancellationToken ct);
+
+    /// <summary>
+    /// Removes one or more <c>requiredActions</c> entries from the user
+    /// (e.g. <c>UPDATE_PASSWORD</c>). Optionally also sets the user's
+    /// <c>emailVerified</c> flag in the same PUT so both updates are atomic
+    /// — callers pass <c>true</c> when consumption of a dineOS-issued email
+    /// token already proves the user owns the address.
+    /// </summary>
+    Task ClearRequiredActionsAsync(
+        string userId,
+        IReadOnlyList<string> actionsToRemove,
+        bool? emailVerified,
+        CancellationToken ct);
 }

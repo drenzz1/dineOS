@@ -56,6 +56,28 @@ public class SignupController(ISignupService signupService) : ControllerBase
         return MapResult(result);
     }
 
+    /// <summary>
+    /// Sets the tenant owner's Keycloak password using the single-use token
+    /// emailed after a successful Stripe Checkout. The dineOS frontend's
+    /// <c>/set-password</c> page POSTs here so the owner never sees the
+    /// Keycloak account console.
+    /// </summary>
+    [HttpPost("set-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("public")]
+    [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> CompleteSetup(
+        [FromBody] SetPasswordRequest request,
+        CancellationToken ct)
+    {
+        var result = await signupService.CompleteSetupAsync(request, ct);
+        return result.ToActionResult();
+    }
+
     private IActionResult MapResult<T>(ServiceResult<T> result)
     {
         // Map "Stripe unavailable" UnprocessableEntity → 503 to match the

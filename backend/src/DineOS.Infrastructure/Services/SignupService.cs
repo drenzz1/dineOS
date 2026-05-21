@@ -19,10 +19,16 @@ public class SignupService(
     AppDbContext db,
     BillingService billingService,
     IValidator<SignupRequest> validator,
+    IValidator<SetPasswordRequest> setPasswordValidator,
+    IKeycloakAdminClient keycloakAdmin,
+    ISetupTokenStore setupTokens,
     IOptions<StripeOptions> stripeOptions,
     ILogger<SignupService> logger) : ISignupService
 {
     private readonly StripeOptions _stripe = stripeOptions.Value;
+
+    private static readonly string[] RequiredActionsToClear =
+        new[] { "UPDATE_PASSWORD", "VERIFY_EMAIL" };
 
     public async Task<ServiceResult<SignupResponse>> StartSignupAsync(
         SignupRequest request,
@@ -139,6 +145,63 @@ public class SignupService(
         };
 
         return ServiceResult<SignupStatusResponse>.Ok(new SignupStatusResponse { Status = status });
+    }
+
+    public async Task<ServiceResult<string>> CompleteSetupAsync(
+        SetPasswordRequest request,
+        CancellationToken ct = default)
+    {
+        var validation = await setPasswordValidator.ValidateAsync(request, ct);
+        if (!validation.IsValid)
+        {
+            return ServiceResult<string>.ValidationFailed(
+                "Validation failed",
+                validation.Errors.Select(e => e.ErrorMessage).ToList());
+        }
+
+        var tenantId = await setupTokens.ConsumeAsync(request.Token, ct);
+        if (tenantId is null)
+        {
+            logger.LogWarning(
+                "Set-password attempted with invalid or expired token: {TokenPrefix}…",
+                request.Token.Length > 6 ? request.Token[..6] : request.Token);
+            return ServiceResult<string>.NotFound("This link is invalid or has expired.");
+        }
+
+        var tenant = await db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == tenantId.Value && t.DeletedAt == null, ct);
+
+        if (tenant?.KeycloakUserId is null)
+        {
+            logger.LogWarning(
+                "Set-password token resolved but tenant or Keycloak user is missing. TenantId={TenantId}",
+                tenantId);
+            return ServiceResult<string>.NotFound("This account is not ready yet. Please try again in a few minutes.");
+        }
+
+        try
+        {
+            await keycloakAdmin.SetPasswordAsync(tenant.KeycloakUserId, request.NewPassword, ct);
+            // Consuming the one-time setup token proves the owner controls
+            // the email, so we flip emailVerified=true in the same PUT.
+            await keycloakAdmin.ClearRequiredActionsAsync(
+                tenant.KeycloakUserId, RequiredActionsToClear, emailVerified: true, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Keycloak rejected set-password for TenantId={TenantId} KeycloakUserId={KeycloakUserId}",
+                tenant.Id, tenant.KeycloakUserId);
+            return ServiceResult<string>.UnprocessableEntity(
+                "We couldn't update your password. Please try again or contact support.");
+        }
+
+        logger.LogInformation(
+            "Set-password completed: TenantId={TenantId} Email={OwnerEmail}",
+            tenant.Id, tenant.OwnerEmail);
+
+        return ServiceResult<string>.Ok(tenant.OwnerEmail, "Password set.");
     }
 
     private async Task<string> GenerateUniqueSlugAsync(string name, CancellationToken ct)

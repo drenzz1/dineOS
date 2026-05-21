@@ -96,6 +96,71 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
         return location.TrimEnd('/').Split('/')[^1];
     }
 
+    public async Task SetPasswordAsync(string userId, string newPassword, CancellationToken ct)
+    {
+        var realm = RequireRealm();
+        using var http = await CreateAuthenticatedClientAsync(ct);
+
+        var payload = new { type = "password", value = newPassword, temporary = false };
+
+        using var response = await http.PutAsJsonAsync(
+            $"admin/realms/{realm}/users/{userId}/reset-password", payload, JsonOptions, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)response.StatusCode, $"Keycloak set password failed: {body}");
+        }
+    }
+
+    public async Task ClearRequiredActionsAsync(
+        string userId,
+        IReadOnlyList<string> actionsToRemove,
+        bool? emailVerified,
+        CancellationToken ct)
+    {
+        var realm = RequireRealm();
+        using var http = await CreateAuthenticatedClientAsync(ct);
+
+        // Fetch current representation, filter requiredActions, PUT back.
+        using var getResponse = await http.GetAsync($"admin/realms/{realm}/users/{userId}", ct);
+        if (!getResponse.IsSuccessStatusCode)
+        {
+            var body = await getResponse.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)getResponse.StatusCode, $"Keycloak user lookup failed: {body}");
+        }
+
+        var user = await getResponse.Content.ReadFromJsonAsync<UserRepresentation>(JsonOptions, ct)
+            ?? throw new KeycloakAdminException(500, "Keycloak user lookup returned empty body.");
+
+        var remaining = (user.RequiredActions ?? Array.Empty<string>())
+            .Where(a => !actionsToRemove.Contains(a, StringComparer.OrdinalIgnoreCase))
+            .ToArray();
+
+        // Build update dict so emailVerified is only sent when caller wants
+        // to change it — Keycloak's PUT merges supplied fields onto the user.
+        var update = new Dictionary<string, object?>
+        {
+            ["requiredActions"] = remaining,
+        };
+        if (emailVerified is bool ev)
+        {
+            update["emailVerified"] = ev;
+        }
+
+        using var putResponse = await http.PutAsJsonAsync(
+            $"admin/realms/{realm}/users/{userId}", update, JsonOptions, ct);
+
+        if (!putResponse.IsSuccessStatusCode)
+        {
+            var body = await putResponse.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)putResponse.StatusCode, $"Keycloak clear required actions failed: {body}");
+        }
+    }
+
     public async Task AssignRealmRoleAsync(string userId, string roleName, CancellationToken ct)
     {
         var realm = RequireRealm();
@@ -259,4 +324,8 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
     private sealed record RealmRole(string Id, string Name);
 
     private sealed record UserSummary(string Id);
+
+    private sealed record UserRepresentation(
+        string Id,
+        [property: JsonPropertyName("requiredActions")] string[]? RequiredActions);
 }
