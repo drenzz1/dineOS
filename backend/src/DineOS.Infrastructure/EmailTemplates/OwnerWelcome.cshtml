@@ -7,7 +7,8 @@
 <p style="margin:0 0 16px;">Hi @Model.OwnerName,</p>
 <p style="margin:0 0 16px;">
   Payment confirmed — your restaurant <strong>@Model.RestaurantName</strong> is live on DineOS.
-  Use the credentials below to sign in for the first time. You'll be asked to set a new password.
+  The password below is temporary and works only once. Open the button below to set a permanent
+  password and sign in.
 </p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;width:100%;background:#f1f5f9;border-radius:8px;">
   <tr>
@@ -24,6 +25,6 @@
   </tr>
 </table>
 <p style="margin:0 0 16px;">
-  <a href="@Model.AccountUrl" style="display:inline-block;padding:12px 20px;background:#0f172a;color:#ffffff;border-radius:8px;text-decoration:none;font-weight:600;">Set your password</a>
+  <a href="@Model.FirstLoginUrl" style="display:inline-block;padding:12px 20px;background:#0f172a;color:#ffffff;border-radius:8px;text-decoration:none;font-weight:600;">Set your password &amp; sign in</a>
 </p>
 <p style="margin:16px 0 0;color:#94a3b8;font-size:13px;">For your security, the temporary password is single-use and must be changed on first sign-in.</p>

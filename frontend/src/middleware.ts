@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/signup/success",
   "/signup/cancelled",
   "/demo",
+  "/first-login",
 ];
 
 function isAllowed(pathname: string, allowed: string[]): boolean {

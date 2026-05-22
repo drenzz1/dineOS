@@ -8,8 +8,12 @@ namespace DineOS.Infrastructure.Jobs;
 
 /// <summary>
 /// Provisions the tenant owner's Keycloak account after a Stripe checkout
-/// completes (#205): creates the user, persists <c>KeycloakUserId</c>,
-/// assigns the Owner realm role, then enqueues the welcome email.
+/// completes (#205): creates the user with a temporary password gated by
+/// the <c>UPDATE_PASSWORD</c> required action, persists
+/// <c>KeycloakUserId</c>, assigns the <c>Manager</c> realm role, then
+/// enqueues the welcome email. Owners are stamped as <c>Manager</c>
+/// directly so the JWT's <c>realm_access.roles</c> claim aligns with
+/// backend <c>[Authorize(Roles="Manager")]</c> checks and the FE role enum.
 /// </summary>
 /// <remarks>
 /// Lives in Hangfire (not inline in the webhook) because the webhook
@@ -24,7 +28,19 @@ public sealed class OwnerProvisioningJob(
     IBackgroundJobClient backgroundJobs,
     ILogger<OwnerProvisioningJob> logger)
 {
-    private const string OwnerRoleName = "Owner";
+    // Tenant owners are functionally Managers of their own restaurant.
+    // Assigning the Manager realm role directly keeps the JWT's
+    // realm_access.roles aligned with backend [Authorize(Roles="Manager")]
+    // checks and the frontend role enum — no role aliasing required.
+    private const string OwnerRoleName = "Manager";
+
+    // Emailed password must be rotated on first login. UPDATE_PASSWORD is
+    // attached as a Keycloak required action so the credential cannot be
+    // used permanently. /api/v1/auth/login surfaces the resulting
+    // "Account is not fully set up" error so the FE can route the owner
+    // through the dedicated first-login password-change flow.
+    private static readonly IReadOnlyList<string> OwnerRequiredActions =
+        new[] { "UPDATE_PASSWORD" };
 
     [AutomaticRetry(
         Attempts = 5,
@@ -54,12 +70,17 @@ public sealed class OwnerProvisioningJob(
 
         var (firstName, lastName) = SplitOwnerName(tenant.OwnerName);
 
+        // The emailed password is created as TEMPORARY with the
+        // UPDATE_PASSWORD required action. The owner cannot use it as a
+        // permanent credential — they must complete the first-login
+        // password-change flow (/api/v1/auth/first-login-password-change)
+        // before standard login works.
         var userId = await keycloakAdmin.CreateUserAsync(
             email:              tenant.OwnerEmail,
             firstName:          firstName,
             lastName:           lastName,
             tempPassword:       tempPassword,
-            requiredActions:    new[] { "UPDATE_PASSWORD", "VERIFY_EMAIL" },
+            requiredActions:    OwnerRequiredActions,
             temporaryPassword:  true,
             ct);
 

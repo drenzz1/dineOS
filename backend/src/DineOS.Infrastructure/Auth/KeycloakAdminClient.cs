@@ -152,6 +152,38 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
             obj["attributes"] = attrs;
         }, $"attribute '{attributeName}' update", ct);
 
+    public Task SetRequiredActionsAsync(string userId, IReadOnlyList<string> requiredActions, CancellationToken ct) =>
+        MergeUserAsync(userId, obj =>
+        {
+            var array = new JsonArray();
+            foreach (var action in requiredActions)
+                array.Add(action);
+            obj["requiredActions"] = array;
+        }, "requiredActions update", ct);
+
+    public async Task<KeycloakUserSummary?> FindUserByEmailAsync(string email, CancellationToken ct)
+    {
+        var realm = RequireRealm();
+        using var http = await CreateAuthenticatedClientAsync(ct);
+
+        using var response = await http.GetAsync(
+            $"admin/realms/{realm}/users?email={Uri.EscapeDataString(email)}&exact=true",
+            ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)response.StatusCode, $"Keycloak user lookup by email failed: {body}");
+        }
+
+        var users = await response.Content.ReadFromJsonAsync<List<UserWithActions>>(JsonOptions, ct);
+        var match = users?.FirstOrDefault();
+        return match is null
+            ? null
+            : new KeycloakUserSummary(match.Id, match.RequiredActions ?? Array.Empty<string>());
+    }
+
     /// <summary>
     /// Read-modify-write for <c>PUT /users/{id}</c>. Keycloak 24's user PUT
     /// endpoint treats absent fields as "set to null" — sending only
@@ -343,4 +375,8 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
     private sealed record RealmRole(string Id, string Name);
 
     private sealed record UserSummary(string Id);
+
+    private sealed record UserWithActions(
+        string Id,
+        [property: JsonPropertyName("requiredActions")] IReadOnlyList<string>? RequiredActions);
 }

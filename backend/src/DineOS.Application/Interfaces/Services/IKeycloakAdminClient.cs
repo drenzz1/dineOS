@@ -12,10 +12,12 @@ public interface IKeycloakAdminClient
     /// Creates a Keycloak user in the configured realm and returns the
     /// Keycloak user id. If a user with the same email already exists,
     /// returns that user's id instead of failing.
-    /// Pass <c>temporaryPassword: true</c> for tenant owners (Keycloak adds
-    /// <c>UPDATE_PASSWORD</c> automatically) and <c>false</c> for demo users
-    /// (direct-grant login from the frontend fails with
-    /// <c>resolve_required_actions</c> otherwise).
+    /// Tenant owners (#205) pass <c>temporaryPassword: true</c> with
+    /// <c>requiredActions: ["UPDATE_PASSWORD"]</c> so the FE routes them
+    /// through the dedicated first-login password-change flow; demo users
+    /// (#216) pass <c>temporaryPassword: false</c> with no required actions
+    /// so the emailed creds ARE the credential (direct-grant login from the
+    /// frontend would otherwise fail with <c>resolve_required_actions</c>).
     /// </summary>
     Task<string> CreateUserAsync(
         string email,
@@ -52,4 +54,23 @@ public interface IKeycloakAdminClient
     /// <c>tenant_id</c> claim the API tenancy filter expects.
     /// </summary>
     Task SetUserAttributeAsync(string userId, string attributeName, string value, CancellationToken ct);
+
+    /// <summary>
+    /// Returns the user's id and currently pending <c>requiredActions</c>
+    /// list, or <c>null</c> if no user matches the email. Used by the
+    /// first-login password-change flow to verify the caller is in the
+    /// expected post-provisioning state before honouring the password change.
+    /// </summary>
+    Task<KeycloakUserSummary?> FindUserByEmailAsync(string email, CancellationToken ct);
+
+    /// <summary>
+    /// Replaces the user's <c>requiredActions</c> list. Pass an empty list
+    /// to clear all pending actions so direct-access grant logins succeed.
+    /// </summary>
+    Task SetRequiredActionsAsync(string userId, IReadOnlyList<string> requiredActions, CancellationToken ct);
 }
+
+/// <summary>
+/// Minimal Keycloak user representation returned by lookup endpoints.
+/// </summary>
+public sealed record KeycloakUserSummary(string Id, IReadOnlyList<string> RequiredActions);

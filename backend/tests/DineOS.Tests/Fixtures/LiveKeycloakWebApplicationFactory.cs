@@ -83,6 +83,11 @@ public sealed class LiveKeycloakWebApplicationFactory : WebApplicationFactory<Pr
                 ["Keycloak:Realm"]               = _keycloak.Realm,
                 ["Keycloak:ClientId"]            = "dineos-frontend",
                 ["Keycloak:RequireHttpsMetadata"] = "false",
+
+                // Signup:FirstLoginUrl is bound with ValidateOnStart in
+                // Infrastructure/DependencyInjection.cs — required for the
+                // host to boot under the "Testing" environment.
+                [$"{SignupOptions.SectionName}:FirstLoginUrl"] = "http://localhost:3000/first-login",
             }));
 
         builder.ConfigureServices(services =>

@@ -70,6 +70,16 @@ public static class DependencyInjection
         services.AddSingleton<IDatabaseMigrator, EfDatabaseMigrator>();
 
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
+        // Signup:FirstLoginUrl is required — a hardcoded localhost fallback
+        // would silently ship to non-dev environments and send freshly
+        // provisioned owners to a dead link. Fail fast on startup instead.
+        services.AddOptions<SignupOptions>()
+            .Bind(configuration.GetSection(SignupOptions.SectionName))
+            .Validate(
+                o => !string.IsNullOrWhiteSpace(o.FirstLoginUrl)
+                     && Uri.TryCreate(o.FirstLoginUrl, UriKind.Absolute, out _),
+                "Signup:FirstLoginUrl must be configured as an absolute URL (e.g. https://app.example.com/first-login).")
+            .ValidateOnStart();
         // BillingService is registered by both its interface and its concrete
         // type. SignupService (#204) depends on the concrete to reuse the
         // internal BuildCheckoutSessionAsync helper without leaking it onto
@@ -148,6 +158,7 @@ public static class DependencyInjection
         services.AddScoped<PaymentFailedEmailJob>();
         services.AddScoped<OwnerWelcomeEmailJob>();
         services.AddScoped<OwnerProvisioningJob>();
+        services.AddScoped<OwnerSecurityRemediationJob>();
         services.AddScoped<DemoProvisioningJob>();
         services.AddScoped<DemoWelcomeEmailJob>();
         services.AddScoped<DemoCredentialsResendJob>();

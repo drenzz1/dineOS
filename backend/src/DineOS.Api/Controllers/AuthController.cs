@@ -21,6 +21,7 @@ public class AuthController(IKeycloakAuthService authService) : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<RefreshTokenResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
@@ -31,6 +32,31 @@ public class AuthController(IKeycloakAuthService authService) : ControllerBase
         return Ok(ApiResponse<RefreshTokenResponse>.Ok(
             result.Value!,
             "Login successful."));
+    }
+
+    /// <summary>
+    /// Rotates the temporary password issued to a freshly-provisioned tenant owner
+    /// (#205) and returns a fresh token pair. Anonymous because the owner cannot
+    /// complete the standard login flow until <c>UPDATE_PASSWORD</c> is cleared.
+    /// </summary>
+    [HttpPost("auth/first-login-password-change")]
+    [AllowAnonymous]
+    [EnableRateLimiting("public")]
+    [ProducesResponseType(typeof(ApiResponse<RefreshTokenResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> FirstLoginPasswordChange(
+        [FromBody] FirstLoginPasswordChangeRequest request,
+        CancellationToken ct)
+    {
+        var result = await authService.ChangeFirstLoginPasswordAsync(request, ct);
+        if (!result.IsSuccess)
+            return ToFailureResponse(result.Error, result.Errors);
+
+        return Ok(ApiResponse<RefreshTokenResponse>.Ok(
+            result.Value!,
+            "Password updated. You are now signed in."));
     }
 
     /// <summary>Exchanges a valid Keycloak refresh token for a new token pair and blacklists the old one.</summary>
@@ -81,6 +107,11 @@ public class AuthController(IKeycloakAuthService authService) : ControllerBase
                 StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse.Fail(message)),
             "Invalid response from identity provider." =>
                 StatusCode(StatusCodes.Status502BadGateway, ApiResponse.Fail(message)),
+            // 409 lets the FE distinguish "needs first-login password change"
+            // from generic 401 invalid-credentials. Surfaces as a specific
+            // error so the FE can route the user to /first-login.
+            "Account requires first-login password change." =>
+                Conflict(ApiResponse.Fail(message)),
             _ => Unauthorized(ApiResponse.Fail(message))
         };
     }

@@ -59,6 +59,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
                 [$"{FileStorageOptions.SectionName}:RootPath"] = _uploadsRoot,
                 ["RabbitMq:Enabled"] = "false",
                 ["ConnectionStrings:DefaultConnection"]       = _db.GetConnectionString(),
+                // Signup:FirstLoginUrl is bound with ValidateOnStart in
+                // Infrastructure/DependencyInjection.cs — without a value
+                // here the test host fails to boot under the "Testing"
+                // environment because appsettings.json deliberately ships
+                // it empty (no silent fallback to localhost in prod).
+                [$"{SignupOptions.SectionName}:FirstLoginUrl"] = "http://localhost:3000/first-login",
             }));
 
         builder.ConfigureServices(services =>

@@ -50,7 +50,7 @@ public sealed record OwnerWelcomeEmailModel(
     string RestaurantName,
     string Email,
     string TempPassword,
-    string AccountUrl);
+    string FirstLoginUrl);
 
 public sealed record DemoWelcomeEmailModel(
     string   Email,
