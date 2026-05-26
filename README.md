@@ -44,6 +44,32 @@ dotnet tool install --global dotnet-ef
 
 ## Quick Start
 
+### Option 1 — Full-stack dev environment (DO-1)
+
+Runs every service (API, Next.js frontend, Nginx, Postgres, Keycloak, RabbitMQ, Loki, Grafana, Mailhog) from the repo root in a single command:
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+The app is available at **http://localhost** once all services are healthy (~60–90 s on first boot).
+
+| Service | URL |
+|---|---|
+| App (via Nginx) | http://localhost |
+| API | http://localhost/api or http://localhost:5001 |
+| Swagger | http://localhost:5001/swagger |
+| Keycloak | http://localhost:8080 |
+| Grafana | http://localhost:4000 |
+| Mailhog | http://localhost:8025 |
+
+See [docs/devops/compose.md](docs/devops/compose.md) for the full service URL map, credentials, lifecycle commands, and troubleshooting.
+
+### Option 2 — Backend-only stack
+
+`backend/docker-compose.yml` still works for backend-only workflows — use this when running the frontend separately with `npm run dev`.
+
 Start the backend stack from `backend/`:
 
 ```bash
