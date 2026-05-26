@@ -194,3 +194,77 @@ If the frontend loads but API calls fail (network errors in the browser console)
    docker compose up -d --build frontend
    ```
 3. Verify the API itself is healthy: `curl http://localhost:5001/api/v1/health`
+
+---
+
+## DO-2 Production Images
+
+Issue **DO-2** introduced production-grade, multi-stage Dockerfiles for the API and frontend.  
+Both compose files tag their built images so they can be pushed to a registry without rebuilding.
+
+### Image names and non-root users
+
+| Service | Image tag | Runtime base | Non-root user | UID |
+|---------|-----------|--------------|---------------|-----|
+| API | `dineos/api:do2` | `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` | `appuser` (group `appgroup`) | `1001` |
+| Frontend | `dineos/web:do2` | `node:20-alpine` | `nextjs` (group `nodejs`) | `1001` |
+
+The `USER` instruction is set in both Dockerfiles so the process never runs as root inside the container.
+
+### Build commands
+
+Build both images from the **repo root** with a clean layer cache:
+
+```bash
+# API  (context: ./backend)
+docker build \
+  -t dineos/api:do2 \
+  -f backend/src/DineOS.Api/Dockerfile \
+  ./backend
+
+# Frontend  (context: ./frontend)
+docker build \
+  -t dineos/web:do2 \
+  --build-arg NEXT_PUBLIC_API_URL=http://localhost/api \
+  --build-arg NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8080 \
+  --build-arg NEXT_PUBLIC_KEYCLOAK_REALM=dineos \
+  ./frontend
+```
+
+Or let Compose build and tag both in one step:
+
+```bash
+docker compose build --no-cache
+```
+
+### Next.js standalone output
+
+`frontend/next.config.ts` sets `output: "standalone"`, which instructs Next.js to emit a self-contained `server.js` bundle with only the node modules it actually uses.  
+The runner stage copies three paths from the builder:
+
+| Source (builder) | Destination (runner) | Purpose |
+|------------------|----------------------|---------|
+| `.next/standalone/` | `./` | Minimal server + trimmed `node_modules` |
+| `.next/static/` | `.next/static/` | Hashed CSS / JS chunks |
+| `public/` | `public/` | Static assets |
+
+The result is a significantly smaller image compared to copying the full `node_modules` tree.
+
+### Verification
+
+Run the end-to-end verification script from the repo root:
+
+```bash
+bash scripts/verify-do2.sh
+```
+
+The script performs four checks in order:
+
+| Step | Command | What it verifies |
+|------|---------|-----------------|
+| 1 | `docker compose build --no-cache` | Clean build succeeds for both images |
+| 2 | `docker inspect --format '{{.Config.User}}' dineos/api:do2 dineos/web:do2` | `USER` is set to a non-root identity in both images |
+| 3 | `docker compose up -d` | Full stack starts without errors |
+| 4 | `curl http://localhost:5001/api/v1/health` | API health endpoint returns 200 after the container passes its healthcheck |
+
+If the API does not become healthy within 90 seconds the script prints the last 30 lines of container logs and exits with a non-zero code.

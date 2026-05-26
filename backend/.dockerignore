@@ -1,6 +1,51 @@
-**/.git
-**/.vs
-**/bin
-**/obj
-**/*.user
-**/node_modules
+# Version control
+.git
+.gitignore
+.github
+
+# IDE / editors
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+.cursorrules
+AGENTS.md
+
+# .NET build artefacts — Docker rebuilds these inside the container
+**/bin/
+**/obj/
+
+# Node / Next.js artefacts (not applicable to .NET context but present for checklist completeness)
+**/node_modules/
+**/.next/
+**/coverage/
+**/test-results/
+**/playwright-report/
+
+# Test projects — source excluded, .csproj kept so dotnet restore DineOS.slnx can find them
+tests/**/*.cs
+tests/**/*.json
+tests/**/*.md
+**/TestResults/
+**/TestResults-ci/
+
+# Environment secrets
+.env*
+!.env.example
+
+# Runtime-mounted volumes — not baked into the image
+keycloak/
+grafana/
+loki/
+
+# Docker metadata
+docker-compose.yml
+
+# Documentation
+README.md
+docs/
+
+# OS metadata
+**/.DS_Store
+**/Thumbs.db
