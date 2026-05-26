@@ -18,6 +18,10 @@ echo "────────────────────────�
 for image in dineos/api:do2 dineos/web:do2; do
   user=$(docker inspect --format '{{.Config.User}}' "$image")
   echo "  $image  →  USER=${user:-'(not set — defaults to root!)'}"
+  if [[ -z "$user" || "$user" == "root" || "$user" == "0" ]]; then
+    echo "  ERROR: $image is running as root (or USER is unset)." >&2
+    exit 1
+  fi
 done
 
 echo ""
@@ -47,7 +51,13 @@ done
 
 echo ""
 echo "  GET ${HEALTH_URL}"
-curl -sf "${HEALTH_URL}" | { command -v jq &>/dev/null && jq . || cat; }
+curl -sf "${HEALTH_URL}" | {
+  if command -v jq >/dev/null 2>&1; then
+    jq .
+  else
+    cat
+  fi
+}
 
 echo ""
 echo "All checks passed."
