@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: src/DineOS.Api/Dockerfile
+    image: dineos/api:do2
     container_name: dineos-api
     ports:
       - "${API_HTTP_PORT:-5001}:8080"

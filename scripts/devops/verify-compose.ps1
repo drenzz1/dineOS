@@ -36,10 +36,27 @@ Write-Step "2/3  Service status"
 
 $services = [System.Collections.Generic.List[object]]::new()
 $psRaw = docker compose ps --format json 2>$null
-foreach ($line in $psRaw) {
-    $trimmed = $line.Trim()
-    if ($trimmed) {
-        try { $services.Add(($trimmed | ConvertFrom-Json)) } catch {}
+if ($psRaw) {
+    $joined = ($psRaw -join "`n").Trim()
+    if ($joined) {
+        try {
+            # Newer Compose versions emit a JSON array; handle that and single-object output.
+            $parsed = $joined | ConvertFrom-Json
+            if ($parsed -is [array]) {
+                foreach ($item in $parsed) { $services.Add($item) }
+            } elseif ($parsed) {
+                $services.Add($parsed)
+            }
+        } catch {
+            # Older Compose versions emit NDJSON (one JSON object per line).
+            foreach ($line in $psRaw) {
+                $trimmed = $line.Trim()
+                if ($trimmed -and $trimmed -match '^\{') {
+                    try { $services.Add(($trimmed | ConvertFrom-Json)) }
+                    catch { Write-Warning "Could not parse docker compose ps output line: $trimmed" }
+                }
+            }
+        }
     }
 }
 

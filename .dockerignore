@@ -1,0 +1,42 @@
+# Version control
+.git
+.gitignore
+.github
+
+# IDE / editors
+.vs
+.vscode
+.idea
+*.user
+*.suo
+.cursorrules
+
+# .NET build artefacts
+**/bin/
+**/obj/
+
+# Node / Next.js artefacts
+**/node_modules/
+**/.next/
+**/.turbo/
+**/coverage/
+**/test-results/
+**/playwright-report/
+
+# Environment secrets — keep only the example
+.env*
+!.env.example
+
+# Documentation
+docs/
+**/*.md
+!README.md
+
+# Test artefacts
+TestResults/
+TestResults2/
+e2e/
+
+# OS metadata
+**/.DS_Store
+**/Thumbs.db

@@ -12,6 +12,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   turbopack: { root: projectRoot },
   async rewrites() {
     const backendUrl = process.env.API_URL ?? "http://localhost:5138";
