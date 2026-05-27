@@ -1,0 +1,22 @@
+dineOS has been deployed successfully!
+
+{{- $host := "" }}
+{{- if .Values.ingress.enabled }}
+{{-   if .Values.ingress.hosts }}
+{{-     $host = first .Values.ingress.hosts }}
+{{-   end }}
+{{- end }}
+
+{{- if $host }}
+Application URL: http{{ if .Values.ingress.tls }}s{{ end }}://{{ $host }}
+{{- else }}
+No Ingress host is configured. Set ingress.enabled=true and add a host to ingress.hosts to expose the app.
+{{- end }}
+
+To inspect running pods:
+
+  kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/instance={{ .Release.Name }}"
+
+To stream logs:
+
+  kubectl logs --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/instance={{ .Release.Name }}" --follow
