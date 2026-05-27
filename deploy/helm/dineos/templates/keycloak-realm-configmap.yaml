@@ -1,0 +1,11 @@
+{{- if .Values.dependencies.keycloak.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-keycloak-realm
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+data:
+  realm-export.json: |
+{{ .Files.Get "files/realm-export.json" | indent 4 }}
+{{- end }}

@@ -1,0 +1,83 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "dineos.fullname" . }}
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- toYaml .Values.ingress.tls | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          {{/*
+            Path ordering matters: nginx-ingress uses longest-prefix wins,
+            but explicit more-specific paths before the / catch-all prevents
+            ambiguity and mirrors the location block order in dineos.conf.
+          */}}
+
+          {{- /* ── REST API ─────────────────────────────────────── */}}
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dineos.fullname" $ }}-api
+                port:
+                  number: 80
+
+          {{- /* ── SignalR hubs (WebSocket upgrade) ──────────────── */}}
+          {{- /*
+            The nginx-ingress controller forwards the Upgrade/Connection
+            headers by default. The proxy-read-timeout / proxy-send-timeout
+            annotations on the Ingress keep idle WS connections alive.
+          */}}
+          - path: /hubs
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dineos.fullname" $ }}-api
+                port:
+                  number: 80
+
+          {{- /* ── File uploads (large body allowed via annotation) ── */}}
+          - path: /uploads
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dineos.fullname" $ }}-api
+                port:
+                  number: 80
+
+          {{- /* ── Swagger UI — non-prod only ───────────────────── */}}
+          {{- if $.Values.ingress.swagger.enabled }}
+          - path: /swagger
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dineos.fullname" $ }}-api
+                port:
+                  number: 80
+          {{- end }}
+
+          {{- /* ── Frontend catch-all — must be last ─────────────── */}}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dineos.fullname" $ }}-frontend
+                port:
+                  number: 80
+    {{- end }}
+{{- end }}

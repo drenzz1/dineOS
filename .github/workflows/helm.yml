@@ -1,0 +1,105 @@
+name: Helm CI
+
+# Runs only when the chart or this workflow file changes.
+# workflow_dispatch lets any team member trigger it manually (e.g. after
+# updating Chart.lock locally with 'helm dependency update').
+on:
+  push:
+    paths:
+      - 'deploy/helm/**'
+      - '.github/workflows/helm.yml'
+  pull_request:
+    paths:
+      - 'deploy/helm/**'
+      - '.github/workflows/helm.yml'
+  workflow_dispatch:
+
+jobs:
+  helm-lint:
+    name: Lint & validate (kubeconform)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install Helm — pin to a minor series so patch upgrades land automatically.
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.16.x'
+
+      # Add both chart repositories so 'helm dependency build' can resolve
+      # the Bitnami and Codecentric sub-charts listed in Chart.lock.
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami     https://charts.bitnami.com/bitnami
+          helm repo add codecentric https://codecentric.github.io/helm-charts
+          helm repo update
+
+      # Cache the downloaded sub-chart .tgz files.
+      # Key is the Chart.lock hash so the cache is invalidated whenever
+      # a dependency version changes.
+      - name: Restore sub-chart cache
+        id: chart-cache
+        uses: actions/cache@v4
+        with:
+          path: deploy/helm/dineos/charts
+          key: helm-charts-${{ hashFiles('deploy/helm/dineos/Chart.lock') }}
+          restore-keys: |
+            helm-charts-
+
+      # 'helm dependency build' uses Chart.lock (committed) to download
+      # exactly the pinned versions without re-solving constraints.
+      # Skipped when the cache already holds the tarballs.
+      - name: Download sub-charts
+        if: steps.chart-cache.outputs.cache-hit != 'true'
+        run: helm dependency build deploy/helm/dineos
+
+      # Install kubeconform — lightweight schema validator for Kubernetes manifests.
+      # Using a pinned release so CI is reproducible.
+      - name: Install kubeconform
+        env:
+          KUBECONFORM_VERSION: v0.6.7
+        run: |
+          curl -sSLo /tmp/kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          tar -xf /tmp/kubeconform.tar.gz -C /tmp kubeconform
+          sudo mv /tmp/kubeconform /usr/local/bin/
+          kubeconform -v
+
+      # Lint checks chart structure, template syntax, and required-value
+      # presence. The INFO-level 'icon is recommended' message is expected
+      # and does not cause a non-zero exit.
+      - name: helm lint
+        run: |
+          helm lint deploy/helm/dineos \
+            --values deploy/helm/dineos/values.local.yaml
+
+      # Render the full manifest with local values, then pipe to kubeconform.
+      # -strict    → reject unknown fields (catches field-name typos)
+      # -summary   → print pass/skip/fail counts after validation
+      # -kubernetes-version → validate against the Kubernetes 1.31 schema
+      #
+      # values.local.yaml enables all four sub-chart dependencies so their
+      # rendered resources are also validated.
+      - name: helm template | kubeconform
+        run: |
+          helm template dineos deploy/helm/dineos \
+            --values deploy/helm/dineos/values.local.yaml \
+          | kubeconform \
+              -strict \
+              -summary \
+              -kubernetes-version 1.31.0
+
+      # Guard: fail the job if Chart.lock drifted from Chart.yaml.
+      # A developer who bumped a dependency version in Chart.yaml but forgot
+      # to run 'helm dependency update' locally will see this error.
+      - name: Assert Chart.lock is up-to-date
+        run: |
+          helm dependency update deploy/helm/dineos
+          git diff --exit-code deploy/helm/dineos/Chart.lock || {
+            echo "::error::Chart.lock is out of date."
+            echo "Run 'helm dependency update deploy/helm/dineos' locally and commit Chart.lock."
+            exit 1
+          }

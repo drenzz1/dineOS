@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: { root: projectRoot },
   async rewrites() {
-    const backendUrl = process.env.API_URL ?? "http://localhost:5138";
+    const backendUrl = process.env.API_INTERNAL_URL ?? "http://localhost:5138";
     return [
       {
         source: "/api/:path*",

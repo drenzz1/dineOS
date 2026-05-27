@@ -179,3 +179,5 @@ See `docs/database-migrations.md` for the full migration workflow.
 - Database ERD: `docs/database/ERD.md`
 - Database schema reference: `docs/database/SCHEMA.md`
 - API client strategy: `frontend/docs/api-client-strategy.md`
+- Docker Compose dev environment: `docs/devops/compose.md`
+- Helm / Kubernetes deployment: `docs/devops/helm.md`

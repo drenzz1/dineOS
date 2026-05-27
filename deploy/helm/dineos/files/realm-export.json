@@ -1,0 +1,162 @@
+{
+  "realm": "dineos",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": false,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "realm": [
+      { "name": "SuperAdmin",   "composite": false, "clientRole": false },
+      { "name": "Manager",      "composite": false, "clientRole": false },
+      { "name": "Cashier",      "composite": false, "clientRole": false },
+      { "name": "KitchenStaff", "composite": false, "clientRole": false },
+      { "name": "Owner",        "composite": false, "clientRole": false }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "dineos-api",
+      "name": "DineOS API",
+      "description": "Backend resource server — accepts bearer tokens only",
+      "enabled": true,
+      "bearerOnly": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "dineos-admin",
+      "name": "DineOS Admin (server-to-server)",
+      "description": "Backend service-account client for Keycloak Admin API calls (owner provisioning on Stripe checkout).",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "dev-admin-secret-change-me",
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "dineos-frontend",
+      "name": "DineOS Frontend",
+      "description": "Public SPA client — used by the frontend and for local dev token fetching",
+      "enabled": true,
+      "publicClient": true,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "dineos-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "dineos-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "tenant-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ],
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:5000/swagger/oauth2-redirect.html",
+        "http://localhost:5138/swagger/oauth2-redirect.html",
+        "https://localhost:7202/swagger/oauth2-redirect.html"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:5000",
+        "http://localhost:5138",
+        "https://localhost:7202"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-dineos-admin",
+      "enabled": true,
+      "serviceAccountClientId": "dineos-admin",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users", "query-users", "manage-realm"]
+      }
+    },
+    {
+      "username": "admin@dineos.dev",
+      "email": "admin@dineos.dev",
+      "firstName": "Admin",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["SuperAdmin"]
+    },
+    {
+      "username": "manager@dineos.dev",
+      "email": "manager@dineos.dev",
+      "firstName": "Manager",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": ["1"]
+      },
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["Manager"]
+    },
+    {
+      "username": "cashier@dineos.dev",
+      "email": "cashier@dineos.dev",
+      "firstName": "Cashier",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": ["1"]
+      },
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["Cashier"]
+    },
+    {
+      "username": "kitchen@dineos.dev",
+      "email": "kitchen@dineos.dev",
+      "firstName": "Kitchen",
+      "lastName": "Staff",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": ["1"]
+      },
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["KitchenStaff"]
+    }
+  ]
+}

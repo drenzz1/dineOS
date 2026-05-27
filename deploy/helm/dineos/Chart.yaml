@@ -1,0 +1,31 @@
+apiVersion: v2
+name: dineos
+description: dineOS restaurant-management platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+# Each dependency is gated by the matching dependencies.<name>.enabled flag.
+# Set enabled=false (prod default) to skip the sub-chart and point the API
+# Deployment at an external managed service via dependencies.<name>.host.
+dependencies:
+  - name: postgresql
+    alias: postgres
+    version: "~18.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: dependencies.postgres.enabled
+
+  - name: redis
+    version: "~25.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: dependencies.redis.enabled
+
+  - name: rabbitmq
+    version: "~16.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: dependencies.rabbitmq.enabled
+
+  - name: keycloak
+    version: "~18.0.0"
+    repository: "https://codecentric.github.io/helm-charts"
+    condition: dependencies.keycloak.enabled

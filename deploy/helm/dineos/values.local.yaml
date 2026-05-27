@@ -1,0 +1,157 @@
+# ============================================================
+# values.local.yaml — minikube / kind overrides
+# Apply on top of values.yaml:
+#   helm upgrade --install dineos ./deploy/helm/dineos \
+#     -f deploy/helm/dineos/values.local.yaml
+#
+# Mirrors the dev defaults in docker-compose.yml and
+# backend/docker-compose.yml so variable names stay identical.
+# ============================================================
+
+api:
+  image:
+    repository: dineos/api
+    # Matches the image tag built by DO-2 Dockerfiles
+    tag: do2
+    # Never pull — use the locally loaded image (minikube image load /
+    # kind load docker-image)
+    pullPolicy: Never
+
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  env:
+    ASPNETCORE_ENVIRONMENT: Development
+
+    # Keycloak — HTTP (no TLS) for local cluster
+    Keycloak__Realm: dineos
+    Keycloak__GrantType: "password"
+    Keycloak__RequireHttpsMetadata: "false"
+    # PublicAuthServerUrl: what the browser navigates to
+    Keycloak__PublicAuthServerUrl: "http://dineos.local:8080"
+    # AuthServerUrl: in-cluster pod-to-pod address
+    Keycloak__AuthServerUrl: "http://dineos-keycloak:8080"
+    Keycloak__Authority: "http://dineos.local:8080/realms/dineos"
+    Keycloak__MetadataAddress: "http://dineos-keycloak:8080/realms/dineos/.well-known/openid-configuration"
+
+    # Loki — in-cluster
+    Loki__Uri: "http://dineos-loki:3100"
+
+    # SMTP — MailHog (local mail catcher, no auth)
+    Smtp__Host: dineos-mailhog
+    Smtp__Port: "1025"
+    Smtp__UseStartTls: "false"
+
+    # Stripe — dev (leave blank; Stripe CLI webhook proxy handles local testing)
+    Stripe__CheckoutSuccessUrl: "http://dineos.local/settings/billing?status=success"
+    Stripe__CheckoutCancelUrl: "http://dineos.local/settings/billing?status=cancelled"
+    Stripe__PortalReturnUrl: "http://dineos.local/settings/billing"
+
+    # CORS
+    AllowedOrigins__0: "http://dineos.local"
+    AllowedOrigins__1: "http://localhost:3000"
+
+frontend:
+  image:
+    repository: dineos/web
+    tag: do2
+    pullPolicy: Never
+
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+  env:
+    NODE_ENV: production
+    NEXT_PUBLIC_API_URL: "http://dineos.local/api"
+    API_INTERNAL_URL: "http://dineos-api:8080"
+    NEXT_PUBLIC_KEYCLOAK_URL: "http://dineos.local:8080"
+    NEXT_PUBLIC_KEYCLOAK_REALM: dineos
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    # Nullify the prod cert-manager annotation — no cert-manager in local clusters.
+    cert-manager.io/cluster-issuer: ""
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - dineos.local
+  tls: []
+  swagger:
+    enabled: true
+
+# Dev secrets — safe placeholder values matching docker-compose defaults.
+# DO NOT use these values in any environment beyond a local cluster.
+secrets:
+  create: true
+  postgresPassword: "dineos_dev"
+  keycloakClientSecret: "dev-client-secret-change-me"
+  keycloakAdminClientSecret: "dev-admin-secret-change-me"  # Keycloak__AdminClientSecret
+  jwtSigningKey: "dev-jwt-signing-key-32-chars-min!"
+  smtpPassword: ""            # MailHog needs no password
+  rabbitMqPassword: "dineos_dev"
+  providerApiKeys:
+    stripe: ""
+    stripeWebhook: ""
+    anthropic: ""
+    openai: ""
+    googleai: ""
+
+# All four dependencies run in-cluster for local development.
+dependencies:
+  postgres:
+    enabled: true
+    host: dineos-postgres
+    port: 5432
+    database: dineos          # matches POSTGRES_DB in docker-compose.yml
+    username: dineos          # matches POSTGRES_USER
+
+  redis:
+    enabled: true
+    host: dineos-redis-master
+    port: 6379
+
+  rabbitmq:
+    enabled: true
+    host: dineos-rabbitmq
+    port: 5672
+    username: dineos          # matches RABBITMQ_DEFAULT_USER
+    vhost: /
+
+  keycloak:
+    enabled: true
+    internalHost: dineos-keycloak
+    internalPort: 8080
+
+# ── Sub-chart local overrides ────────────────────────────────────────────────
+# Passwords must match the secrets.* values above so the sub-chart's own
+# StatefulSet and our chart's Secret agree on credentials.
+
+postgres:
+  auth:
+    password: "dineos_dev"      # == secrets.postgresPassword
+
+rabbitmq:
+  auth:
+    password: "dineos_dev"      # == secrets.rabbitMqPassword
+    erlangCookie: "dineos-erlang-cookie-dev"
+
+# Redis runs without auth in local dev — no override needed.
+# Keycloak admin credentials are set in the base values.yaml extraEnv block.

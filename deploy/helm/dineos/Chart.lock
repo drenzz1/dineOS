@@ -1,0 +1,15 @@
+dependencies:
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 18.0.17
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 25.0.0
+- name: rabbitmq
+  repository: https://charts.bitnami.com/bitnami
+  version: 16.0.14
+- name: keycloak
+  repository: https://codecentric.github.io/helm-charts
+  version: 18.0.0
+digest: sha256:820023b704a468f04195dd4aafdc5c570f21900bba10780dd842a89a3e76b916
+generated: "2026-05-27T07:01:17.172121+02:00"

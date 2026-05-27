@@ -1,0 +1,316 @@
+# ============================================================
+# values.yaml — production-shaped defaults
+# All secrets are placeholders; supply real values via
+# --set secrets.<key>=... or a sealed-secrets / ESO overlay.
+# Dependencies are OFF by default — point to managed services.
+# ============================================================
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+# ------------------------------------------------------------
+# API (DineOS.Api — .NET 10)
+# ------------------------------------------------------------
+api:
+  image:
+    repository: dineos/api
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+  # Non-secret env vars only.
+  # Secret refs (passwords, keys) are injected from the Secret
+  # produced by secrets.create=true — templates wire them via envFrom.
+  env:
+    ASPNETCORE_ENVIRONMENT: Production
+
+    # Keycloak — issuer / OIDC metadata
+    Keycloak__Realm: dineos
+    Keycloak__Audience: dineos-api
+    Keycloak__ClientId: dineos-frontend
+    Keycloak__GrantType: authorization_code
+    Keycloak__RequireHttpsMetadata: "true"
+    Keycloak__AdminClientId: dineos-admin
+    # PublicAuthServerUrl  → browser-facing Keycloak URL
+    # AuthServerUrl        → in-cluster Keycloak URL for server↔Keycloak calls
+    # Override both in values.local.yaml to http://... for non-TLS dev clusters.
+    Keycloak__PublicAuthServerUrl: "https://auth.dineos.io"
+    Keycloak__AuthServerUrl: "https://auth.dineos.io"
+    Keycloak__Authority: "https://auth.dineos.io/realms/dineos"
+    Keycloak__MetadataAddress: "https://auth.dineos.io/realms/dineos/.well-known/openid-configuration"
+
+    # RabbitMQ
+    RabbitMq__Enabled: "true"
+    # RabbitMq__Password → Secret
+    # Host/port/username are read from dependencies.rabbitmq.* by the ConfigMap template.
+
+    # Loki (optional in prod — disable by pointing at a no-op sink)
+    Loki__Uri: "http://loki:3100"
+
+    # SMTP
+    Smtp__Host: smtp.mailgun.org
+    Smtp__Port: "587"
+    Smtp__UseStartTls: "true"
+    # Smtp__Password → Secret
+
+    # Email
+    Email__Enabled: "true"
+    Email__FromAddress: no-reply@dineos.io
+    Email__FromName: DineOS
+    Email__SimulateFailure: "false"
+
+    # Stripe (non-secret)
+    Stripe__ProMonthlyPriceId: ""
+    Stripe__ProAnnualPriceId: ""
+    Stripe__CheckoutSuccessUrl: "https://app.dineos.io/settings/billing?status=success"
+    Stripe__CheckoutCancelUrl: "https://app.dineos.io/settings/billing?status=cancelled"
+    Stripe__PortalReturnUrl: "https://app.dineos.io/settings/billing"
+
+    # AI providers (non-secret model selection only; keys → Secret)
+    Anthropic__Model: claude-sonnet-4-5
+
+    # CORS — list additional origins in values.local.yaml
+    AllowedOrigins__0: "https://app.dineos.io"
+
+# ------------------------------------------------------------
+# Frontend (Next.js 15 — standalone output)
+# ------------------------------------------------------------
+frontend:
+  image:
+    repository: dineos/web
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  service:
+    type: ClusterIP
+    port: 3000
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  env:
+    NODE_ENV: production
+    # NEXT_PUBLIC_* are baked into the JS bundle at build time;
+    # they must also be set as Docker build ARGs — see frontend/Dockerfile.
+    NEXT_PUBLIC_API_URL: "https://app.dineos.io/api"
+    # API_INTERNAL_URL is used by Next.js server-side (SSR/RSC) to reach
+    # the API without going through the ingress.
+    API_INTERNAL_URL: "http://dineos-api:8080"
+    NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.dineos.io"
+    NEXT_PUBLIC_KEYCLOAK_REALM: dineos
+
+# ------------------------------------------------------------
+# Ingress
+# ------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # SignalR connections on /hubs are long-lived WebSockets; raise timeouts
+    # so the nginx-ingress controller does not close idle upgrade connections.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  # List every public hostname that should resolve to this Ingress.
+  # Each host gets the full path ruleset (see ingress.yaml template).
+  hosts:
+    - app.dineos.io
+  # Standard k8s Ingress TLS spec — one entry per cert-manager Certificate.
+  # cert-manager reads the secretName and provisions the cert automatically
+  # when the cluster-issuer annotation above is set.
+  tls:
+    - hosts:
+        - app.dineos.io
+      secretName: dineos-tls
+  # Expose /swagger only in non-production environments.
+  # Set to true in values.local.yaml or a staging overlay.
+  swagger:
+    enabled: false
+
+# ------------------------------------------------------------
+# Secrets
+# secrets.create=true renders a Kubernetes Secret named
+# <fullname>-secrets. Set to false when you manage secrets
+# externally (Sealed Secrets, ESO, Vault, etc.).
+# All values below are intentionally empty — fill them via
+# --set or a values overlay that is never committed.
+# ------------------------------------------------------------
+secrets:
+  create: true
+  # Set existingSecret to the name of a pre-created Secret and set
+  # create=false to skip chart-managed Secret generation entirely.
+  existingSecret: ""
+
+  # Postgres
+  postgresPassword: ""
+
+  # Keycloak
+  keycloakClientSecret: ""        # dineos-frontend client secret
+  keycloakAdminClientSecret: ""   # dineos-admin service-account secret (Keycloak__AdminClientSecret)
+
+  # JWT
+  jwtSigningKey: ""
+
+  # SMTP
+  smtpPassword: ""
+
+  # RabbitMQ
+  rabbitMqPassword: ""
+
+  # Third-party provider API keys
+  providerApiKeys:
+    stripe: ""          # Stripe__SecretKey
+    stripeWebhook: ""   # Stripe__WebhookSecret
+    anthropic: ""       # Anthropic__ApiKey
+    openai: ""          # OpenAI__ApiKey
+    googleai: ""        # GoogleAI__ApiKey
+
+# ------------------------------------------------------------
+# In-cluster dependency toggles
+# enabled=false → chart skips the sub-chart / StatefulSet and
+#                 workloads use the host/port values above.
+# enabled=true  → chart deploys a dev-grade in-cluster instance
+#                 (intended for local clusters only).
+# ------------------------------------------------------------
+dependencies:
+  postgres:
+    enabled: false
+    host: postgres.example.com
+    port: 5432
+    database: dineos
+    username: dineos
+
+  redis:
+    enabled: false
+    host: redis.example.com
+    port: 6379
+
+  rabbitmq:
+    enabled: false
+    host: rabbitmq.example.com
+    port: 5672
+    username: dineos
+    vhost: /
+
+  keycloak:
+    enabled: false
+    # Internal cluster URL used when enabled=true (server↔Keycloak calls)
+    internalHost: keycloak
+    internalPort: 8080
+
+# ============================================================
+# Sub-chart configuration (only applied when the matching
+# dependencies.<name>.enabled=true)
+# ============================================================
+
+# ------------------------------------------------------------
+# Bitnami PostgreSQL sub-chart (alias: postgres)
+# Ref: https://github.com/bitnami/charts/tree/main/bitnami/postgresql
+# ------------------------------------------------------------
+postgres:
+  architecture: standalone
+  auth:
+    username: dineos
+    database: dineos
+    # Must equal secrets.postgresPassword — set both to the same value.
+    # For prod with secrets.create=false, set auth.existingSecret to the
+    # name of your pre-created Secret and auth.secretKeys.userPasswordKey
+    # to the key that holds the Postgres password.
+    password: ""
+    existingSecret: ""
+  primary:
+    persistence:
+      enabled: false
+
+# ------------------------------------------------------------
+# Bitnami Redis sub-chart
+# Ref: https://github.com/bitnami/charts/tree/main/bitnami/redis
+# ------------------------------------------------------------
+redis:
+  architecture: standalone
+  auth:
+    # No password in local dev; enable and set password for prod.
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+  replica:
+    replicaCount: 0
+
+# ------------------------------------------------------------
+# Bitnami RabbitMQ sub-chart
+# Ref: https://github.com/bitnami/charts/tree/main/bitnami/rabbitmq
+# ------------------------------------------------------------
+rabbitmq:
+  replicaCount: 1
+  auth:
+    username: dineos
+    # Must equal secrets.rabbitMqPassword — set both to the same value.
+    password: ""
+    erlangCookie: "dineos-erlang-cookie-change-me"
+  persistence:
+    enabled: false
+
+# ------------------------------------------------------------
+# Codecentric Keycloak sub-chart
+# Ref: https://github.com/codecentric/helm-charts/tree/master/charts/keycloak
+# ------------------------------------------------------------
+keycloak:
+  replicas: 1
+  # Run in dev mode and auto-import the realm on startup.
+  command:
+    - /opt/keycloak/bin/kc.sh
+    - start-dev
+    - --import-realm
+  extraEnv: |
+    - name: KEYCLOAK_ADMIN
+      value: admin
+    - name: KEYCLOAK_ADMIN_PASSWORD
+      value: admin
+    - name: KC_HTTP_ENABLED
+      value: "true"
+    - name: KC_HOSTNAME_STRICT
+      value: "false"
+  # Mount the realm-export.json ConfigMap so --import-realm can find it.
+  # The ConfigMap is rendered by templates/keycloak-realm-configmap.yaml
+  # when dependencies.keycloak.enabled=true.
+  extraVolumes: |
+    - name: realm-import
+      configMap:
+        name: {{ .Release.Name }}-keycloak-realm
+  extraVolumeMounts: |
+    - name: realm-import
+      mountPath: /opt/keycloak/data/import
+      readOnly: true
+  # Disable the Codecentric sub-chart's bundled Postgres — use the
+  # Bitnami postgres sub-chart (or an external DB) instead.
+  postgresql:
+    enabled: false
+  serviceAccount:
+    create: false
