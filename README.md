@@ -169,6 +169,30 @@ See `docs/database-migrations.md` for the full migration workflow.
 - Several frontend domains are already wired to typed API clients, while some operational screens still use mocks during backend contract completion.
 - CI uses npm for the frontend, even though a `pnpm-lock.yaml` currently exists in the frontend directory. Prefer npm unless the team explicitly switches package managers.
 
+## CI/CD
+
+GitHub Actions handles lint, tests, Docker image builds, and Kubernetes deployments automatically.
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| Frontend CI (`ci.yml`) | push + PR | Lint, Jest, Playwright, Next.js build artifact |
+| Backend CI (`backend-ci.yml`) | push / PR to `main` | .NET 10 build, tests, coverage gate |
+| Helm CI (`helm.yml`) | changes to `deploy/helm/**` | Helm lint + kubeconform schema validation |
+| Build & Push (`build-push.yml`) | push to `main`, `v*.*.*` tags | Docker build → GHCR push → Helm deploy → notify |
+
+### Required secrets
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `GITHUB_TOKEN` | Automatic | Provided by GitHub Actions. Grants `packages: write` for GHCR push. |
+| `KUBE_CONFIG_DATA` | Optional | base64-encoded kubeconfig. If absent the deploy job runs `--dry-run` only. |
+| `SLACK_WEBHOOK_URL` | Optional | Enables Slack notifications on build completion. |
+| `NEXT_PUBLIC_API_URL` | Optional | Baked into the frontend image at build time. Defaults to `http://localhost/api`. |
+| `NEXT_PUBLIC_KEYCLOAK_URL` | Optional | Baked into the frontend image. Defaults to `http://localhost:8080`. |
+| `NEXT_PUBLIC_KEYCLOAK_REALM` | Optional | Baked into the frontend image. Defaults to `dineos`. |
+
+See [docs/devops/cicd.md](docs/devops/cicd.md) for the pipeline diagram, `gh secret set` setup commands, how to configure the `production` GitHub Environment with required reviewers, and troubleshooting.
+
 ## More Documentation
 
 - Backend details: `backend/README.md`
@@ -181,3 +205,4 @@ See `docs/database-migrations.md` for the full migration workflow.
 - API client strategy: `frontend/docs/api-client-strategy.md`
 - Docker Compose dev environment: `docs/devops/compose.md`
 - Helm / Kubernetes deployment: `docs/devops/helm.md`
+- CI/CD pipeline: `docs/devops/cicd.md`

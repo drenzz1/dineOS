@@ -1,0 +1,408 @@
+name: Build & Push
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Optional image tag override (e.g. hotfix-1)'
+        required: false
+        type: string
+
+concurrency:
+  group: build-push-${{ github.ref }}
+  cancel-in-progress: false
+
+# Minimal workflow-level permission. Elevated rights are granted per job only
+# where required — build jobs need packages:write (GHCR push) and
+# id-token:write (OIDC); deploy and notify do not.
+permissions:
+  contents: read
+
+jobs:
+  build-frontend:
+    name: Build & Push Frontend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      image_tag: ${{ steps.image-tag.outputs.value }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Expose the short SHA as a job output so the deploy job can reference
+      # a deterministic tag that is always present regardless of trigger type.
+      # Matches the tag produced by type=sha,format=short in metadata-action
+      # (default prefix is "sha-", so the tag is "sha-<7-char-sha>").
+      - name: Set image tag output
+        id: image-tag
+        run: echo "value=sha-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tag derivation rules (metadata-action lowercases image names automatically):
+      #   push to main     → main / sha-<short> / latest
+      #   push v1.2.3 tag  → 1.2.3 / 1.2 / sha-<short> / latest
+      #   workflow_dispatch with image_tag → all of the above + that value
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/dineos-frontend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.image_tag }},enable=${{ inputs.image_tag != '' }}
+
+      # NEXT_PUBLIC_* vars are baked into the JS bundle at build time.
+      # Set NEXT_PUBLIC_API_URL, NEXT_PUBLIC_KEYCLOAK_URL, and
+      # NEXT_PUBLIC_KEYCLOAK_REALM as GitHub Actions secrets in the repo.
+      # If unset the Dockerfile ARG defaults (localhost) are used instead.
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_KEYCLOAK_URL=${{ secrets.NEXT_PUBLIC_KEYCLOAK_URL }}
+            NEXT_PUBLIC_KEYCLOAK_REALM=${{ secrets.NEXT_PUBLIC_KEYCLOAK_REALM }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Write job summary
+        if: always()
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "## Frontend Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`ghcr.io/${{ github.repository_owner }}/dineos-frontend\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Digest | \`${IMAGE_DIGEST:-N/A}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_TAGS}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  build-backend:
+    name: Build & Push Backend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      image_tag: ${{ steps.image-tag.outputs.value }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set image tag output
+        id: image-tag
+        run: echo "value=sha-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/dineos-backend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.image_tag }},enable=${{ inputs.image_tag != '' }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/src/DineOS.Api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Write job summary
+        if: always()
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "## Backend Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`ghcr.io/${{ github.repository_owner }}/dineos-backend\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Digest | \`${IMAGE_DIGEST:-N/A}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_TAGS}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-frontend, build-backend]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://dineos.example.com
+    env:
+      HAS_KUBECONFIG: ${{ secrets.KUBE_CONFIG_DATA != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        if: env.HAS_KUBECONFIG == 'true'
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Warn — no KUBE_CONFIG_DATA, switching to dry-run
+        if: env.HAS_KUBECONFIG != 'true'
+        run: echo "::warning::KUBE_CONFIG_DATA secret is not set — running helm upgrade --dry-run only. No deployment will occur."
+
+      # The chart tarballs are committed, but helm dependency build is run here
+      # to verify Chart.lock integrity and unpack any remaining archives.
+      # Repos are added in case any tarball is missing from the checkout.
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami     https://charts.bitnami.com/bitnami
+          helm repo add codecentric https://codecentric.github.io/helm-charts
+          helm repo update
+
+      - name: Build Helm dependencies
+        run: helm dependency build deploy/helm/dineos
+
+      # Helm values paths are taken directly from the chart templates:
+      #   api-deployment.yaml:      .Values.api.image.{repository,tag}
+      #   frontend-deployment.yaml: .Values.frontend.image.{repository,tag}
+      # The repository overrides are required because values.yaml still contains
+      # the placeholder values (dineos/api, dineos/web); the real images live on GHCR.
+      - name: Deploy — live
+        if: env.HAS_KUBECONFIG == 'true'
+        run: |
+          helm upgrade --install dineos deploy/helm/dineos \
+            --namespace dineos --create-namespace \
+            --values deploy/helm/dineos/values.yaml \
+            --set api.image.repository=ghcr.io/${{ github.repository_owner }}/dineos-backend \
+            --set api.image.tag=${{ needs.build-backend.outputs.image_tag }} \
+            --set frontend.image.repository=ghcr.io/${{ github.repository_owner }}/dineos-frontend \
+            --set frontend.image.tag=${{ needs.build-frontend.outputs.image_tag }} \
+            --atomic --timeout 5m --wait
+
+      - name: Deploy — dry-run (no KUBE_CONFIG_DATA)
+        if: env.HAS_KUBECONFIG != 'true'
+        run: |
+          helm upgrade --install dineos deploy/helm/dineos \
+            --namespace dineos --create-namespace \
+            --values deploy/helm/dineos/values.yaml \
+            --set api.image.repository=ghcr.io/${{ github.repository_owner }}/dineos-backend \
+            --set api.image.tag=${{ needs.build-backend.outputs.image_tag }} \
+            --set frontend.image.repository=ghcr.io/${{ github.repository_owner }}/dineos-frontend \
+            --set frontend.image.tag=${{ needs.build-frontend.outputs.image_tag }} \
+            --dry-run
+
+      # Deployment names come from the Helm fullname helper in _helpers.tpl:
+      #   release=dineos, chart=dineos → contains check is true → fullname=dineos
+      #   api-deployment.yaml      → dineos-api
+      #   frontend-deployment.yaml → dineos-frontend
+      - name: Rollout status — API
+        if: env.HAS_KUBECONFIG == 'true'
+        run: kubectl rollout status deployment/dineos-api --namespace dineos --timeout 5m
+
+      - name: Rollout status — Frontend
+        if: env.HAS_KUBECONFIG == 'true'
+        run: kubectl rollout status deployment/dineos-frontend --namespace dineos --timeout 5m
+
+      - name: Write job summary
+        if: always()
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          echo "## Deploy — Production" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend image | \`ghcr.io/${{ github.repository_owner }}/dineos-frontend:${{ needs.build-frontend.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend image | \`ghcr.io/${{ github.repository_owner }}/dineos-backend:${{ needs.build-backend.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Namespace | \`dineos\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | \`production\` |" >> $GITHUB_STEP_SUMMARY
+          if [[ "$HAS_KUBECONFIG" == "true" ]]; then MODE="live"; else MODE="dry-run (no KUBE_CONFIG_DATA)"; fi
+          echo "| Mode | ${MODE} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | \`${{ github.event_name }}\` on \`${REF_NAME}\` |" >> $GITHUB_STEP_SUMMARY
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [build-frontend, build-backend, deploy]
+    if: always()
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      HAS_SLACK: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+
+    steps:
+      # Aggregate results: failure > cancelled > success.
+      # skipped (deploy gated out) is treated as neutral.
+      - name: Compute overall status
+        id: status
+        run: |
+          STATUS="success"
+          for result in \
+            "${{ needs.build-frontend.result }}" \
+            "${{ needs.build-backend.result }}" \
+            "${{ needs.deploy.result }}"; do
+            if   [[ "$result" == "failure"                              ]]; then STATUS="failure";   break
+            elif [[ "$result" == "cancelled" && "$STATUS" != "failure" ]]; then STATUS="cancelled"
+            fi
+          done
+          echo "value=${STATUS}" >> $GITHUB_OUTPUT
+
+      - name: Write job summary
+        env:
+          ACTOR: ${{ github.actor }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          case "${{ steps.status.outputs.value }}" in
+            success)   BADGE="✅ success"   ;;
+            failure)   BADGE="❌ failure"   ;;
+            cancelled) BADGE="⚠️ cancelled" ;;
+            *)         BADGE="❓ unknown"   ;;
+          esac
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "## CI/CD — ${BADGE}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | [\`${GITHUB_SHA::8}\`](${RUN_URL}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Author | \`${ACTOR}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Ref | \`${REF_NAME}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image tags pushed**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Tag |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| \`dineos-frontend\` | \`${{ needs.build-frontend.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| \`dineos-backend\` | \`${{ needs.build-backend.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Job outcomes**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Frontend | ${{ needs.build-frontend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Backend | ${{ needs.build-backend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[🔗 View full run](${RUN_URL})" >> $GITHUB_STEP_SUMMARY
+
+      # Pass the webhook URL via env to keep it out of the script text.
+      - name: Notify Slack
+        if: env.HAS_SLACK == 'true'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          STATUS="${{ steps.status.outputs.value }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          SHA_SHORT="${GITHUB_SHA::8}"
+          curl -fsSL -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"text\":\"dineOS CI/CD ${STATUS}: ${{ github.repository }}@${SHA_SHORT} by ${ACTOR}\n${RUN_URL}\"}"
+
+      # gh api resolves the PR that merged this commit (works for merge and
+      # squash-merge strategies). Skipped on tag pushes and workflow_dispatch.
+      - name: Comment on PR (failure only)
+        if: >-
+          steps.status.outputs.value == 'failure' &&
+          github.event_name == 'push' &&
+          !startsWith(github.ref, 'refs/tags/')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+            --jq '.[0].number' 2>/dev/null || true)
+          if [[ -n "$PR_NUMBER" && "$PR_NUMBER" != "null" ]]; then
+            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            {
+              echo "### ❌ CI/CD failed for \`${GITHUB_SHA::8}\`"
+              echo ""
+              echo "| Job | Result |"
+              echo "| --- | --- |"
+              echo "| Build Frontend | \`${{ needs.build-frontend.result }}\` |"
+              echo "| Build Backend | \`${{ needs.build-backend.result }}\` |"
+              echo "| Deploy | \`${{ needs.deploy.result }}\` |"
+              echo ""
+              echo "[View run](${RUN_URL})"
+            } > /tmp/pr-comment.md
+            gh pr comment "$PR_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --body-file /tmp/pr-comment.md
+          fi

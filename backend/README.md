@@ -314,3 +314,15 @@ tests/DineOS.Tests/
 5. Preserve tenant isolation and soft-delete query filters.
 6. Add focused unit tests and integration tests for cross-layer API behavior.
 7. Run `dotnet test DineOS.slnx` before merging backend behavior changes.
+
+## CI/CD
+
+The backend CI workflow (`.github/workflows/backend-ci.yml`) runs on every push and pull request targeting `main`:
+
+- .NET 10 restore, build (Release), and test with `XPlat Code Coverage`
+- Coverage gate: the job fails if line coverage falls below **70 %**
+- Live Keycloak integration tests run separately on pushes to `main` and `workflow_dispatch`
+
+Docker images for the API are built and pushed to GHCR by `.github/workflows/build-push.yml` on every push to `main` or a `v*.*.*` tag.
+
+See [../docs/devops/cicd.md](../docs/devops/cicd.md) for the full pipeline diagram, required secrets, and troubleshooting.
