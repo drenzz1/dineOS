@@ -23,6 +23,7 @@ public class OrderService(
     IValidator<UpdateOrderStatusRequest> statusValidator,
     IMessagePublisher messagePublisher,
     IOrderNotificationService notificationService,
+    IOrderMetrics orderMetrics,
     ILogger<OrderService> logger) : IOrderService
 {
     public async Task<ServiceResult<List<OrderDto>>> GetOrdersAsync(
@@ -104,6 +105,7 @@ public class OrderService(
 
         db.Orders.Add(order);
         await db.SaveChangesAsync(ct);
+        orderMetrics.IncrementOrdersCreated();
 
         var dto = ToDto(order);
         var message = ToOrderCreatedMessage(order);

@@ -178,6 +178,7 @@ GitHub Actions handles lint, tests, Docker image builds, and Kubernetes deployme
 | Frontend CI (`ci.yml`) | push + PR | Lint, Jest, Playwright, Next.js build artifact |
 | Backend CI (`backend-ci.yml`) | push / PR to `main` | .NET 10 build, tests, coverage gate |
 | Helm CI (`helm.yml`) | changes to `deploy/helm/**` | Helm lint + kubeconform schema validation |
+| Observability CI (`observability.yml`) | changes to `backend/prometheus/**` | promtool config/rules + amtool config check |
 | Build & Push (`build-push.yml`) | push to `main`, `v*.*.*` tags | Docker build → GHCR push → Helm deploy → notify |
 
 ### Required secrets
@@ -193,6 +194,12 @@ GitHub Actions handles lint, tests, Docker image builds, and Kubernetes deployme
 
 See [docs/devops/cicd.md](docs/devops/cicd.md) for the pipeline diagram, `gh secret set` setup commands, how to configure the `production` GitHub Environment with required reviewers, and troubleshooting.
 
+## Observability
+
+Prometheus scrapes `/metrics` from the API every 15 s; eight alert rules (API error rate, latency p95, GC pause, database, queue backlog, disk, memory) route through Alertmanager to Slack. Three Grafana dashboards — **API Overview**, **.NET Runtime**, and **Infrastructure** — sit alongside the existing Loki log dashboard. All services start with `docker compose up -d`; run `bash scripts/demo-alert.sh` to watch the `ApiDown` alert fire and self-clear in under two minutes. In Kubernetes, flip `observability.prometheus.enabled=true` and `observability.alertmanager.enabled=true` in the Helm chart.
+
+See [docs/devops/observability.md](docs/devops/observability.md) for the architecture diagram, alert rationale, Prometheus vs Loki guidance, and full Kubernetes setup.
+
 ## More Documentation
 
 - Backend details: `backend/README.md`
@@ -206,3 +213,4 @@ See [docs/devops/cicd.md](docs/devops/cicd.md) for the pipeline diagram, `gh sec
 - Docker Compose dev environment: `docs/devops/compose.md`
 - Helm / Kubernetes deployment: `docs/devops/helm.md`
 - CI/CD pipeline: `docs/devops/cicd.md`
+- Observability (Prometheus, Alertmanager, Grafana): `docs/devops/observability.md`

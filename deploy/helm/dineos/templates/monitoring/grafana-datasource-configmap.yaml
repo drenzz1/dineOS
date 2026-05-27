@@ -1,0 +1,47 @@
+{{- if .Values.observability.grafana.prometheusDatasource.enabled }}
+---
+# Grafana Prometheus datasource provisioning ConfigMap.
+#
+# SIDECAR PICKUP (grafana-sidecar / kube-prometheus-stack):
+#   The label grafana_datasource: "1" is watched by the Grafana sidecar
+#   container (if deployed). The sidecar mounts ConfigMaps with this label
+#   into /etc/grafana/provisioning/datasources/ at runtime — no Grafana
+#   restart required.
+#
+# NO SIDECAR (standalone Grafana pod):
+#   Mount this ConfigMap manually as a volume in the Grafana Deployment:
+#     volumes:
+#       - name: prom-datasource
+#         configMap:
+#           name: {{ include "dineos.fullname" . }}-grafana-prometheus-ds
+#     volumeMounts:
+#       - name: prom-datasource
+#         mountPath: /etc/grafana/provisioning/datasources/prometheus.yml
+#         subPath: prometheus-datasource.yaml
+#         readOnly: true
+#
+# Toggle: set observability.grafana.prometheusDatasource.enabled=true only
+# after observability.prometheus.enabled=true so the Service exists.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dineos.fullname" . }}-grafana-prometheus-ds
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+    # Picked up by the Grafana sidecar (grafana-sc-datasources container).
+    grafana_datasource: "1"
+data:
+  prometheus-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://{{ include "dineos.fullname" . }}-prometheus:9090
+        uid: prometheus
+        isDefault: false
+        editable: true
+        jsonData:
+          timeInterval: "15s"
+{{- end }}

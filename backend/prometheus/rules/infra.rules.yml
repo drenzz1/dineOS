@@ -1,0 +1,122 @@
+groups:
+  - name: dineos-infra
+    # Infrastructure alerts depend on the postgres-exporter and node-exporter
+    # scrape jobs defined in prometheus.yml (currently commented out).
+    # Enable the relevant scrape jobs before expecting these alerts to fire.
+    rules:
+
+      # ── DatabaseUnavailable ──────────────────────────────────────────────────
+      # Fires when either:
+      #   a) pg_up == 0  — the postgres-exporter is running but cannot connect
+      #                    to PostgreSQL (DB crash, wrong credentials, network).
+      #   b) absent(pg_up) — the postgres-exporter itself is not being scraped
+      #                    (container down, scrape job disabled).
+      # Both conditions mean the DineOS API will fail all database operations.
+      # The `or absent(pg_up)` branch fires with value=1 and no instance label;
+      # descriptions therefore do not reference $labels.instance.
+      - alert: DatabaseUnavailable
+        expr: |
+          pg_up == 0
+          or absent(pg_up)
+        for: 2m
+        labels:
+          severity:  critical
+          component: database
+          team:      devops
+        annotations:
+          summary: >-
+            PostgreSQL is unavailable or the postgres-exporter is not reporting
+          description: >-
+            Either the postgres-exporter reports pg_up=0 (cannot connect to
+            PostgreSQL) or the metric is entirely absent (exporter container is
+            down / scrape job disabled).
+            Current value: {{ $value }}.
+            The DineOS API will reject all requests requiring database access.
+          runbook_url: https://github.com/drenzz1/dineOS/wiki/runbooks/DatabaseUnavailable
+
+      # ── RabbitMqQueueBacklog ─────────────────────────────────────────────────
+      # Fires when any RabbitMQ queue has more than 1,000 ready-to-deliver
+      # messages for 10 minutes, indicating consumers are not keeping up.
+      # For DineOS, the primary concern is the order-created queue
+      # (dineos.orders.created.notifications); a backlog there delays
+      # order notifications to the kitchen display.
+      # Requires the rabbitmq scrape job (prometheus.yml) to be enabled.
+      - alert: RabbitMqQueueBacklog
+        expr: rabbitmq_queue_messages_ready > 1000
+        for: 10m
+        labels:
+          severity:  warning
+          component: rabbitmq
+          team:      devops
+        annotations:
+          summary: >-
+            RabbitMQ queue {{ $labels.queue }} has a large backlog
+          description: >-
+            Queue "{{ $labels.queue }}" in vhost "{{ $labels.vhost }}"
+            on node {{ $labels.node }} has {{ $value | humanize }} messages
+            ready to deliver (threshold 1,000) for the last 10 minutes.
+            Consumers may be slow, crashed, or misconfigured.
+            Check the RabbitMQ management UI at http://localhost:15672.
+          runbook_url: https://github.com/drenzz1/dineOS/wiki/runbooks/RabbitMqQueueBacklog
+
+      # ── DiskSpaceLow ────────────────────────────────────────────────────────
+      # Fires when the root filesystem has less than 10 % free space for
+      # 15 minutes.  Below this threshold, Postgres WAL writes, Loki chunk
+      # storage, and Docker layer writes can all begin to fail unpredictably.
+      # Requires the node-exporter scrape job (prometheus.yml) to be enabled.
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/"}
+            /
+            node_filesystem_size_bytes{mountpoint="/"}
+          ) < 0.10
+        for: 15m
+        labels:
+          severity:  warning
+          component: node
+          team:      devops
+        annotations:
+          summary: >-
+            Root filesystem on {{ $labels.instance }} is almost full
+          description: >-
+            The root filesystem (mountpoint "/") on {{ $labels.instance }}
+            has only {{ $value | humanizePercentage }} free space remaining
+            (threshold 10 %).
+            Postgres WAL, Loki chunks, and Docker image layers will fail
+            to write when the disk fills completely.
+            Run `df -h /` on the host and prune Docker volumes or logs.
+          runbook_url: https://github.com/drenzz1/dineOS/wiki/runbooks/DiskSpaceLow
+
+      # ── HighMemoryPressure ───────────────────────────────────────────────────
+      # Fires when the host has less than 10 % of physical memory available
+      # (i.e. > 90 % in use) for 15 minutes.  Under this pressure the OOM
+      # killer may terminate the DineOS API, Postgres, or Redis containers,
+      # causing cascading failures.
+      # Requires the node-exporter scrape job (prometheus.yml) to be enabled.
+      - alert: HighMemoryPressure
+        expr: |
+          (
+            1
+            - (
+                node_memory_MemAvailable_bytes
+                /
+                node_memory_MemTotal_bytes
+              )
+          ) > 0.90
+        for: 15m
+        labels:
+          severity:  warning
+          component: node
+          team:      devops
+        annotations:
+          summary: >-
+            Host {{ $labels.instance }} memory usage is above 90 %
+          description: >-
+            {{ $value | humanizePercentage }} of physical memory on
+            {{ $labels.instance }} is in use (threshold 90 %) for the
+            last 15 minutes.
+            The Linux OOM killer may terminate containers.
+            Check `docker stats` and consider increasing swap or
+            reducing container memory limits.
+          runbook_url: https://github.com/drenzz1/dineOS/wiki/runbooks/HighMemoryPressure

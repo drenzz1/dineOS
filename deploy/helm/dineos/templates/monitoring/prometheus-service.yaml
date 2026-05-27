@@ -1,0 +1,20 @@
+{{- if .Values.observability.prometheus.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dineos.fullname" . }}-prometheus
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "dineos.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+{{- end }}

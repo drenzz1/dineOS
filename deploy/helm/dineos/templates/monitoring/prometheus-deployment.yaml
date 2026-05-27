@@ -1,0 +1,102 @@
+{{- if .Values.observability.prometheus.enabled }}
+{{- if and .Values.observability.prometheus.persistence.enabled .Values.observability.prometheus.persistence.size }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "dineos.fullname" . }}-prometheus-data
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.observability.prometheus.persistence.size }}
+  {{- if .Values.observability.prometheus.persistence.storageClass }}
+  storageClassName: {{ .Values.observability.prometheus.persistence.storageClass }}
+  {{- end }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dineos.fullname" . }}-prometheus
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dineos.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: prometheus
+  template:
+    metadata:
+      labels:
+        {{- include "dineos.labels" . | nindent 8 }}
+        app.kubernetes.io/component: prometheus
+    spec:
+      serviceAccountName: {{ include "dineos.serviceAccountName" . }}
+      containers:
+        - name: prometheus
+          image: {{ .Values.observability.prometheus.image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time={{ .Values.observability.prometheus.retention }}
+            - --web.enable-lifecycle
+            - --web.console.libraries=/etc/prometheus/console_libraries
+            - --web.console.templates=/etc/prometheus/consoles
+          ports:
+            - name: http
+              containerPort: 9090
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.observability.prometheus.resources | nindent 12 }}
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+              readOnly: true
+            - name: prometheus-rules
+              mountPath: /etc/prometheus/rules
+              readOnly: true
+            - name: prometheus-data
+              mountPath: /prometheus
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: {{ include "dineos.fullname" . }}-prometheus-config
+            items:
+              - key: prometheus.yml
+                path: prometheus.yml
+        - name: prometheus-rules
+          configMap:
+            name: {{ include "dineos.fullname" . }}-prometheus-rules
+        - name: prometheus-data
+          {{- if .Values.observability.prometheus.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "dineos.fullname" . }}-prometheus-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}
