@@ -258,14 +258,15 @@ jobs:
       - name: Deploy — dry-run (no KUBE_CONFIG_DATA)
         if: env.HAS_KUBECONFIG != 'true'
         run: |
-          helm upgrade --install dineos deploy/helm/dineos \
-            --namespace dineos --create-namespace \
+          helm template dineos deploy/helm/dineos \
+            --namespace dineos \
             --values deploy/helm/dineos/values.yaml \
             --set api.image.repository=ghcr.io/${{ github.repository_owner }}/dineos-backend \
             --set api.image.tag=${{ needs.build-backend.outputs.image_tag }} \
             --set frontend.image.repository=ghcr.io/${{ github.repository_owner }}/dineos-frontend \
             --set frontend.image.tag=${{ needs.build-frontend.outputs.image_tag }} \
-            --dry-run=client
+            > /dev/null
+          echo "helm template rendered successfully — no cluster required"
 
       # Deployment names come from the Helm fullname helper in _helpers.tpl:
       #   release=dineos, chart=dineos → contains check is true → fullname=dineos
