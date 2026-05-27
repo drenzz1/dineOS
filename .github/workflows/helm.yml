@@ -23,11 +23,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Install Helm — pin to a minor series so patch upgrades land automatically.
       - name: Setup Helm
         uses: azure/setup-helm@v4
         with:
-          version: 'v3.16.x'
+          version: 'latest'
 
       # Add both chart repositories so 'helm dependency build' can resolve
       # the Bitnami and Codecentric sub-charts listed in Chart.lock.
