@@ -1,0 +1,100 @@
+# =============================================================================
+# Prometheus configuration — DineOS
+# =============================================================================
+#
+# ENV VARIABLE NOTE
+#   Prometheus does not expand shell variables natively. The ${ENV:-dev} token
+#   in external_labels requires pre-processing with envsubst (or Docker's
+#   config-secret templating) before the file is mounted:
+#
+#     ENV=production envsubst < prometheus.yml > /etc/prometheus/prometheus.yml
+#
+#   For local Compose runs the literal string "${ENV:-dev}" is acceptable —
+#   it will appear as-is in Grafana label selectors, which is still useful.
+# =============================================================================
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: dineos-local
+    env: ${ENV:-dev}
+
+# ---------------------------------------------------------------------------
+# Alert rule files
+# ---------------------------------------------------------------------------
+rule_files:
+  - /etc/prometheus/rules/*.rules.yml
+
+# ---------------------------------------------------------------------------
+# Alertmanager
+# ---------------------------------------------------------------------------
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+      timeout: 10s
+
+# ---------------------------------------------------------------------------
+# Scrape configs
+# ---------------------------------------------------------------------------
+scrape_configs:
+
+  # ── Prometheus self-monitoring ─────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+
+  # ── DineOS .NET API ────────────────────────────────────────────────────────
+  # Exposed by prometheus-net.AspNetCore via app.MapMetrics("/metrics").
+  # AllowAnonymous() is set on the endpoint so no Bearer token is required.
+  - job_name: dineos-api
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - api:8080
+
+  # ── Node Exporter (host OS metrics) ───────────────────────────────────────
+  # Uncomment after adding the node-exporter service to docker-compose.yml:
+  #
+  #   node-exporter:
+  #     image: prom/node-exporter:v1.8.2
+  #     container_name: dineos-node-exporter
+  #     pid: host
+  #     volumes:
+  #       - /proc:/host/proc:ro
+  #       - /sys:/host/sys:ro
+  #       - /:/rootfs:ro
+  #     command:
+  #       - --path.procfs=/host/proc
+  #       - --path.sysfs=/host/sys
+  #     networks: [dineos-net]
+  #     restart: unless-stopped
+  #
+  # - job_name: node-exporter
+  #   static_configs:
+  #     - targets:
+  #         - node-exporter:9100
+
+  # ── PostgreSQL Exporter ────────────────────────────────────────────────────
+  # Uncomment after adding the postgres-exporter sidecar to docker-compose.yml.
+  # Set DATA_SOURCE_NAME env var on the exporter to the Postgres DSN, e.g.:
+  #   DATA_SOURCE_NAME=postgresql://dineos:dineos_dev@postgres:5432/dineos?sslmode=disable
+  #
+  # - job_name: postgres
+  #   static_configs:
+  #     - targets:
+  #         - postgres-exporter:9187
+
+  # ── RabbitMQ built-in Prometheus plugin ───────────────────────────────────
+  # rabbitmq:4-management ships with the rabbitmq_prometheus plugin enabled
+  # by default; it exposes /metrics on the management port 15692.
+  # Uncomment once confirmed that the plugin is active in your RabbitMQ image.
+  #
+  # - job_name: rabbitmq
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets:
+  #         - rabbitmq:15692

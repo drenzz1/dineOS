@@ -1,0 +1,73 @@
+{{- if .Values.observability.alertmanager.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dineos.fullname" . }}-alertmanager
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alertmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dineos.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: alertmanager
+  template:
+    metadata:
+      labels:
+        {{- include "dineos.labels" . | nindent 8 }}
+        app.kubernetes.io/component: alertmanager
+    spec:
+      serviceAccountName: {{ include "dineos.serviceAccountName" . }}
+      containers:
+        - name: alertmanager
+          image: {{ .Values.observability.alertmanager.image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+            - --storage.path=/alertmanager
+            # Required so ${SLACK_WEBHOOK_URL} in the config is expanded
+            # from the environment variable supplied by the Secret below.
+            - --config.expand-env
+          ports:
+            - name: http
+              containerPort: 9093
+              protocol: TCP
+          {{- if .Values.observability.alertmanager.slackWebhookSecretName }}
+          env:
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.observability.alertmanager.slackWebhookSecretName }}
+                  key: url
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: alertmanager-config
+              mountPath: /etc/alertmanager
+              readOnly: true
+            - name: alertmanager-data
+              mountPath: /alertmanager
+      volumes:
+        - name: alertmanager-config
+          configMap:
+            name: {{ include "dineos.fullname" . }}-alertmanager-config
+        - name: alertmanager-data
+          emptyDir: {}
+{{- end }}

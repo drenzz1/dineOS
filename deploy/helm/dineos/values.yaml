@@ -314,3 +314,45 @@ keycloak:
     enabled: false
   serviceAccount:
     create: false
+
+# ============================================================
+# Observability — Prometheus + Alertmanager (in-tree templates)
+# All flags default to false so existing prod deploys are
+# unaffected. Enable incrementally once the cluster operator
+# has confirmed storage and network policies.
+# ============================================================
+observability:
+  prometheus:
+    enabled: false
+    image: prom/prometheus:v2.55.0
+    retention: 15d
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    persistence:
+      # When true a PersistentVolumeClaim is created for /prometheus.
+      # When false an emptyDir is used (data lost on pod restart).
+      enabled: true
+      size: 10Gi
+      # Leave empty to use the cluster default StorageClass.
+      storageClass: ""
+
+  alertmanager:
+    enabled: false
+    image: prom/alertmanager:v0.28.0
+    # Name of an existing Kubernetes Secret that contains the Slack
+    # incoming-webhook URL under the key "url".
+    # Example: kubectl create secret generic alertmanager-slack \
+    #            --from-literal=url=https://hooks.slack.com/...
+    # Leave empty to start Alertmanager without a Slack receiver.
+    slackWebhookSecretName: ""
+
+  grafana:
+    # Toggle the Prometheus datasource provisioning in Grafana.
+    # Only meaningful once observability.prometheus.enabled=true.
+    prometheusDatasource:
+      enabled: false

@@ -1,0 +1,92 @@
+# =============================================================================
+# Alertmanager configuration — DineOS
+# =============================================================================
+#
+# SLACK WEBHOOK
+#   Alertmanager 0.28+ supports environment variable expansion when the daemon
+#   is started with --config.expand-env.  Add the flag to the alertmanager
+#   command in docker-compose.yml and pass SLACK_WEBHOOK_URL as an environment
+#   variable to the container:
+#
+#     command:
+#       - --config.file=/etc/alertmanager/alertmanager.yml
+#       - --storage.path=/alertmanager
+#       - --config.expand-env
+#     environment:
+#       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+#
+#   Without --config.expand-env the literal string "${SLACK_WEBHOOK_URL}" is
+#   used, which will produce a 403 from Slack.  Replace it inline for a quick
+#   local test, but never commit a real webhook URL to version control.
+# =============================================================================
+
+global:
+  resolve_timeout: 5m
+  # Slack template shared across all receivers that use slack_configs.
+  slack_api_url: "${SLACK_WEBHOOK_URL}"
+
+# ---------------------------------------------------------------------------
+# Routing tree
+# ---------------------------------------------------------------------------
+route:
+  receiver: slack-default
+  group_by:
+    - alertname
+    - cluster
+  group_wait:      30s
+  group_interval:  5m
+  repeat_interval: 4h
+
+  routes:
+    # Watchdog fires continuously by design (used to verify the pipeline is
+    # alive). Route it to the null receiver so it never pages on-call.
+    - matchers:
+        - alertname="Watchdog"
+      receiver: "null"
+
+# ---------------------------------------------------------------------------
+# Receivers
+# ---------------------------------------------------------------------------
+receivers:
+  - name: slack-default
+    slack_configs:
+      - send_resolved: true
+        channel: "#dineos-alerts"
+        username: "DineOS Alertmanager"
+        icon_emoji: ":rotating_light:"
+        # Title changes colour: firing alerts prepend [FIRING:N].
+        title: >-
+          [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}]
+          {{ .GroupLabels.alertname }}
+          ({{ .GroupLabels.cluster }})
+        text: |-
+          {{ range .Alerts }}
+          *Summary:*     {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:*    `{{ .Labels.severity }}`
+          *Component:*   `{{ .Labels.component }}`
+          *Team:*        `{{ .Labels.team }}`
+          *Runbook:*     {{ .Annotations.runbook_url }}
+          {{ end }}
+
+  # Sink receiver — absorbs Watchdog and any other suppressed alerts silently.
+  - name: "null"
+
+# ---------------------------------------------------------------------------
+# Inhibition rules
+# ---------------------------------------------------------------------------
+inhibit_rules:
+  # When the API is completely down (ApiDown critical), latency and
+  # throughput alerts for that same component become meaningless noise —
+  # every request is failing, so p95 will be infinite and error rate 100 %.
+  # Suppress all api-component warnings and criticals while ApiDown fires.
+  - source_matchers:
+      - alertname="ApiDown"
+      - severity="critical"
+    target_matchers:
+      - component="api"
+      - severity=~"warning|critical"
+    # Only suppress alerts on the same cluster + env as the source.
+    equal:
+      - cluster
+      - env

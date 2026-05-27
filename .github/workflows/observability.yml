@@ -1,0 +1,67 @@
+name: Observability CI
+
+# Validates Prometheus config, alert rules, and Alertmanager config whenever
+# the backend observability files or their Helm equivalents change.
+on:
+  push:
+    paths:
+      - 'backend/prometheus/**'
+      - 'deploy/helm/dineos/files/prometheus/**'
+      - '.github/workflows/observability.yml'
+  pull_request:
+    paths:
+      - 'backend/prometheus/**'
+      - 'deploy/helm/dineos/files/prometheus/**'
+      - '.github/workflows/observability.yml'
+
+concurrency:
+  group: observability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  promtool-lint:
+    name: promtool / amtool check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Mount backend/prometheus at /etc/prometheus so the rule_files glob
+      # in prometheus.yml (/etc/prometheus/rules/*.rules.yml) resolves to the
+      # actual rule files without needing to patch the config for CI.
+      - name: Check Prometheus config (promtool check config)
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/backend/prometheus:/etc/prometheus:ro" \
+            --entrypoint /bin/promtool \
+            prom/prometheus:v2.55.0 \
+            check config /etc/prometheus/prometheus.yml
+
+      # Run rules check separately so a rule-file error is reported
+      # independently from a config-structure error.
+      - name: Check Prometheus alert rules (promtool check rules)
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/backend/prometheus/rules:/rules:ro" \
+            --entrypoint /bin/promtool \
+            prom/prometheus:v2.55.0 \
+            check rules \
+              /rules/api.rules.yml \
+              /rules/infra.rules.yml
+
+      # alertmanager.yml uses ${SLACK_WEBHOOK_URL} expanded at runtime via
+      # --config.expand-env. amtool does not perform env expansion, so we
+      # substitute a syntactically valid dummy URL before running the check.
+      # The sed pattern uses single quotes so the shell does not expand the
+      # variable — sed sees the literal string "${SLACK_WEBHOOK_URL}".
+      - name: Check Alertmanager config (amtool check-config)
+        run: |
+          sed "s|\${SLACK_WEBHOOK_URL}|https://hooks.slack.com/services/ci-dummy|g" \
+            backend/prometheus/alertmanager.yml \
+            > /tmp/alertmanager-ci.yml
+          docker run --rm \
+            -v /tmp/alertmanager-ci.yml:/etc/alertmanager/alertmanager.yml:ro \
+            --entrypoint /bin/amtool \
+            prom/alertmanager:v0.28.0 \
+            check-config /etc/alertmanager/alertmanager.yml

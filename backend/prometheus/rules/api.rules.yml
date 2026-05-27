@@ -1,0 +1,108 @@
+groups:
+  - name: dineos-api
+    # Evaluated every 15 s, matching the global evaluation_interval.
+    rules:
+
+      # ── ApiDown ─────────────────────────────────────────────────────────────
+      # Fires when Prometheus cannot scrape the /metrics endpoint at all.
+      # This is the highest-priority signal: every other API alert is
+      # meaningless while the process is down (see inhibit_rules in
+      # alertmanager.yml which suppresses api-component alerts when this fires).
+      - alert: ApiDown
+        expr: up{job="dineos-api"} == 0
+        for: 1m
+        labels:
+          severity:  critical
+          component: api
+          team:      devops
+        annotations:
+          summary: >-
+            DineOS API is unreachable on {{ $labels.instance }}
+          description: >-
+            Prometheus has been unable to scrape {{ $labels.instance }}
+            (job={{ $labels.job }}) for at least 1 minute.
+            The /metrics endpoint is down, the container has crashed,
+            or the network path is broken.
+            Current up value: {{ $value }}.
+          runbook_url: https://github.com/drenzz1/dineOS/wiki/runbooks/ApiDown
+
+      # ── ApiHighErrorRate ─────────────────────────────────────────────────────
+      # Fires when more than 5 % of all HTTP requests return a 5xx status over
+      # a 5-minute window.  prometheus-net.AspNetCore exposes
+      # http_requests_received_total with a `code` label populated from the
+      # ASP.NET Core response status code.
+      - alert: ApiHighErrorRate
+        expr: |
+          sum(rate(http_requests_received_total{code=~"5.."}[5m]))
+            /
+          sum(rate(http_requests_received_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity:  critical
+          component: api
+          team:      devops
+        annotations:
+          summary: >-
+            DineOS API 5xx error rate is above 5 %
+          description: >-
+            The proportion of HTTP 5xx responses over the last 5 minutes is
+            {{ $value | humanizePercentage }} (threshold 5 %).
+            Check Grafana Loki for structured error logs and the
+            ExceptionMiddleware output for root-cause stack traces.
+          runbook_url: https://github.com/drenzz1/dineOS/wiki/runbooks/ApiHighErrorRate
+
+      # ── ApiHighLatencyP95 ────────────────────────────────────────────────────
+      # Fires when the 95th-percentile request duration exceeds 1 second over a
+      # 10-minute window.  Sustained p95 > 1 s indicates EF Core query
+      # regressions, Redis/RabbitMQ saturation, or CPU starvation.
+      # Use the `dineos_ef_command_duration_seconds` histogram to correlate with
+      # slow database commands.
+      - alert: ApiHighLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket[5m]))
+          ) > 1
+        for: 10m
+        labels:
+          severity:  warning
+          component: api
+          team:      devops
+        annotations:
+          summary: >-
+            DineOS API p95 request latency is above 1 s
+          description: >-
+            The 95th-percentile HTTP request duration has been
+            {{ $value | humanizeDuration }} (threshold 1 s) for the last
+            10 minutes.
+            Inspect slow EF Core queries via the
+            dineos_ef_command_duration_seconds histogram and check for
+            Redis or RabbitMQ saturation.
+          runbook_url: https://github.com/drenzz1/dineOS/wiki/runbooks/ApiHighLatencyP95
+
+      # ── DotnetGcHighPause ────────────────────────────────────────────────────
+      # Fires when the .NET runtime is spending more than 500 ms of every second
+      # in garbage-collection pauses (i.e. > 50 % GC overhead).  This level of
+      # GC pressure causes visible latency spikes for all tenants and may
+      # indicate a memory leak or misuse of large object allocations.
+      # NOTE: dotnet_gc_pause_time_seconds_total is exposed by the .NET
+      # EventCounters collector included in prometheus-net.AspNetCore v8.
+      - alert: DotnetGcHighPause
+        expr: rate(dotnet_gc_pause_time_seconds_total[5m]) > 0.5
+        for: 10m
+        labels:
+          severity:  warning
+          component: api
+          team:      devops
+        annotations:
+          summary: >-
+            .NET GC pause overhead is above 50 % on {{ $labels.instance }}
+          description: >-
+            The rate of time spent in .NET garbage-collection pauses on
+            {{ $labels.instance }} is {{ $value | humanizeDuration }}/s
+            (threshold 500 ms/s, i.e. 50 % GC overhead) sustained for
+            10 minutes.
+            Investigate heap growth with a memory dump or review recent
+            changes that allocate large objects on the LOH.
+          runbook_url: https://github.com/drenzz1/dineOS/wiki/runbooks/DotnetGcHighPause

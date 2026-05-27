@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
+using Prometheus;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.Grafana.Loki;
@@ -69,6 +70,9 @@ try
     builder.Services.AddInfrastructure(builder.Configuration);
 
     builder.Services.AddSingleton<IOrderNotificationService, OrderNotificationService>();
+    // ── Prometheus — business and EF Core metrics ────────────────────────────────
+    builder.Services.AddSingleton<IOrderMetrics, PrometheusOrderMetrics>();
+    builder.Services.AddSingleton<IHostedService, EfCoreMetricsListener>();
 
     var redisConnStr = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";
     builder.Services.AddSignalR()
@@ -338,6 +342,15 @@ try
     {
         options.MessageTemplate =
             "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+
+        // Prometheus scrapes /metrics every 15 s — suppress those log lines so they
+        // don't flood Loki. Verbose is below the configured minimum (Information)
+        // and is dropped before reaching any sink; no Serilog/Loki config changes needed.
+        options.GetLevel = (ctx, _, _) =>
+            ctx.Request.Path == "/metrics"
+                ? LogEventLevel.Verbose
+                : LogEventLevel.Information;
+
         options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
         {
             diagnosticContext.Set("CorrelationId", httpContext.Items[CorrelationIdMiddleware.ItemKey]);
@@ -346,6 +359,13 @@ try
             diagnosticContext.Set("UserAgent",     httpContext.Request.Headers.UserAgent.ToString());
         };
     });
+
+    // ── Prometheus HTTP metrics ───────────────────────────────────────────────────
+    // Placed early so every request — including 401/429/500 — is counted.
+    // Captures: http_requests_received_total, http_request_duration_seconds,
+    // http_requests_in_progress. Route template labels are populated after
+    // routing resolves, which ASP.NET Core guarantees before the response is sent.
+    app.UseHttpMetrics();
 
     if (app.Environment.IsDevelopment())
     {
@@ -423,6 +443,12 @@ try
     app.UseMiddleware<TenantIsolationMiddleware>();
     app.MapControllers();
     app.MapHub<OrderUpdatesHub>("/hubs/orders");
+
+    // ── Prometheus scrape endpoint ────────────────────────────────────────────────
+    // AllowAnonymous overrides the RequireAuthenticatedUser fallback policy so the
+    // Prometheus server can scrape without a JWT. Restrict to in-cluster traffic via
+    // network policy or an ingress rule in production.
+    app.MapMetrics("/metrics").AllowAnonymous().DisableRateLimiting();
 
     // ── Hangfire dashboard ────────────────────────────────────────────────────
     // Anonymous access is allowed by default in Development for ergonomics;

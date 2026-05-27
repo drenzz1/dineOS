@@ -1,0 +1,18 @@
+{{- if .Values.observability.alertmanager.enabled }}
+---
+# alertmanager.yml is loaded with Files.Get (no tpl).
+# The file contains ${SLACK_WEBHOOK_URL} (expanded at runtime via
+# --config.expand-env) and Alertmanager template syntax. Both are
+# preserved literally because Files.Get returns a raw string that
+# Helm does not re-parse as a template.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dineos.fullname" . }}-alertmanager-config
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alertmanager
+data:
+  alertmanager.yml: |
+{{ .Files.Get "files/prometheus/alertmanager.yml" | indent 4 }}
+{{- end }}

@@ -1,0 +1,32 @@
+{{- if .Values.observability.prometheus.enabled }}
+---
+# ConfigMap 1 — main Prometheus configuration
+# prometheus.yml lives in files/prometheus/prometheus.yml and contains Helm
+# template expressions, so it is loaded with tpl to resolve them at render time.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dineos.fullname" . }}-prometheus-config
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+data:
+  prometheus.yml: |
+{{ tpl (.Files.Get "files/prometheus/prometheus.yml") . | indent 4 }}
+---
+# ConfigMap 2 — alert rule files
+# Loaded with Files.Get (no tpl) so Prometheus template syntax inside the
+# rules files is preserved literally and not evaluated by Helm.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dineos.fullname" . }}-prometheus-rules
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+data:
+  api.rules.yml: |
+{{ .Files.Get "files/prometheus/rules/api.rules.yml" | indent 4 }}
+  infra.rules.yml: |
+{{ .Files.Get "files/prometheus/rules/infra.rules.yml" | indent 4 }}
+{{- end }}

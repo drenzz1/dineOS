@@ -1,0 +1,37 @@
+{{- if .Values.observability.prometheus.enabled }}
+{{- /*
+  TODO: Render a ServiceMonitor only when the Prometheus Operator CRD is present.
+  Uncomment and use the Capabilities check below once the cluster has
+  prometheus-operator (or kube-prometheus-stack) installed:
+
+    {{- if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" }}
+
+  Without the CRD the resource will be rejected by the API server, so it is
+  intentionally left behind a TODO rather than rendered unconditionally.
+
+  When the CRD is available, a minimal ServiceMonitor looks like:
+
+  ---
+  apiVersion: monitoring.coreos.com/v1
+  kind: ServiceMonitor
+  metadata:
+    name: {{ include "dineos.fullname" . }}-api
+    labels:
+      {{- include "dineos.labels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  spec:
+    selector:
+      matchLabels:
+        {{- include "dineos.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    endpoints:
+      - port: http
+        path: /metrics
+        interval: 15s
+    namespaceSelector:
+      matchNames:
+        - {{ .Release.Namespace }}
+
+  {{- end }}
+*/}}
+{{- end }}
