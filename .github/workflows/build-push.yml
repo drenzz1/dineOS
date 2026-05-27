@@ -265,7 +265,7 @@ jobs:
             --set api.image.tag=${{ needs.build-backend.outputs.image_tag }} \
             --set frontend.image.repository=ghcr.io/${{ github.repository_owner }}/dineos-frontend \
             --set frontend.image.tag=${{ needs.build-frontend.outputs.image_tag }} \
-            --dry-run
+            --dry-run=client
 
       # Deployment names come from the Helm fullname helper in _helpers.tpl:
       #   release=dineos, chart=dineos → contains check is true → fullname=dineos
