@@ -297,13 +297,13 @@ keycloak:
       value: "true"
     - name: KC_HOSTNAME_STRICT
       value: "false"
-  # Mount the realm-export.json ConfigMap so --import-realm can find it.
-  # The ConfigMap is rendered by templates/keycloak-realm-configmap.yaml
+  # Mount the realm-export.json Secret so --import-realm can find it.
+  # The Secret is rendered by templates/keycloak-realm-secret.yaml
   # when dependencies.keycloak.enabled=true.
   extraVolumes: |
     - name: realm-import
-      configMap:
-        name: {{ .Release.Name }}-keycloak-realm
+      secret:
+        secretName: {{ .Release.Name }}-keycloak-realm
   extraVolumeMounts: |
     - name: realm-import
       mountPath: /opt/keycloak/data/import

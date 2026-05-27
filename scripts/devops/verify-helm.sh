@@ -55,8 +55,10 @@ ok "Cluster ready"
 
 # ── Step 2 — Install nginx-ingress-controller ─────────────────────────────────
 step "2/10" "Installing nginx-ingress-controller"
+# Pinned to a fixed release tag — avoids non-reproducible 'main' branch and supply-chain risk.
+# Bump this tag when upgrading the kind cluster's Kubernetes version.
 kubectl apply -f \
-  https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+  https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.0/deploy/static/provider/kind/deploy.yaml
 kubectl wait \
   --namespace ingress-nginx \
   --for=condition=ready pod \
@@ -80,9 +82,12 @@ kind load docker-image dineos/web:do2 --name "$CLUSTER"
 ok "Images loaded"
 
 # ── Step 5 — Update Helm dependencies ─────────────────────────────────────────
-step "5/10" "Updating Helm dependencies"
-helm dependency update "$CHART"
-ok "Dependencies updated"
+step "5/10" "Downloading Helm dependencies"
+# 'helm dependency build' uses Chart.lock (committed) to download exactly
+# the pinned versions. 'helm dependency update' re-resolves constraints and
+# can pick up newer patch versions, making the smoke test non-deterministic.
+helm dependency build "$CHART"
+ok "Dependencies downloaded"
 
 # ── Step 6 — Install chart ────────────────────────────────────────────────────
 step "6/10" "Installing Helm chart"

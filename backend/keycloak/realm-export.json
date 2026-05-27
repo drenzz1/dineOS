@@ -7,7 +7,7 @@
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
-  "bruteForceProtected": false,
+  "bruteForceProtected": true,
   "accessTokenLifespan": 300,
   "roles": {
     "realm": [

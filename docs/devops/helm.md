@@ -29,7 +29,7 @@ For local clusters you also need the **nginx-ingress-controller** add-on:
 minikube addons enable ingress
 
 # kind — apply the official manifest
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.0/deploy/static/provider/kind/deploy.yaml
 ```
 
 For production clusters, **cert-manager** must be installed before the Ingress can issue TLS certificates:
@@ -290,8 +290,8 @@ kind load docker-image dineos/web:do2
 
 The Keycloak sub-chart starts in `start-dev --import-realm` mode. When `dependencies.keycloak.enabled=true`, the chart automatically:
 
-1. Renders a `<release>-keycloak-realm` ConfigMap containing the full realm definition from `deploy/helm/dineos/files/realm-export.json`.
-2. Mounts that ConfigMap into the Keycloak Pod at `/opt/keycloak/data/import/` via the `keycloak.extraVolumes` / `extraVolumeMounts` values.
+1. Renders a `<release>-keycloak-realm` Secret containing the full realm definition from `deploy/helm/dineos/files/realm-export.json`.
+2. Mounts that Secret into the Keycloak Pod at `/opt/keycloak/data/import/` via the `keycloak.extraVolumes` / `extraVolumeMounts` values.
 
 If the realm is not present after Keycloak starts, diagnose with:
 
@@ -304,10 +304,10 @@ If the realm is not present after Keycloak starts, diagnose with:
    kubectl exec -n dineos statefulset/dineos-keycloak -- \
      ls /opt/keycloak/data/import/
    ```
-   You should see `realm-export.json`. If the directory is empty, the ConfigMap was not mounted — check that `dependencies.keycloak.enabled=true` in your values overlay (the ConfigMap and volume are both gated on this flag).
-3. Confirm the ConfigMap exists in the cluster:
+   You should see `realm-export.json`. If the directory is empty, the Secret was not mounted — check that `dependencies.keycloak.enabled=true` in your values overlay (the Secret and volume are both gated on this flag).
+3. Confirm the Secret exists in the cluster:
    ```bash
-   kubectl get configmap -n dineos dineos-keycloak-realm
+   kubectl get secret -n dineos dineos-keycloak-realm
    ```
 
 Keycloak can take **30–90 seconds** on first boot before it is ready to validate tokens. The API's readiness probe will fail until Keycloak's OIDC metadata endpoint responds. This is expected — wait for all Pods to show `Running` and `Ready 1/1`:
@@ -422,7 +422,7 @@ The script performs these steps in order, tearing the cluster down on exit regar
 | 2 | Apply nginx-ingress-controller manifest | Controller Pod `Ready` within 90 s |
 | 3 | `docker build` API + frontend images | Exit 0 |
 | 4 | `kind load docker-image` for both images | Images available inside kind nodes |
-| 5 | `helm dependency update` | `Chart.lock` up to date |
+| 5 | `helm dependency build` | Sub-charts downloaded from `Chart.lock` |
 | 6 | `helm install dineos` with `values.local.yaml` | Release `STATUS: deployed` |
 | 7 | `kubectl rollout status` for both Deployments | `successfully rolled out` within 3 min |
 | 8 | `curl` via port-forwarded ingress — `/api/v1/health` | HTTP 200, body contains `"status":"healthy"` |

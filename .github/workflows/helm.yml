@@ -57,12 +57,17 @@ jobs:
 
       # Install kubeconform — lightweight schema validator for Kubernetes manifests.
       # Using a pinned release so CI is reproducible.
+      # The CHECKSUMS file from the same release is used to verify the
+      # tarball's sha256 before extraction — guards against a tampered CDN asset.
       - name: Install kubeconform
         env:
           KUBECONFORM_VERSION: v0.6.7
         run: |
           curl -sSLo /tmp/kubeconform.tar.gz \
             "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          curl -sSLo /tmp/kubeconform.checksums \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/CHECKSUMS"
+          (cd /tmp && grep "kubeconform-linux-amd64.tar.gz" kubeconform.checksums | sha256sum --check)
           tar -xf /tmp/kubeconform.tar.gz -C /tmp kubeconform
           sudo mv /tmp/kubeconform /usr/local/bin/
           kubeconform -v
