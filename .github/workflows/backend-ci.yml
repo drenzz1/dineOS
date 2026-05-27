@@ -186,6 +186,9 @@ jobs:
 
     steps:
       - name: Write job summary
+        env:
+          ACTOR: ${{ github.actor }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           STATUS="success"
           for result in \
@@ -207,8 +210,8 @@ jobs:
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | [\`${GITHUB_SHA::8}\`](${RUN_URL}) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Author | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Author | \`${ACTOR}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${REF_NAME}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
           echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY

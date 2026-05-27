@@ -17,18 +17,20 @@ concurrency:
   group: build-push-${{ github.ref }}
   cancel-in-progress: false
 
-# contents:read  — checkout
-# packages:write — push to GHCR via GITHUB_TOKEN
-# id-token:write — OIDC token (available for future Sigstore/Cosign signing)
+# Minimal workflow-level permission. Elevated rights are granted per job only
+# where required — build jobs need packages:write (GHCR push) and
+# id-token:write (OIDC); deploy and notify do not.
 permissions:
   contents: read
-  packages: write
-  id-token: write
 
 jobs:
   build-frontend:
     name: Build & Push Frontend
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     outputs:
       image_tag: ${{ steps.image-tag.outputs.value }}
 
@@ -117,6 +119,10 @@ jobs:
   build-backend:
     name: Build & Push Backend
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     outputs:
       image_tag: ${{ steps.image-tag.outputs.value }}
 
@@ -275,6 +281,8 @@ jobs:
 
       - name: Write job summary
         if: always()
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
           echo "## Deploy — Production" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -286,7 +294,7 @@ jobs:
           echo "| Environment | \`production\` |" >> $GITHUB_STEP_SUMMARY
           if [[ "$HAS_KUBECONFIG" == "true" ]]; then MODE="live"; else MODE="dry-run (no KUBE_CONFIG_DATA)"; fi
           echo "| Mode | ${MODE} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Triggered by | \`${{ github.event_name }}\` on \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | \`${{ github.event_name }}\` on \`${REF_NAME}\` |" >> $GITHUB_STEP_SUMMARY
 
   notify:
     name: Notify
@@ -317,6 +325,9 @@ jobs:
           echo "value=${STATUS}" >> $GITHUB_OUTPUT
 
       - name: Write job summary
+        env:
+          ACTOR: ${{ github.actor }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           case "${{ steps.status.outputs.value }}" in
             success)   BADGE="✅ success"   ;;
@@ -330,8 +341,8 @@ jobs:
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | [\`${GITHUB_SHA::8}\`](${RUN_URL}) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Author | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Ref | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Author | \`${ACTOR}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Ref | \`${REF_NAME}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image tags pushed**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -356,13 +367,14 @@ jobs:
         continue-on-error: true
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ACTOR: ${{ github.actor }}
         run: |
           STATUS="${{ steps.status.outputs.value }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           SHA_SHORT="${GITHUB_SHA::8}"
           curl -fsSL -X POST "$SLACK_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"text\":\"dineOS CI/CD ${STATUS}: ${{ github.repository }}@${SHA_SHORT} by ${{ github.actor }}\n${RUN_URL}\"}"
+            -d "{\"text\":\"dineOS CI/CD ${STATUS}: ${{ github.repository }}@${SHA_SHORT} by ${ACTOR}\n${RUN_URL}\"}"
 
       # gh api resolves the PR that merged this commit (works for merge and
       # squash-merge strategies). Skipped on tag pushes and workflow_dispatch.
