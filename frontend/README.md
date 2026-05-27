@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# dineOS Frontend
 
-## Getting Started
+Next.js 16 App Router client for the dineOS restaurant management platform.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 / React 19, TypeScript strict mode
+- Tailwind CSS 4
+- TanStack Query v5, Zustand, React Hook Form + Zod
+- SignalR client (`@microsoft/signalr`)
+- Jest + React Testing Library, Playwright
+
+## Running Locally
+
+The simplest way is to run the full stack from the repo root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
+docker compose up -d --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+To run the frontend in watch mode against a local backend:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Set the API base URL when running the frontend outside the full Docker stack:
 
-## Learn More
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:5138/api npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Script | Command | Purpose |
+|--------|---------|---------|
+| Dev server | `npm run dev` | Next.js local dev with hot reload |
+| Lint | `npm run lint` | ESLint |
+| Type-check | `npx tsc --noEmit` | TypeScript strict check |
+| Unit tests | `npm test` | Jest + React Testing Library |
+| E2E tests | `npm run test:e2e` | Playwright (requires a running app) |
+| Build | `npm run build` | Production Next.js build (`output: standalone`) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## CI/CD
 
-## Deploy on Vercel
+The frontend CI workflow (`.github/workflows/ci.yml`) runs on every push and pull request:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `quality` — ESLint + `tsc --noEmit`
+- `test` — Jest with coverage
+- `e2e` — Playwright (Chromium)
+- `build` — `npm run build`, uploads `.next/standalone` as the `frontend-build` artifact
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Docker images are built and pushed to GHCR by `.github/workflows/build-push.yml` on every push to `main` or a `v*.*.*` tag. The three `NEXT_PUBLIC_*` build-time variables must be set as GitHub Actions secrets before the first production build — see [../docs/devops/cicd.md](../docs/devops/cicd.md) for setup commands and the full pipeline diagram.
