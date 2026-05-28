@@ -94,6 +94,35 @@ jobs:
             frontend/test-results/
           retention-days: 7
 
+  scan:
+    name: Trivy Dependency Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan frontend dependencies
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: frontend
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+          trivyignores: .trivyignore
+      - name: Write scan summary
+        if: always()
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then BADGE="✅ passed"; else BADGE="❌ vulnerabilities found"; fi
+          echo "## Trivy Scan — ${BADGE}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan target | \`frontend/\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity filter | \`CRITICAL, HIGH\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Ignore unfixed | \`true\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+
   build:
     runs-on: ubuntu-latest
     needs: [quality, test]
@@ -134,7 +163,7 @@ jobs:
   notify:
     name: Notify
     runs-on: ubuntu-latest
-    needs: [quality, test, e2e, build]
+    needs: [quality, test, e2e, build, scan]
     if: always()
 
     steps:
@@ -148,7 +177,8 @@ jobs:
             "${{ needs.quality.result }}" \
             "${{ needs.test.result }}" \
             "${{ needs.e2e.result }}" \
-            "${{ needs.build.result }}"; do
+            "${{ needs.build.result }}" \
+            "${{ needs.scan.result }}"; do
             if   [[ "$result" == "failure"                              ]]; then STATUS="failure";   break
             elif [[ "$result" == "cancelled" && "$STATUS" != "failure" ]]; then STATUS="cancelled"
             fi
@@ -174,5 +204,6 @@ jobs:
           echo "| Tests (Jest) | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| E2E (Playwright) | ${{ needs.e2e.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy Scan | ${{ needs.scan.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "[🔗 View full run](${RUN_URL})" >> $GITHUB_STEP_SUMMARY
