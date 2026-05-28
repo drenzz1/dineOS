@@ -43,6 +43,7 @@ next-env.d.ts
 AGENTS.md
 .claude/settings.local.json
 .claude/skills/gitnexus/
+.claude/worktrees/
 .vercel/
 .netlify/
 .gitnexus/

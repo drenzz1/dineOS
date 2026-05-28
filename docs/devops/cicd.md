@@ -6,10 +6,10 @@ dineOS uses four GitHub Actions workflows to go from a pull request to a running
 
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
-| Frontend CI | `.github/workflows/ci.yml` | push (all branches) + PR | Lint, type-check, Jest, Playwright, Next.js build artifact |
-| Backend CI | `.github/workflows/backend-ci.yml` | push / PR to `main` + `workflow_dispatch` | .NET 10 build, tests, 70 % coverage gate, live Keycloak tests |
+| Frontend CI | `.github/workflows/ci.yml` | push (all branches) + PR | Lint, type-check, Jest, Playwright, Next.js build artifact; **Trivy fs scan** (CRITICAL/HIGH, `frontend/`) |
+| Backend CI | `.github/workflows/backend-ci.yml` | push / PR to `main` + `workflow_dispatch` | .NET 10 build, tests, 70 % coverage gate, live Keycloak tests; **Trivy fs scan** (CRITICAL/HIGH, `backend/`) |
 | Helm CI | `.github/workflows/helm.yml` | push / PR on `deploy/helm/**` | Helm lint + kubeconform schema validation |
-| Build & Push | `.github/workflows/build-push.yml` | push to `main`, `v*.*.*` tags, `workflow_dispatch` | Docker build → GHCR push → Helm deploy → Slack notify |
+| Build & Push | `.github/workflows/build-push.yml` | push to `main`, `v*.*.*` tags, `workflow_dispatch` | Docker build → GHCR push → **Trivy image scan** (CRITICAL/HIGH, SARIF artifact) → Helm deploy → Slack notify |
 
 All commands in this document are run from the **repo root**.
 
@@ -23,11 +23,13 @@ flowchart LR
     pr --> tests[test\nJest]
     pr --> e2e[e2e\nPlaywright]
     pr --> backend[backend-test\n.NET 10 · coverage]
+    pr --> scan_fe[scan\nTrivy fs · frontend]
+    pr --> scan_be[scan\nTrivy fs · backend]
     quality --> build_artifact[build\nNext.js artifact]
     tests --> build_artifact
 
-    main(["push: main\nor v*.*.*"]) --> fe[build-frontend\nDocker → GHCR]
-    main --> be[build-backend\nDocker → GHCR]
+    main(["push: main\nor v*.*.*"]) --> fe["build-frontend\nDocker → GHCR\n+ Trivy image scan"]
+    main --> be["build-backend\nDocker → GHCR\n+ Trivy image scan"]
     fe --> deploy[deploy\nhelm upgrade --atomic]
     be --> deploy
     fe --> notify[notify\nSlack · PR comment]
@@ -35,7 +37,7 @@ flowchart LR
     deploy --> notify
 ```
 
-CI and CD are separate workflows. The left half runs on every push and pull request. The right half runs only after a push to `main` or a semver tag.
+CI and CD are separate workflows. The left half runs on every push and pull request — `scan` jobs run in parallel with lint and tests, adding no extra wall-clock time. The right half runs only after a push to `main` or a semver tag; the Trivy image scan runs as a step inside each build job and blocks the `deploy` job if findings are found.
 
 ---
 
