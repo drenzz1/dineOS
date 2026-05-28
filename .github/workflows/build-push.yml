@@ -98,7 +98,7 @@ jobs:
 
       - name: Scan frontend image for vulnerabilities
         id: trivy-scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: ghcr.io/${{ github.repository_owner }}/dineos-frontend:${{ steps.image-tag.outputs.value }}
@@ -196,7 +196,7 @@ jobs:
 
       - name: Scan backend image for vulnerabilities
         id: trivy-scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: ghcr.io/${{ github.repository_owner }}/dineos-backend:${{ steps.image-tag.outputs.value }}
