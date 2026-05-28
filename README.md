@@ -200,6 +200,7 @@ Prometheus scrapes `/metrics` from the API every 15 s; eight alert rules (API er
 
 See [docs/devops/observability.md](docs/devops/observability.md) for the architecture diagram, alert rationale, Prometheus vs Loki guidance, and full Kubernetes setup.
 An optional **ELK stack** (`--profile elk`) adds Elasticsearch + Logstash + Kibana with pre-built dashboards for API logs and Nginx access analytics — see [docs/devops/elk.md](docs/devops/elk.md).
+An optional **Uptime Kuma** instance (`--profile uptime`) adds synthetic black-box monitoring and a public status page — seven HTTP/TCP/keyword monitors cover every service, with Slack and email notifications sharing the same `SLACK_WEBHOOK_URL` used by Alertmanager. Run `bash scripts/demo-uptime-kuma.sh` to watch a DOWN alert and recovery email arrive in Mailhog end-to-end. In Kubernetes, flip `observability.uptimeKuma.enabled=true` in the Helm chart — see [docs/devops/uptime-kuma.md](docs/devops/uptime-kuma.md).
 
 ## More Documentation
 
@@ -216,3 +217,4 @@ An optional **ELK stack** (`--profile elk`) adds Elasticsearch + Logstash + Kiba
 - CI/CD pipeline: `docs/devops/cicd.md`
 - Observability (Prometheus, Alertmanager, Grafana): `docs/devops/observability.md`
 - Observability (ELK centralized logging): `docs/devops/elk.md`
+- Observability (Uptime Kuma status page): `docs/devops/uptime-kuma.md`

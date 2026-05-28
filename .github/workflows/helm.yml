@@ -98,6 +98,14 @@ jobs:
             --set observability.elk.kibana.ingress.enabled=true \
             > /dev/null
 
+      # Smoke-test for the Uptime Kuma monitoring templates.
+      - name: helm template — uptime-kuma flag
+        run: |
+          helm template ci deploy/helm/dineos \
+            --set observability.uptimeKuma.enabled=true \
+            --set observability.uptimeKuma.ingress.enabled=true \
+            > /dev/null
+
       # Render the full manifest with local values, then pipe to kubeconform.
       # -strict    → reject unknown fields (catches field-name typos)
       # -summary   → print pass/skip/fail counts after validation
@@ -110,6 +118,7 @@ jobs:
           helm template dineos deploy/helm/dineos \
             --values deploy/helm/dineos/values.local.yaml \
             --set observability.elk.enabled=true \
+            --set observability.uptimeKuma.enabled=true \
           | kubeconform \
               -strict \
               -summary \

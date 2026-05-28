@@ -1,0 +1,91 @@
+{{- if .Values.observability.uptimeKuma.enabled }}
+{{- if and .Values.observability.uptimeKuma.persistence.enabled .Values.observability.uptimeKuma.persistence.size }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "dineos.fullname" . }}-uptime-kuma-data
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: uptime-kuma
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.observability.uptimeKuma.persistence.size }}
+  {{- if .Values.observability.uptimeKuma.persistence.storageClass }}
+  storageClassName: {{ .Values.observability.uptimeKuma.persistence.storageClass }}
+  {{- end }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dineos.fullname" . }}-uptime-kuma
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: uptime-kuma
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dineos.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: uptime-kuma
+  template:
+    metadata:
+      labels:
+        {{- include "dineos.labels" . | nindent 8 }}
+        app.kubernetes.io/component: uptime-kuma
+    spec:
+      serviceAccountName: {{ include "dineos.serviceAccountName" . }}
+      containers:
+        - name: uptime-kuma
+          image: {{ .Values.observability.uptimeKuma.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          {{- if .Values.observability.uptimeKuma.slackWebhookSecretName }}
+          # Injected for the bootstrap job / init containers that seed Kuma via
+          # the REST API. Kuma itself reads the webhook from its SQLite DB, not
+          # from this env var — but having it available here avoids inlining the
+          # secret in values.yaml and mirrors the alertmanager pattern.
+          env:
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.observability.uptimeKuma.slackWebhookSecretName }}
+                  key: url
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /api/entry-page
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/entry-page
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.observability.uptimeKuma.resources | nindent 12 }}
+          volumeMounts:
+            - name: uptime-kuma-data
+              mountPath: /app/data
+      volumes:
+        - name: uptime-kuma-data
+          {{- if .Values.observability.uptimeKuma.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "dineos.fullname" . }}-uptime-kuma-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}

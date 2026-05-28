@@ -410,3 +410,44 @@ observability:
     # Must match the ilm_policy registered on the Elasticsearch node.
     ilm:
       deleteAfter: 7d
+
+  # ── Uptime Kuma (uptime monitor + public status page) ────────────────────
+  # Enable to deploy Uptime Kuma in-cluster alongside the observability stack.
+  # All monitor definitions and the status page are seeded from the backup JSON
+  # at backend/uptime-kuma/kuma-backup.json after the pod is running.
+  uptimeKuma:
+    enabled: false
+    image: louislam/uptime-kuma:1
+    # Name of an existing Kubernetes Secret that contains the Slack
+    # incoming-webhook URL under the key "url".
+    # Example: kubectl create secret generic kuma-slack \
+    #            --from-literal=url=https://hooks.slack.com/...
+    # When set, SLACK_WEBHOOK_URL is injected into the pod so that the
+    # bootstrap job (backend/uptime-kuma/setup/bootstrap.sh) can seed
+    # the Slack notification channel without inlining credentials.
+    # Mirrors the alertmanager.slackWebhookSecretName convention.
+    slackWebhookSecretName: ""
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    persistence:
+      # When true a PersistentVolumeClaim is created for /app/data.
+      # When false an emptyDir is used (monitors, history, and notification
+      # config are lost on pod restart — do not use in production).
+      enabled: true
+      size: 1Gi
+      # Leave empty to use the cluster default StorageClass.
+      storageClass: ""
+    ingress:
+      enabled: false
+      className: nginx
+      host: uptime.dineos.io
+      clusterIssuer: letsencrypt-prod
+      tls:
+        - hosts:
+            - uptime.dineos.io
+          secretName: uptime-kuma-tls
