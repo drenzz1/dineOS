@@ -412,7 +412,7 @@ services:
       - elk
 
   uptime-kuma:
-    image: louislam/uptime-kuma:1
+    image: louislam/uptime-kuma:1.23.17
     container_name: dineos-uptime-kuma
     ports:
       - "${UPTIME_KUMA_PORT:-3001}:3001"

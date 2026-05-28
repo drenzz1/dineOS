@@ -85,8 +85,8 @@ printf "1/6  Admin account\n"
 info "Creating admin account (no-op if already configured)"
 setup_code=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${KUMA}/setup" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=${KUMA_USER}&password=${KUMA_PASS}")
+  --data-urlencode "username=${KUMA_USER}" \
+  --data-urlencode "password=${KUMA_PASS}")
 
 if [[ "${setup_code}" == "200" ]]; then
   ok "Admin account created  [HTTP 200]"
@@ -103,8 +103,9 @@ printf "2/6  Authentication\n"
 info "Obtaining Bearer token"
 token_response=$(curl -sf \
   -X POST "${KUMA}/login/access-token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=${KUMA_USER}&password=${KUMA_PASS}&token=")
+  --data-urlencode "username=${KUMA_USER}" \
+  --data-urlencode "password=${KUMA_PASS}" \
+  --data-urlencode "token=")
 
 TOKEN=$(echo "${token_response}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
 if [[ -z "${TOKEN}" ]]; then
@@ -205,34 +206,33 @@ else
   }
 
   create_monitor "Frontend" \
-    '{"type":"http","name":"Frontend","description":"Next.js UI — Docker Compose internal hostname frontend:3000","url":"http://frontend:3000","method":"GET","interval":60,"retryInterval":20,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10}'
+    '{"type":"http","name":"Frontend","description":"Next.js UI — Docker Compose internal hostname frontend:3000","url":"http://frontend:3000","method":"GET","interval":60,"retryInterval":20,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10,"notificationIDList":{"1":true,"2":true}}'
 
   create_monitor "API – Liveness" \
-    '{"type":"http","name":"API – Liveness","description":"ASP.NET Core API process is alive — returns 200 when the runtime is up","url":"http://api:8080/api/v1/health","method":"GET","interval":30,"retryInterval":10,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10}'
+    '{"type":"http","name":"API – Liveness","description":"ASP.NET Core API process is alive — returns 200 when the runtime is up","url":"http://api:8080/api/v1/health","method":"GET","interval":30,"retryInterval":10,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10,"notificationIDList":{"1":true,"2":true}}'
 
   create_monitor "API – Readiness (DB)" \
-    '{"type":"keyword","name":"API – Readiness (DB)","description":"All .NET health checks pass including PostgreSQL. Keyword Healthy must appear in the response body.","url":"http://api:8080/api/v1/health","method":"GET","keyword":"Healthy","interval":30,"retryInterval":10,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10}'
+    '{"type":"keyword","name":"API – Readiness (DB)","description":"All .NET health checks pass including PostgreSQL. Keyword Healthy must appear in the response body.","url":"http://api:8080/api/v1/health","method":"GET","keyword":"Healthy","interval":30,"retryInterval":10,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10,"notificationIDList":{"1":true,"2":true}}'
 
   create_monitor "Keycloak" \
-    '{"type":"http","name":"Keycloak","description":"Keycloak 24 identity provider — Quarkus /health/ready readiness probe","url":"http://keycloak:8080/health/ready","method":"GET","interval":60,"retryInterval":20,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10}'
+    '{"type":"http","name":"Keycloak","description":"Keycloak 24 identity provider — Quarkus /health/ready readiness probe","url":"http://keycloak:8080/health/ready","method":"GET","interval":60,"retryInterval":20,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10,"notificationIDList":{"1":true,"2":true}}'
 
   create_monitor "Grafana" \
-    '{"type":"http","name":"Grafana","description":"Grafana observability dashboard — /api/health returns database status","url":"http://grafana:3000/api/health","method":"GET","interval":60,"retryInterval":20,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10}'
+    '{"type":"http","name":"Grafana","description":"Grafana observability dashboard — /api/health returns database status","url":"http://grafana:3000/api/health","method":"GET","interval":60,"retryInterval":20,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10,"notificationIDList":{"1":true,"2":true}}'
 
   create_monitor "RabbitMQ – Management" \
-    '{"type":"http","name":"RabbitMQ – Management","description":"RabbitMQ management UI is reachable on port 15672","url":"http://rabbitmq:15672","method":"GET","interval":60,"retryInterval":20,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10}'
+    '{"type":"http","name":"RabbitMQ – Management","description":"RabbitMQ management UI is reachable on port 15672","url":"http://rabbitmq:15672","method":"GET","interval":60,"retryInterval":20,"maxretries":3,"accepted_statuscodes":["200-299"],"timeout":48,"maxredirects":10,"notificationIDList":{"1":true,"2":true}}'
 
   create_monitor "RabbitMQ – AMQP" \
-    '{"type":"tcp","name":"RabbitMQ – AMQP","description":"AMQP broker TCP port 5672 — verifies the messaging layer accepts connections","hostname":"rabbitmq","port":5672,"interval":30,"retryInterval":10,"maxretries":3,"timeout":48}'
+    '{"type":"tcp","name":"RabbitMQ – AMQP","description":"AMQP broker TCP port 5672 — verifies the messaging layer accepts connections","hostname":"rabbitmq","port":5672,"interval":30,"retryInterval":10,"maxretries":3,"timeout":48,"notificationIDList":{"1":true,"2":true}}'
 
   printf "\n"
 fi
 
 # ── 5. Notification–monitor linking note ─────────────────────────────────────
 printf "5/6  Notification–monitor linking\n"
-info "Monitors created by the REST API do not have notifications auto-linked."
-info "To link all monitors to both channels in one shot, use the backup import:"
-info "  Settings → Backup → Import → select kuma-backup.json"
+info "Each monitor was created with notificationIDList wired to channels 1 (Slack) + 2 (SMTP)."
+info "No further linking step is required — alerts fire on both channels immediately."
 printf "\n"
 
 # ── 6. Status page (manual step) ─────────────────────────────────────────────

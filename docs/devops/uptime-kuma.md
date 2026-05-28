@@ -208,9 +208,9 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/... \
 
 ### 3. Import the status page and link notifications
 
-The bootstrap script creates monitors and channels but cannot create the status
-page or link monitors to channels via the REST API (Socket.IO only in Kuma 1.x).
-Complete the setup by importing the backup:
+The bootstrap script creates monitors with `notificationIDList` pre-wired to
+both channels (Slack + SMTP). The only remaining step is the status page —
+Kuma 1.x has no REST endpoint for creating status pages, so import the backup:
 
 1. Open `http://localhost:3001`
 2. Complete the first-login wizard (username: `admin`, password: `admin`).

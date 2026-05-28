@@ -168,12 +168,13 @@ Idempotent shell script that provisions Kuma via the REST API (v1.23+).
 | 2 | `POST /setup` — creates admin account; 400 = already configured (no-op) |
 | 3 | `POST /login/access-token` — obtains Bearer token |
 | 4 | `POST /api/v1/notifications` × 2 — Slack + SMTP; skips if any notifications exist |
-| 5 | `POST /api/v1/monitors` × 7 — skips if any monitors exist |
-| 6 | Prints backup import instructions for status page + notification linking |
+| 5 | `POST /api/v1/monitors` × 7 with `notificationIDList` wired to both channels — skips if any monitors exist |
+| 6 | Prints backup import instructions for status page creation |
 
-**Limitation:** Uptime Kuma 1.x has no REST endpoint for status pages or for
-linking monitors to notifications.  The script creates both resources
-independently; use the backup import to get everything wired together.
+**Limitation:** Uptime Kuma 1.x has no REST endpoint for creating status pages.
+Monitor–notification links are handled directly in the `POST /api/v1/monitors`
+payload via `notificationIDList`, so the backup import is only needed to restore
+the pre-built **dineOS Services** status page.
 
 If the REST notifications endpoint returns 404 (older patch version), the
 script prints instructions to add channels via **Settings → Notifications**
