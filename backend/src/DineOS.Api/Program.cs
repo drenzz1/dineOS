@@ -22,6 +22,7 @@ using Prometheus;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.Grafana.Loki;
+using Serilog.Sinks.Network;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text.Json;
@@ -62,6 +63,17 @@ try
                     new LokiLabel { Key = "environment", Value = ctx.HostingEnvironment.EnvironmentName }
                 ],
                 propertiesAsLabels: ["app", "environment"]);
+        }
+
+        var logstashUri = ctx.Configuration["Logstash:Uri"];
+        if (!string.IsNullOrEmpty(logstashUri))
+        {
+            // Config stores http://host:port (consistent with Loki pattern);
+            // Serilog.Sinks.Network requires tcp://host:port.
+            var tcpUri = logstashUri
+                .Replace("http://",  "tcp://", StringComparison.OrdinalIgnoreCase)
+                .Replace("https://", "tcp://", StringComparison.OrdinalIgnoreCase);
+            config.WriteTo.TCPSink(tcpUri, new Serilog.Formatting.Json.JsonFormatter());
         }
     });
 

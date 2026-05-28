@@ -1,0 +1,28 @@
+{{- if .Values.observability.elk.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dineos.fullname" . }}-logstash
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: logstash
+spec:
+  type: ClusterIP
+  ports:
+    - name: beats
+      port: 5044
+      targetPort: beats
+      protocol: TCP
+    - name: tcp-json
+      port: 5001
+      targetPort: tcp-json
+      protocol: TCP
+    - name: api
+      port: 9600
+      targetPort: api
+      protocol: TCP
+  selector:
+    {{- include "dineos.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: logstash
+{{- end }}

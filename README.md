@@ -199,6 +199,7 @@ See [docs/devops/cicd.md](docs/devops/cicd.md) for the pipeline diagram, `gh sec
 Prometheus scrapes `/metrics` from the API every 15 s; eight alert rules (API error rate, latency p95, GC pause, database, queue backlog, disk, memory) route through Alertmanager to Slack. Three Grafana dashboards — **API Overview**, **.NET Runtime**, and **Infrastructure** — sit alongside the existing Loki log dashboard. All services start with `docker compose up -d`; run `bash scripts/demo-alert.sh` to watch the `ApiDown` alert fire and self-clear in under two minutes. In Kubernetes, flip `observability.prometheus.enabled=true` and `observability.alertmanager.enabled=true` in the Helm chart.
 
 See [docs/devops/observability.md](docs/devops/observability.md) for the architecture diagram, alert rationale, Prometheus vs Loki guidance, and full Kubernetes setup.
+An optional **ELK stack** (`--profile elk`) adds Elasticsearch + Logstash + Kibana with pre-built dashboards for API logs and Nginx access analytics — see [docs/devops/elk.md](docs/devops/elk.md).
 
 ## More Documentation
 
@@ -214,3 +215,4 @@ See [docs/devops/observability.md](docs/devops/observability.md) for the archite
 - Helm / Kubernetes deployment: `docs/devops/helm.md`
 - CI/CD pipeline: `docs/devops/cicd.md`
 - Observability (Prometheus, Alertmanager, Grafana): `docs/devops/observability.md`
+- Observability (ELK centralized logging): `docs/devops/elk.md`

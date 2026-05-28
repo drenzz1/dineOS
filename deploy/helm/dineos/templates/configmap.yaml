@@ -52,6 +52,9 @@ data:
 
   # ── Serilog / Loki ────────────────────────────────────────────────────
   Loki__Uri: {{ .Values.api.env.Loki__Uri | quote }}
+  # Logstash TCP input — auto-wired when observability.elk.enabled=true.
+  # Falls back to the explicit env value (default "") when ELK is not deployed.
+  Logstash__Uri: {{ if .Values.observability.elk.enabled }}{{ printf "http://%s-logstash:5001" (include "dineos.fullname" .) | quote }}{{ else }}{{ .Values.api.env.Logstash__Uri | default "" | quote }}{{ end }}
 
   # ── SMTP ──────────────────────────────────────────────────────────────
   Smtp__Host: {{ .Values.api.env.Smtp__Host | quote }}

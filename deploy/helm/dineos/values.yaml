@@ -63,6 +63,8 @@ api:
 
     # Loki (optional in prod — disable by pointing at a no-op sink)
     Loki__Uri: "http://loki:3100"
+    # Logstash TCP input (ELK profile — opt-in; leave blank to disable)
+    Logstash__Uri: ""
 
     # SMTP
     Smtp__Host: smtp.mailgun.org
@@ -356,3 +358,55 @@ observability:
     # Only meaningful once observability.prometheus.enabled=true.
     prometheusDatasource:
       enabled: false
+
+  # ── ELK (Elasticsearch + Logstash + Kibana) ──────────────────────────
+  # Enable to deploy the full log-aggregation stack in-cluster.
+  # When enabled, the API ConfigMap automatically wires Logstash__Uri to
+  # the in-cluster Logstash TCP JSON endpoint (port 5001).
+  elk:
+    enabled: false
+    elasticsearch:
+      image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: 2000m
+          memory: 2Gi
+      persistence:
+        enabled: true
+        size: 20Gi
+        # Leave empty to use the cluster default StorageClass.
+        storageClass: ""
+    logstash:
+      image: docker.elastic.co/logstash/logstash:8.15.0
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+    kibana:
+      image: docker.elastic.co/kibana/kibana:8.15.0
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      ingress:
+        enabled: false
+        className: nginx
+        host: kibana.dineos.io
+        clusterIssuer: letsencrypt-prod
+        tls:
+          - hosts:
+              - kibana.dineos.io
+            secretName: kibana-tls
+    # ILM policy delete-after duration applied to indices created by Logstash.
+    # Must match the ilm_policy registered on the Elasticsearch node.
+    ilm:
+      deleteAfter: 7d

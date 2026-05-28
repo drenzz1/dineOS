@@ -1,0 +1,24 @@
+# =============================================================================
+# DineOS Filebeat — Nginx access-log shipper
+# Ships /var/log/nginx/access.json (dineos_json format) to Logstash :5044.
+# Mounted read-only from the nginx_logs shared Docker volume.
+# =============================================================================
+
+filebeat.inputs:
+  - type: filestream
+    id: nginx-access-json
+    enabled: true
+    paths:
+      - /var/log/nginx/access.json
+
+# Route to Logstash Beats input (dineos.conf pipeline, nginx branch)
+output.logstash:
+  hosts: ["logstash:5044"]
+
+# Expose internal monitoring endpoint so the container health check can probe it
+http.enabled: true
+http.host: "0.0.0.0"
+http.port: 5066
+
+logging.level: info
+logging.to_files: false

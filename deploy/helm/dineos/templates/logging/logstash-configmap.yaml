@@ -1,0 +1,29 @@
+{{- if .Values.observability.elk.enabled }}
+---
+# ConfigMap 1 — Logstash node configuration
+# logstash.yml contains xpack.monitoring and http.host settings.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dineos.fullname" . }}-logstash-config
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: logstash
+data:
+  logstash.yml: |
+{{ .Files.Get "files/logging/logstash.yml" | indent 4 }}
+---
+# ConfigMap 2 — Logstash pipeline
+# The pipeline file references {{ include "dineos.fullname" . }}-elasticsearch
+# so it is loaded with tpl to resolve the ES service name at render time.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dineos.fullname" . }}-logstash-pipeline
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: logstash
+data:
+  dineos.conf: |
+{{ tpl (.Files.Get "files/logging/pipeline/dineos.conf") . | indent 4 }}
+{{- end }}

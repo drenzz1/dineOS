@@ -1,0 +1,52 @@
+{{- if .Values.observability.elk.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dineos.fullname" . }}-kibana
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dineos.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: kibana
+  template:
+    metadata:
+      labels:
+        {{- include "dineos.labels" . | nindent 8 }}
+        app.kubernetes.io/component: kibana
+    spec:
+      serviceAccountName: {{ include "dineos.serviceAccountName" . }}
+      containers:
+        - name: kibana
+          image: {{ .Values.observability.elk.kibana.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: http://{{ include "dineos.fullname" . }}-elasticsearch:9200
+          ports:
+            - name: http
+              containerPort: 5601
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /api/status
+              port: http
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.observability.elk.kibana.resources | nindent 12 }}
+{{- end }}
