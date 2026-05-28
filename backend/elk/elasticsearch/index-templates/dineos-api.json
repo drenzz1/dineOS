@@ -1,0 +1,27 @@
+{
+  "index_patterns": ["dineos-api-logs-*"],
+  "priority": 100,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.lifecycle.name": "dineos-logs-ilm-7d"
+    },
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@timestamp":    { "type": "date" },
+        "service":       { "type": "keyword" },
+        "level":         { "type": "keyword" },
+        "CorrelationId": { "type": "keyword" },
+        "UserId":        { "type": "keyword" },
+        "TenantId":      { "type": "keyword" },
+        "StatusCode":    { "type": "keyword" },
+        "RequestPath":   { "type": "keyword" },
+        "RequestMethod": { "type": "keyword" },
+        "SourceContext":  { "type": "keyword" },
+        "Elapsed":       { "type": "long" }
+      }
+    }
+  }
+}

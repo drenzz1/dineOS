@@ -421,3 +421,12 @@ kubectl port-forward svc/<release>-prometheus 9090:9090 -n dineos
 kubectl port-forward svc/<release>-alertmanager 9093:9093 -n dineos
 # → open http://localhost:9093
 ```
+
+---
+
+## See also
+
+- **[ELK centralized logging stack](elk.md)** — Elasticsearch + Logstash + Kibana for
+  full-text log search, Nginx access-log analytics, geo-IP and user-agent breakdowns,
+  and long-form access investigations. ELK and Loki/Grafana are complementary; the
+  decision table in the ELK doc explains when to use which.

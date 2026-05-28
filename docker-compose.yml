@@ -30,6 +30,7 @@ services:
       - RabbitMq__UserName=${RabbitMq__UserName:-dineos}
       - RabbitMq__Password=${RabbitMq__Password:-dineos_dev}
       - Loki__Uri=${Loki__Uri:-http://loki:3100}
+      - Logstash__Uri=${Logstash__Uri:-}
       - Smtp__Host=${Smtp__Host:-mailhog}
       - Smtp__Port=${Smtp__Port:-1025}
       - Smtp__UseStartTls=${Smtp__UseStartTls:-false}
@@ -112,6 +113,7 @@ services:
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx_logs:/var/log/nginx
     depends_on:
       api:
         condition: service_healthy
@@ -316,6 +318,99 @@ services:
     profiles:
       - tools
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: dineos-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "${ES_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - elk
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.15.0
+    container_name: dineos-logstash
+    ports:
+      - "5044:5044"
+      - "${LOGSTASH_TCP_PORT:-5002}:5001"
+      - "9600:9600"
+    volumes:
+      - ./backend/elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./backend/elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9600/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - elk
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    container_name: dineos-kibana
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:5601/api/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - elk
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.15.0
+    container_name: dineos-filebeat
+    command: ["filebeat", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
+    user: root
+    volumes:
+      - nginx_logs:/var/log/nginx:ro
+      - ./backend/elk/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5066/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      logstash:
+        condition: service_healthy
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - elk
+
 volumes:
   postgres_data:
   redis_data:
@@ -325,6 +420,8 @@ volumes:
   prometheus_data:
   alertmanager_data:
   dineos_uploads:
+  elasticsearch_data:
+  nginx_logs:
 
 networks:
   dineos-net:

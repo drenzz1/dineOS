@@ -1,0 +1,77 @@
+{{- if .Values.observability.elk.enabled }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "dineos.fullname" . }}-elasticsearch
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch
+spec:
+  replicas: 1
+  serviceName: {{ include "dineos.fullname" . }}-elasticsearch-headless
+  selector:
+    matchLabels:
+      {{- include "dineos.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: elasticsearch
+  template:
+    metadata:
+      labels:
+        {{- include "dineos.labels" . | nindent 8 }}
+        app.kubernetes.io/component: elasticsearch
+    spec:
+      serviceAccountName: {{ include "dineos.serviceAccountName" . }}
+      containers:
+        - name: elasticsearch
+          image: {{ .Values.observability.elk.elasticsearch.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ES_JAVA_OPTS
+              value: "-Xms512m -Xmx512m"
+          args:
+            - "-Ediscovery.type=single-node"
+            - "-Expack.security.enabled=false"
+          ports:
+            - name: http
+              containerPort: 9200
+              protocol: TCP
+            - name: transport
+              containerPort: 9300
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /_cluster/health?wait_for_status=yellow&timeout=5s
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /_cluster/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.observability.elk.elasticsearch.resources | nindent 12 }}
+          volumeMounts:
+            - name: elasticsearch-data
+              mountPath: /usr/share/elasticsearch/data
+  volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+        labels:
+          {{- include "dineos.labels" . | nindent 10 }}
+          app.kubernetes.io/component: elasticsearch
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.observability.elk.elasticsearch.persistence.size }}
+        {{- if .Values.observability.elk.elasticsearch.persistence.storageClass }}
+        storageClassName: {{ .Values.observability.elk.elasticsearch.persistence.storageClass }}
+        {{- end }}
+{{- end }}

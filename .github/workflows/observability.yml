@@ -1,17 +1,21 @@
 name: Observability CI
 
-# Validates Prometheus config, alert rules, and Alertmanager config whenever
-# the backend observability files or their Helm equivalents change.
+# Validates Prometheus config, alert rules, Alertmanager config, and Logstash
+# pipeline whenever the backend observability files or their Helm equivalents change.
 on:
   push:
     paths:
       - 'backend/prometheus/**'
+      - 'backend/elk/logstash/**'
       - 'deploy/helm/dineos/files/prometheus/**'
+      - 'deploy/helm/dineos/files/logging/**'
       - '.github/workflows/observability.yml'
   pull_request:
     paths:
       - 'backend/prometheus/**'
+      - 'backend/elk/logstash/**'
       - 'deploy/helm/dineos/files/prometheus/**'
+      - 'deploy/helm/dineos/files/logging/**'
       - '.github/workflows/observability.yml'
 
 concurrency:
@@ -65,3 +69,25 @@ jobs:
             --entrypoint /bin/amtool \
             prom/alertmanager:v0.28.0 \
             check-config /etc/alertmanager/alertmanager.yml
+
+  logstash-lint:
+    name: Logstash pipeline syntax check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Mount the Logstash pipeline directory and run logstash -t (config test)
+      # which parses the pipeline and exits 0 on success, non-zero on error.
+      # The -f flag points to the specific pipeline file.
+      # Same Docker image version as docker-compose.yml (8.15.0).
+      # Only the backend/elk/ copy is linted — the Helm copy
+      # (files/logging/pipeline/dineos.conf) contains {{ include ... }}
+      # template expressions that are not valid Logstash until rendered.
+      - name: Check Logstash pipeline (logstash -t)
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/backend/elk/logstash/pipeline:/cfg:ro" \
+            docker.elastic.co/logstash/logstash:8.15.0 \
+            logstash -t -f /cfg/dineos.conf

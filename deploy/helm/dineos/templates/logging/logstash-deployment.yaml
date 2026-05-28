@@ -1,0 +1,77 @@
+{{- if .Values.observability.elk.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dineos.fullname" . }}-logstash
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: logstash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dineos.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: logstash
+  template:
+    metadata:
+      labels:
+        {{- include "dineos.labels" . | nindent 8 }}
+        app.kubernetes.io/component: logstash
+    spec:
+      serviceAccountName: {{ include "dineos.serviceAccountName" . }}
+      containers:
+        - name: logstash
+          image: {{ .Values.observability.elk.logstash.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: beats
+              containerPort: 5044
+              protocol: TCP
+            - name: tcp-json
+              containerPort: 5001
+              protocol: TCP
+            - name: api
+              containerPort: 9600
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: api
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.observability.elk.logstash.resources | nindent 12 }}
+          volumeMounts:
+            - name: logstash-config
+              mountPath: /usr/share/logstash/config/logstash.yml
+              subPath: logstash.yml
+              readOnly: true
+            - name: logstash-pipeline
+              mountPath: /usr/share/logstash/pipeline/dineos.conf
+              subPath: dineos.conf
+              readOnly: true
+      volumes:
+        - name: logstash-config
+          configMap:
+            name: {{ include "dineos.fullname" . }}-logstash-config
+            items:
+              - key: logstash.yml
+                path: logstash.yml
+        - name: logstash-pipeline
+          configMap:
+            name: {{ include "dineos.fullname" . }}-logstash-pipeline
+            items:
+              - key: dineos.conf
+                path: dineos.conf
+{{- end }}

@@ -1,0 +1,49 @@
+{{- if .Values.observability.elk.enabled }}
+---
+# Headless service — required by StatefulSet for stable pod DNS.
+# serviceName in the StatefulSet spec must point to a headless service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dineos.fullname" . }}-elasticsearch-headless
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch
+spec:
+  clusterIP: None
+  ports:
+    - name: http
+      port: 9200
+      targetPort: http
+      protocol: TCP
+    - name: transport
+      port: 9300
+      targetPort: transport
+      protocol: TCP
+  selector:
+    {{- include "dineos.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch
+---
+# Regular ClusterIP service for client access (Logstash, Kibana).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dineos.fullname" . }}-elasticsearch
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 9200
+      targetPort: http
+      protocol: TCP
+    - name: transport
+      port: 9300
+      targetPort: transport
+      protocol: TCP
+  selector:
+    {{- include "dineos.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch
+{{- end }}
