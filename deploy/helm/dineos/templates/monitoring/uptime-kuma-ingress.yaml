@@ -1,0 +1,28 @@
+{{- if and .Values.observability.uptimeKuma.enabled .Values.observability.uptimeKuma.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "dineos.fullname" . }}-uptime-kuma
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: uptime-kuma
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.observability.uptimeKuma.ingress.clusterIssuer | default "letsencrypt-prod" | quote }}
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: {{ .Values.observability.uptimeKuma.ingress.className }}
+  tls:
+    {{- toYaml .Values.observability.uptimeKuma.ingress.tls | nindent 4 }}
+  rules:
+    - host: {{ .Values.observability.uptimeKuma.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dineos.fullname" . }}-uptime-kuma
+                port:
+                  number: 3001
+{{- end }}

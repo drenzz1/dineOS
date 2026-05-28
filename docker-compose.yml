@@ -411,6 +411,25 @@ services:
     profiles:
       - elk
 
+  uptime-kuma:
+    image: louislam/uptime-kuma:1.23.17
+    container_name: dineos-uptime-kuma
+    ports:
+      - "${UPTIME_KUMA_PORT:-3001}:3001"
+    volumes:
+      - uptime_kuma_data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/api/entry-page >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - uptime
+
 volumes:
   postgres_data:
   redis_data:
@@ -422,6 +441,7 @@ volumes:
   dineos_uploads:
   elasticsearch_data:
   nginx_logs:
+  uptime_kuma_data:
 
 networks:
   dineos-net:
