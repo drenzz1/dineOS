@@ -149,12 +149,7 @@ PS> curl -s http://localhost:9200/_ilm/policy/dineos-logs-ilm-7d | python3 -m js
       "phases": {
         "hot": {
           "min_age": "0ms",
-          "actions": {
-            "rollover": {
-              "max_age": "1d",
-              "max_primary_shard_size": "5gb"
-            }
-          }
+          "actions": {}
         },
         "delete": {
           "min_age": "7d",

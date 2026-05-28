@@ -100,12 +100,12 @@ and attaches the ILM policy declared in the output plugin.
 Source: `backend/elk/elasticsearch/ilm/dineos-logs-ilm-7d.json`
 
 | Phase | Trigger | Action |
-|-------|---------|--------|
-| **hot** | index creation | roll over after **1 day** or **5 GB** (whichever comes first) |
-| **delete** | 7 days after rollover | permanently delete the index |
+|---|---|---|
+| **hot** | index creation | — (no action; indices are date-partitioned by Logstash) |
+| **delete** | 7 days after index creation | permanently delete the index |
 
-Total retention is approximately **8 days** from first write. For production,
-increase `max_age` in the hot phase and `min_age` in the delete phase, or add a
+Total retention is approximately **7 days** from index creation. For production,
+increase `min_age` in the delete phase, or add a
 `warm` phase with `forcemerge` and `shrink` actions before deletion.
 
 ### Index templates
@@ -128,17 +128,13 @@ increase `number_of_replicas` to at least 1 for high-availability.
 |---------|-----------|----------|---------|
 | Elasticsearch | 9200 | `ES_PORT` | 9200 |
 | Logstash Beats input | 5044 | — | — |
-| Logstash TCP JSON input | 5001 | — | — |
+| Logstash TCP JSON input | 5002 | `LOGSTASH_TCP_PORT` | — |
 | Logstash monitoring API | 9600 | — | — |
 | Kibana | 5601 | `KIBANA_PORT` | 5601 |
 
 Override `ES_PORT` and `KIBANA_PORT` in `.env` to avoid conflicts with other
 services. The Logstash ports (5001, 5044, 9600) are not configurable via
 environment variables — edit `docker-compose.yml` directly if needed.
-
-> **Port conflict:** Logstash's TCP JSON input defaults to host port 5001, the
-> same as `API_HTTP_PORT`. When running both the API and the ELK profile
-> simultaneously, set `API_HTTP_PORT=5002` (or another free port) in `.env`.
 
 ---
 
@@ -178,7 +174,7 @@ and derives `request_time_ms` for histogram buckets.
 | `service` | `keyword` | Logstash `mutate add_field` | Always `dineos-nginx` |
 | `remote_addr` | `ip` | Nginx `$remote_addr` | Client IP address — enables GeoIP enrichment and IP range filters |
 | `request_method` | `keyword` | Nginx `$request_method` | HTTP verb |
-| `request_uri` | `keyword` | Nginx `$request_uri` | Full URI path + query string |
+| `request_uri` | `keyword` | Nginx `$uri` | Request path without query string (avoids logging tokens from SignalR/query auth) |
 | `status` | `keyword` | Nginx `$status`, converted from number | HTTP status code |
 | `body_bytes_sent` | `long` | Nginx `$body_bytes_sent` | Response body size in bytes (excluding headers) |
 | `request_time` | `float` | Nginx `$request_time` | Total request duration in **seconds** (e.g. `0.045` = 45 ms) |
@@ -393,7 +389,7 @@ kubectl port-forward svc/<release>-dineos-elasticsearch 9200:9200 -n dineos
 # → curl http://localhost:9200/_cluster/health
 
 # Kibana
-kubectl port-forward svc/<release>-dineos-kibana 5601:5600 -n dineos
+kubectl port-forward svc/<release>-dineos-kibana 5601:5601 -n dineos
 # → open http://localhost:5601
 ```
 

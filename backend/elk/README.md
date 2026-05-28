@@ -40,11 +40,11 @@ ILM policy suitable for local and demo environments.
 
 | Phase | Trigger | Action |
 |---|---|---|
-| hot | index creation | roll over after **1 day** or **5 GB** (whichever comes first) |
-| delete | 7 days after rollover | permanently delete the index |
+| hot | index creation | — (no action; indices are date-partitioned by Logstash) |
+| delete | 7 days after index creation | permanently delete the index |
 
-Total retention is approximately 8 days. For production, increase `max_age` in
-the hot phase and `min_age` in the delete phase, or add a `warm` phase with
+Total retention is approximately 7 days. For production, increase `min_age`
+in the delete phase, or add a `warm` phase with
 `forcemerge` and `shrink` actions.
 
 ### `elasticsearch/index-templates/dineos-api.json`
@@ -75,7 +75,7 @@ Composite index template matching `dineos-nginx-access-*`.
 | `service` | `keyword` | Always `dineos-nginx` |
 | `remote_addr` | `ip` | Client IP — enables geo queries and IP range filters |
 | `request_method` | `keyword` | HTTP verb |
-| `request_uri` | `keyword` | Full URI path + query string |
+| `request_uri` | `keyword` | Request path without query string (avoids logging tokens) |
 | `status` | `keyword` | HTTP status code |
 | `body_bytes_sent` | `long` | Response size in bytes |
 | `request_time` | `float` | Request duration in **seconds** (converted from ms by Logstash) |
@@ -209,13 +209,9 @@ KIBANA_URL=http://kibana:5601 ./backend/elk/setup/bootstrap.sh
 |---|---|---|---|
 | Elasticsearch | 9200 | `ES_PORT` | `http://localhost:9200` |
 | Logstash Beats | 5044 | — | — |
-| Logstash TCP/JSON | 5001 | — | — |
+| Logstash TCP/JSON | 5002 | `LOGSTASH_TCP_PORT` | — |
 | Logstash API | 9600 | — | `http://localhost:9600` |
 | Kibana | 5601 | `KIBANA_PORT` | `http://localhost:5601` |
-
-> **Port conflict**: Logstash's TCP JSON input defaults to host port 5001, the
-> same as `API_HTTP_PORT`. When running both stacks simultaneously, set
-> `API_HTTP_PORT=5002` (or another free port) in your `.env`.
 
 ---
 

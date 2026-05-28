@@ -93,6 +93,7 @@ record() { SUMMARY_LINES+=("$1"); }
 # Counter for passed/failed checks
 PASSES=0
 FAILURES=0
+FIELD_FAILS=0
 check() {
   local desc="$1" cond="$2"
   if eval "$cond"; then
@@ -252,24 +253,28 @@ if echo "$api_doc" | grep -q '"CorrelationId"'; then
   ok "API doc contains CorrelationId"
 else
   fail "API doc missing CorrelationId"
+  FIELD_FAILS=$((FIELD_FAILS + 1))
 fi
 
 if echo "$api_doc" | grep -q '"RequestPath"'; then
   ok "API doc contains RequestPath"
 else
   fail "API doc missing RequestPath"
+  FIELD_FAILS=$((FIELD_FAILS + 1))
 fi
 
 if echo "$api_doc" | grep -q '"StatusCode"'; then
   ok "API doc contains StatusCode"
 else
   fail "API doc missing StatusCode"
+  FIELD_FAILS=$((FIELD_FAILS + 1))
 fi
 
 if echo "$api_doc" | grep -q '"Elapsed"'; then
   ok "API doc contains Elapsed"
 else
   fail "API doc missing Elapsed"
+  FIELD_FAILS=$((FIELD_FAILS + 1))
 fi
 
 # Check Nginx log fields
@@ -277,30 +282,35 @@ if echo "$nginx_doc" | grep -q '"status"'; then
   ok "Nginx doc contains status"
 else
   fail "Nginx doc missing status"
+  FIELD_FAILS=$((FIELD_FAILS + 1))
 fi
 
 if echo "$nginx_doc" | grep -q '"request_uri"'; then
   ok "Nginx doc contains request_uri"
 else
   fail "Nginx doc missing request_uri"
+  FIELD_FAILS=$((FIELD_FAILS + 1))
 fi
 
 if echo "$nginx_doc" | grep -q '"request_method"'; then
   ok "Nginx doc contains request_method"
 else
   fail "Nginx doc missing request_method"
+  FIELD_FAILS=$((FIELD_FAILS + 1))
 fi
 
 if echo "$nginx_doc" | grep -q '"request_time"'; then
   ok "Nginx doc contains request_time"
 else
   fail "Nginx doc missing request_time"
+  FIELD_FAILS=$((FIELD_FAILS + 1))
 fi
 
 if echo "$nginx_doc" | grep -q '"remote_addr"'; then
   ok "Nginx doc contains remote_addr"
 else
   fail "Nginx doc missing remote_addr"
+  FIELD_FAILS=$((FIELD_FAILS + 1))
 fi
 
 # Check Kibana saved objects are present
@@ -339,6 +349,12 @@ if ! $nginx_ok; then
   echo    "   Check: docker compose logs filebeat --tail=50"
   echo    "   Check: docker compose logs logstash --tail=50"
   echo    "   Check: docker compose exec nginx tail -5 /var/log/nginx/access.json"
+  ALL_OK=false
+fi
+
+if [[ $FIELD_FAILS -gt 0 ]]; then
+  echo -e " ${RED}${BOLD}FAIL${RESET} — ${FIELD_FAILS} field validation(s) failed"
+  echo    "   Check the field output above for missing fields."
   ALL_OK=false
 fi
 

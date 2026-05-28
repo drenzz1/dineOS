@@ -346,7 +346,7 @@ services:
     container_name: dineos-logstash
     ports:
       - "5044:5044"
-      - "5001:5001"
+      - "${LOGSTASH_TCP_PORT:-5002}:5001"
       - "9600:9600"
     volumes:
       - ./backend/elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
