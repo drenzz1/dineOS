@@ -418,6 +418,8 @@ observability:
   uptimeKuma:
     enabled: false
     image: louislam/uptime-kuma:1.23.17
+    # Must stay at 1 — Uptime Kuma uses SQLite, which does not support concurrent writers.
+    replicaCount: 1
     # Name of an existing Kubernetes Secret that contains the Slack
     # incoming-webhook URL under the key "url".
     # Example: kubectl create secret generic kuma-slack \

@@ -27,7 +27,7 @@ metadata:
     {{- include "dineos.labels" . | nindent 4 }}
     app.kubernetes.io/component: uptime-kuma
 spec:
-  replicas: 1
+  replicas: {{ .Values.observability.uptimeKuma.replicaCount | default 1 }}
   selector:
     matchLabels:
       {{- include "dineos.selectorLabels" . | nindent 6 }}
