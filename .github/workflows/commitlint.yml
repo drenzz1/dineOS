@@ -1,0 +1,67 @@
+name: Commitlint
+
+on:
+  pull_request:
+
+concurrency:
+  group: commitlint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    name: Lint commit messages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint commit messages
+        run: |
+          npx commitlint \
+            --from ${{ github.event.pull_request.base.sha }} \
+            --to   ${{ github.event.pull_request.head.sha }} \
+            --verbose
+
+      # GitHub uses the PR title as the squash-merge commit message,
+      # so it must also be a valid Conventional Commit.
+      - name: Lint PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: echo "$PR_TITLE" | npx commitlint --verbose
+
+      - name: Write job summary
+        if: always()
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          STATUS="${{ job.status }}"
+          case "$STATUS" in
+            success)  BADGE="✅ passed"  ;;
+            failure)  BADGE="❌ failed"  ;;
+            *)        BADGE="⚠️ ${STATUS}" ;;
+          esac
+          echo "## Commitlint — ${BADGE}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| PR title | \`${PR_TITLE}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commits | \`${BASE_SHA::8}..${HEAD_SHA::8}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Author | \`${ACTOR}\` |" >> $GITHUB_STEP_SUMMARY
