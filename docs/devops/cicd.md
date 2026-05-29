@@ -2,7 +2,7 @@
 
 ## Overview
 
-dineOS uses four GitHub Actions workflows to go from a pull request to a running production deployment.
+dineOS uses six GitHub Actions workflows to go from a pull request to a running production deployment.
 
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
@@ -10,6 +10,8 @@ dineOS uses four GitHub Actions workflows to go from a pull request to a running
 | Backend CI | `.github/workflows/backend-ci.yml` | push / PR to `main` + `workflow_dispatch` | .NET 10 build, tests, 70 % coverage gate, live Keycloak tests; **Trivy fs scan** (CRITICAL/HIGH, `backend/`) |
 | Helm CI | `.github/workflows/helm.yml` | push / PR on `deploy/helm/**` | Helm lint + kubeconform schema validation |
 | Build & Push | `.github/workflows/build-push.yml` | push to `main`, `v*.*.*` tags, `workflow_dispatch` | Docker build → GHCR push → **Trivy image scan** (CRITICAL/HIGH, SARIF artifact) → Helm deploy → Slack notify |
+| Commitlint | `.github/workflows/commitlint.yml` | PR | Validate all PR commits + PR title follow Conventional Commits |
+| Release Please | `.github/workflows/release-please.yml` | push to `main` | Open release PR (bumps `version.txt`, updates `CHANGELOG.md`); on merge create `v*.*.*` tag + GitHub Release |
 
 All commands in this document are run from the **repo root**.
 

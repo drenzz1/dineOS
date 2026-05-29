@@ -180,6 +180,8 @@ GitHub Actions handles lint, tests, Docker image builds, and Kubernetes deployme
 | Helm CI (`helm.yml`) | changes to `deploy/helm/**` | Helm lint + kubeconform schema validation |
 | Observability CI (`observability.yml`) | changes to `backend/prometheus/**` | promtool config/rules + amtool config check |
 | Build & Push (`build-push.yml`) | push to `main`, `v*.*.*` tags | Docker build → GHCR push → Helm deploy → notify |
+| Commitlint (`commitlint.yml`) | PR | Validate all PR commits + PR title follow Conventional Commits |
+| Release Please (`release-please.yml`) | push to `main` | Open release PR; on merge create `v*.*.*` tag + GitHub Release |
 
 ### Required secrets
 
@@ -225,3 +227,4 @@ See [docs/devops/security.md](docs/devops/security.md) for the image hardening c
 - Observability (ELK centralized logging): `docs/devops/elk.md`
 - Observability (Uptime Kuma status page): `docs/devops/uptime-kuma.md`
 - Container security (image hardening, Trivy scanning): `docs/devops/security.md`
+- Release workflow (Conventional Commits, release-please, semver): `docs/devops/releases.md`

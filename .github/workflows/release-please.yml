@@ -1,0 +1,60 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+# Only one release-please run at a time on main. cancel-in-progress: false
+# ensures a queued run is not dropped if two merges land in quick succession.
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+# Minimal workflow-level permission. The release-please job needs elevated
+# rights to open/update release PRs (pull-requests: write) and to create
+# git tags + GitHub Releases (contents: write).
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # release-please uses GITHUB_TOKEN by default. Tags created by
+          # GITHUB_TOKEN trigger build-push.yml (push: tags: v*.*.*) normally.
+          # If build-push.yml does not fire on the created tag in your org,
+          # replace with a PAT (repo + workflow scopes):
+          #   token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      - name: Write job summary
+        if: always()
+        env:
+          RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
+          TAG_NAME:        ${{ steps.release.outputs.tag_name }}
+          ACTOR:           ${{ github.actor }}
+          REF_NAME:        ${{ github.ref_name }}
+        run: |
+          echo "## Release Please" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | \`${ACTOR}\` on \`${REF_NAME}\` |" >> $GITHUB_STEP_SUMMARY
+          if [[ "$RELEASE_CREATED" == "true" ]]; then
+            echo "| Status | ✅ Release created |" >> $GITHUB_STEP_SUMMARY
+            echo "| Tag | \`${TAG_NAME}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Next step | \`build-push.yml\` triggered by the \`${TAG_NAME}\` tag push |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Status | 🔖 Release PR opened / updated (or no releasable commits) |" >> $GITHUB_STEP_SUMMARY
+          fi
