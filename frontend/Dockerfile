@@ -30,7 +30,10 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup -S -g 1001 nodejs \
- && adduser  -S -u 1001 -G nodejs nextjs
+ && adduser  -S -u 1001 -G nodejs nextjs \
+ && rm -rf /usr/local/lib/node_modules/npm \
+    /usr/local/bin/npm \
+    /usr/local/bin/npx
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static     ./.next/static
