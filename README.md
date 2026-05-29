@@ -202,6 +202,12 @@ See [docs/devops/observability.md](docs/devops/observability.md) for the archite
 An optional **ELK stack** (`--profile elk`) adds Elasticsearch + Logstash + Kibana with pre-built dashboards for API logs and Nginx access analytics — see [docs/devops/elk.md](docs/devops/elk.md).
 An optional **Uptime Kuma** instance (`--profile uptime`) adds synthetic black-box monitoring and a public status page — seven HTTP/TCP/keyword monitors cover every service, with Slack and email notifications sharing the same `SLACK_WEBHOOK_URL` used by Alertmanager. Run `bash scripts/demo-uptime-kuma.sh` to watch a DOWN alert and recovery email arrive in Mailhog end-to-end. In Kubernetes, flip `observability.uptimeKuma.enabled=true` in the Helm chart — see [docs/devops/uptime-kuma.md](docs/devops/uptime-kuma.md).
 
+## Security
+
+Trivy scans dependency manifests on every pull request (`trivy fs`) and the built Docker images after every push to `main` (`trivy image`). Both scans gate on CRITICAL/HIGH unfixed CVEs and fail CI with exit code 1 before a vulnerable image can reach the `deploy` job. Both runtime images run as a non-root UID 1001 user on Alpine-based minimal bases. Justified exceptions are documented in `.trivyignore` with an explicit expiry date; Trivy enforces the expiry natively so suppressions cannot silently persist beyond their review window.
+
+See [docs/devops/security.md](docs/devops/security.md) for the image hardening criteria with Dockerfile references, how to reproduce scans locally with `trivy fs` and `trivy image`, and the full `.trivyignore` add/review/expiry workflow.
+
 ## More Documentation
 
 - Backend details: `backend/README.md`
@@ -218,3 +224,4 @@ An optional **Uptime Kuma** instance (`--profile uptime`) adds synthetic black-b
 - Observability (Prometheus, Alertmanager, Grafana): `docs/devops/observability.md`
 - Observability (ELK centralized logging): `docs/devops/elk.md`
 - Observability (Uptime Kuma status page): `docs/devops/uptime-kuma.md`
+- Container security (image hardening, Trivy scanning): `docs/devops/security.md`
