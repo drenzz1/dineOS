@@ -57,8 +57,8 @@ individual commits and the PR title (which GitHub uses as the squash-merge messa
 | `fix` | ✅ Bug Fixes | patch (`0.0.x`) |
 | `perf` | ✅ Performance | patch |
 | `revert` | ✅ Reverts | patch |
-| `docs` | ✅ Documentation | patch |
-| `chore` | hidden | patch (if any other type is absent, else no bump) |
+| `docs` | ✅ Documentation | — (no bump; appears in CHANGELOG when a releasable commit triggers the release) |
+| `chore` | hidden | — (no bump; release-please never opens a release PR for `chore`-only pushes) |
 | `refactor` | hidden | — |
 | `test` | hidden | — |
 | `ci` | hidden | — |
