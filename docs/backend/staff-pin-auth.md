@@ -1,8 +1,8 @@
 # Staff-session PIN authentication
 
-> Status: **Phases 1–2 implemented** (backend staff-session issuance +
-> verification; account-vs-operational role split). Phases 3–4 (frontend roster,
-> cleanup) are planned — see the bottom of this doc.
+> Status: **Phases 1–3 implemented** (backend staff-session issuance +
+> verification; account-vs-operational role split; frontend roster + PIN).
+> Phase 4 (cleanup) + the final tightening are planned — see the bottom.
 
 ## Problem
 
@@ -119,12 +119,45 @@ composite so an owner token no longer carries operational access — at that poi
 *everyone*, including the owner, must start a PIN staff session to run
 operations. Safe to do only once the frontend roster/PIN screen exists.
 
-### Frontend follow-up implied by Phase 2
-The FE middleware still maps owner/demo tokens to `Manager` and lets `Manager`
-visit every route — including the staff/billing pages, which now 403 for a
-non-owner *staff* token. Phase 3 must hide account screens from operational
-staff sessions (and surface `Owner` capability explicitly) rather than relying
-on the backend 403.
+## Phase 3 — what exists today (frontend roster + PIN)
+
+The frontend now uses a **two-token** model with an explicit operational-session
+step:
+
+- **`business_token` cookie** holds the Keycloak/Owner token (set at login,
+  retained for the whole session). **`access_token`** holds the *active*
+  operational token: it starts as the business token (owner mode) and is swapped
+  to the staff-session token after a PIN is entered.
+- **After login → `/select-staff`** (the "Who's working?" roster), not a role
+  dashboard. SuperAdmins are bounced to `/admin` by middleware.
+- The roster (`app/select-staff/page.tsx`) lists active staff (`GET /staff` via
+  the owner token), each card opens a 4-digit PIN entry → `authStore.startStaffSession`
+  → `POST /auth/staff-session` (sent with the **business token** via a dedicated
+  axios client, since that endpoint only accepts the Keycloak scheme) → the
+  returned staff token becomes `access_token`, the role cookie becomes the staff
+  role, and the user is routed to that role's destination.
+- **"Continue as the owner"** skips the PIN and proceeds in owner mode (full
+  access via the `Owner→Manager` composite).
+- **"Switch user"** in the sidebar calls `endStaffSession` (restores the
+  business token + owner mode) and returns to the roster.
+- The sidebar **hides Staff + Billing** in a staff session so an operational
+  Manager doesn't hit a raw 403, and uses the stored role (not `getPrimaryRole`
+  on the staff token, which has no `realm_access.roles`).
+- `StaffSessionService.VerifyPin` swallows malformed-hash exceptions (the demo
+  seeder's placeholder `PinHash`) → clean 401 instead of 500.
+
+Key files: `app/select-staff/{page,loading,error}.tsx`, `lib/api/staffSessionApi.ts`,
+`stores/authStore.ts` (`startStaffSession`/`endStaffSession`, `business_token`),
+`lib/auth/keycloak.ts` (cookie helpers), `app/login/page.tsx`,
+`components/shared/ProtectedSidebar.tsx`.
+
+### Phase 3 follow-ups
+- **Staff-session token expiry mid-shift:** the apiClient 401 refresh path uses
+  the Keycloak `refresh_token`, which would mint an *owner* token and silently
+  drop the operational role. Pair with the staff-session refresh/revocation
+  follow-up below.
+- A real owner with **no staff yet** must "Continue as owner" → Staff settings to
+  create staff before the roster is useful (expected; surfaced via empty state).
 
 ## Known limitations / hardening follow-ups
 - **PIN brute-force** is bounded only by the IP+tenant rate limiter. Add a

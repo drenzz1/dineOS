@@ -8,11 +8,21 @@ import {
   getPrimaryRole,
   persistAccessTokenCookie,
   persistAuthCookies,
+  persistBusinessToken,
+  persistStaffSessionCookies,
+  persistRoleCookie,
+  getBusinessToken,
   clearAuthCookies,
   getDestination,
 } from "@/lib/auth/keycloak";
 import { getMe } from "@/lib/api/meApi";
 import { getRestaurantProfile } from "@/lib/api/restaurantProfileApi";
+import { startStaffSession as apiStartStaffSession } from "@/lib/api/staffSessionApi";
+
+// The Keycloak business login resolves to Manager (owners are Owner→Manager
+// composites); the operational role then comes from the PIN-selected staff
+// session. Used to restore "owner mode" when a staff session ends.
+const OWNER_MODE_ROLE = "Manager" as const;
 
 interface AuthState {
   userId: string | null;
@@ -20,7 +30,14 @@ interface AuthState {
   tenantId: string | null;
   restaurantName: string | null;
   accessToken: string | null;
+  // True once a PIN-selected staff session is active (operational mode). In
+  // this mode the active token is the staff-session token, which lacks the
+  // account-level Owner role — so staff/billing screens are hidden.
+  isStaffSession: boolean;
+  activeStaffName: string | null;
   login: (username: string, password: string, from?: string | null) => Promise<{ destination: string }>;
+  startStaffSession: (staffMemberId: number, pin: string) => Promise<{ role: Role }>;
+  endStaffSession: () => void;
   logout: () => Promise<void>;
   setAuth: (
     userId: string,
@@ -40,6 +57,8 @@ export const useAuthStore = create<AuthState>()(
       tenantId: null,
       restaurantName: null,
       accessToken: null,
+      isStaffSession: false,
+      activeStaffName: null,
       login: async (username, password, from = null) => {
         // Snapshot current state so a failed re-login from an already
         // authenticated session does not silently log the user out.
@@ -91,12 +110,18 @@ export const useAuthStore = create<AuthState>()(
             me.tenantId
           );
 
+          // Retain the business (Keycloak/Owner) token so the staff roster can
+          // start a PIN session and "switch user" can restore owner mode.
+          persistBusinessToken(tokens.accessToken, tokens.expiresIn);
+
           set({
             userId: me.id,
             role,
             tenantId: me.tenantId,
             restaurantName,
             accessToken: tokens.accessToken,
+            isStaffSession: false,
+            activeStaffName: null,
           });
 
           return { destination: getDestination(role, from) };
@@ -115,6 +140,46 @@ export const useAuthStore = create<AuthState>()(
           throw err;
         }
       },
+      startStaffSession: async (staffMemberId, pin) => {
+        // Verifies the PIN against the business (Keycloak) token and returns a
+        // role-scoped staff-session token. We swap it into the active
+        // access_token so all operational API calls now carry the staff role,
+        // while business_token (owner) is left intact for "switch user".
+        const session = await apiStartStaffSession(staffMemberId, pin);
+        const { tenantId } = get();
+
+        persistStaffSessionCookies(
+          session.accessToken,
+          session.role,
+          session.expiresIn,
+          tenantId
+        );
+
+        set({
+          role: session.role,
+          accessToken: session.accessToken,
+          isStaffSession: true,
+          activeStaffName: session.fullName,
+        });
+
+        return { role: session.role };
+      },
+      endStaffSession: () => {
+        // Restore owner mode: the business (Keycloak) token becomes the active
+        // token again so account screens (staff/billing) work. Caller routes
+        // back to the roster.
+        const businessToken = getBusinessToken();
+        if (businessToken) {
+          persistAccessTokenCookie(businessToken);
+          persistRoleCookie(OWNER_MODE_ROLE);
+        }
+        set({
+          role: businessToken ? OWNER_MODE_ROLE : get().role,
+          accessToken: businessToken ?? get().accessToken,
+          isStaffSession: false,
+          activeStaffName: null,
+        });
+      },
       logout: async () => {
         try {
           await apiLogout();
@@ -123,14 +188,30 @@ export const useAuthStore = create<AuthState>()(
         }
 
         clearAuthCookies();
-        set({ userId: null, role: null, tenantId: null, restaurantName: null, accessToken: null });
+        set({
+          userId: null,
+          role: null,
+          tenantId: null,
+          restaurantName: null,
+          accessToken: null,
+          isStaffSession: false,
+          activeStaffName: null,
+        });
         queryClient.removeQueries({ queryKey: queryKeys.me.all });
         queryClient.clear();
       },
       setAuth: (userId, role, tenantId, restaurantName = null, accessToken = null) =>
         set({ userId, role, tenantId, restaurantName, accessToken }),
       clearAuth: () => {
-        set({ userId: null, role: null, tenantId: null, restaurantName: null, accessToken: null });
+        set({
+          userId: null,
+          role: null,
+          tenantId: null,
+          restaurantName: null,
+          accessToken: null,
+          isStaffSession: false,
+          activeStaffName: null,
+        });
         queryClient.removeQueries({ queryKey: queryKeys.me.all });
         queryClient.clear();
       },

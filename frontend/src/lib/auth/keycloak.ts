@@ -82,8 +82,45 @@ export function persistAuthCookies(
   }
 }
 
+// The business (Keycloak/Owner) token is retained separately so the app can
+// (a) start a staff session — POST /auth/staff-session requires the Keycloak
+// scheme, not a staff-session token — and (b) restore "owner mode" when a staff
+// session ends. The active operational token lives in `access_token` and is
+// swapped to the staff-session token after a PIN is entered (#staff-pin-auth
+// Phase 3).
+export function persistBusinessToken(accessToken: string, expiresIn?: number): void {
+  setCookie("business_token", accessToken, expiresIn);
+}
+
+export function getBusinessToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const cookie = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("business_token="));
+  return cookie ? decodeURIComponent(cookie.split("=")[1] ?? "") : null;
+}
+
+// Swaps the active operational token + role to a started staff session. Leaves
+// `business_token` intact (owner credential) and `refresh_token` untouched.
+export function persistStaffSessionCookies(
+  accessToken: string,
+  role: AppRole,
+  expiresIn: number,
+  tenantId: string | null
+): void {
+  setCookie("access_token", accessToken, expiresIn);
+  setCookie("role", role, expiresIn);
+  if (tenantId) {
+    setCookie("tenant_id", tenantId, expiresIn);
+  }
+}
+
+export function persistRoleCookie(role: AppRole, expiresIn?: number): void {
+  setCookie("role", role, expiresIn);
+}
+
 export function clearAuthCookies(): void {
-  ["access_token", "refresh_token", "role", "tenant_id"].forEach((name) => {
+  ["access_token", "refresh_token", "role", "tenant_id", "business_token"].forEach((name) => {
     document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
   });
 }

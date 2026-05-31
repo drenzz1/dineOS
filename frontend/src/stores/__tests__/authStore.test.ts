@@ -9,13 +9,17 @@
 import { useAuthStore } from "../authStore";
 import { login as mockApiLogin } from "@/lib/auth/authApi";
 import { getMe as mockApiGetMe } from "@/lib/api/meApi";
+import { startStaffSession as mockApiStartStaffSession } from "@/lib/api/staffSessionApi";
 import type { MeResponse } from "@/types/me";
 
 jest.mock("@/lib/auth/authApi");
 jest.mock("@/lib/api/meApi");
+jest.mock("@/lib/api/staffSessionApi");
 
 const mockLogin = mockApiLogin as jest.MockedFunction<typeof mockApiLogin>;
 const mockGetMe = mockApiGetMe as jest.MockedFunction<typeof mockApiGetMe>;
+const mockStartStaffSession =
+  mockApiStartStaffSession as jest.MockedFunction<typeof mockApiStartStaffSession>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -80,7 +84,7 @@ const SUPERADMIN_JWT = makeJwt(SUPERADMIN_CLAIMS);
 // ─── Setup / teardown ─────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  ["access_token", "refresh_token", "role", "tenant_id"].forEach((name) => {
+  ["access_token", "refresh_token", "role", "tenant_id", "business_token"].forEach((name) => {
     document.cookie = `${name}=; max-age=0; path=/`;
   });
 
@@ -368,5 +372,61 @@ describe("useAuthStore.login — re-login from authenticated session", () => {
     expect(state.userId).toBe("user-abc");
     expect(state.tenantId).toBe("tenant-xyz");
     expect(state.accessToken).toBe(MANAGER_JWT);
+  });
+});
+
+// ─── Staff-session PIN flow (#staff-pin-auth Phase 3) ───────────────────────────
+
+describe("useAuthStore — staff session", () => {
+  beforeEach(() => {
+    // Log in as the business first so business_token + Manager role are set.
+    mockLogin.mockResolvedValue(makeTokens(MANAGER_JWT));
+    mockGetMe.mockResolvedValue(meFromClaims(MANAGER_CLAIMS));
+  });
+
+  it("startStaffSession swaps the active token + role to the staff session", async () => {
+    await useAuthStore.getState().login("owner", "s3cr3t");
+    mockStartStaffSession.mockResolvedValue({
+      accessToken: "staff.session.token",
+      expiresIn: 3600,
+      staffMemberId: 9,
+      fullName: "Carol Cashier",
+      role: "Cashier",
+    });
+
+    const { role } = await useAuthStore.getState().startStaffSession(9, "1234");
+
+    expect(role).toBe("Cashier");
+    const state = useAuthStore.getState();
+    expect(state.isStaffSession).toBe(true);
+    expect(state.role).toBe("Cashier");
+    expect(state.activeStaffName).toBe("Carol Cashier");
+    expect(state.accessToken).toBe("staff.session.token");
+    // Active token cookie is now the staff token; business token is retained.
+    expect(getCookie("access_token")).toBe("staff.session.token");
+    expect(getCookie("role")).toBe("Cashier");
+    expect(getCookie("business_token")).toBe(MANAGER_JWT);
+  });
+
+  it("endStaffSession restores owner mode from the business token", async () => {
+    await useAuthStore.getState().login("owner", "s3cr3t");
+    mockStartStaffSession.mockResolvedValue({
+      accessToken: "staff.session.token",
+      expiresIn: 3600,
+      staffMemberId: 9,
+      fullName: "Carol Cashier",
+      role: "Cashier",
+    });
+    await useAuthStore.getState().startStaffSession(9, "1234");
+
+    useAuthStore.getState().endStaffSession();
+
+    const state = useAuthStore.getState();
+    expect(state.isStaffSession).toBe(false);
+    expect(state.activeStaffName).toBeNull();
+    expect(state.role).toBe("Manager");
+    expect(state.accessToken).toBe(MANAGER_JWT);
+    expect(getCookie("access_token")).toBe(MANAGER_JWT);
+    expect(getCookie("role")).toBe("Manager");
   });
 });

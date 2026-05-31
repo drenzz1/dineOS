@@ -31,7 +31,7 @@ describe("LoginPage", () => {
     expect(loginSpy).not.toHaveBeenCalled();
   });
 
-  it("calls authStore.login and redirects on success", async () => {
+  it("calls authStore.login and redirects to the staff roster on success", async () => {
     const loginSpy = jest
       .fn()
       .mockResolvedValue({ destination: "/dashboard" });
@@ -47,7 +47,9 @@ describe("LoginPage", () => {
     await waitFor(() => {
       expect(loginSpy).toHaveBeenCalledWith("alice", "s3cr3t", null);
     });
-    expect(pushMock).toHaveBeenCalledWith("/dashboard");
+    // Post-login goes to the staff roster, not straight to a role dashboard
+    // (#staff-pin-auth Phase 3) — the operational role is chosen there via PIN.
+    expect(pushMock).toHaveBeenCalledWith("/select-staff");
   });
 
   it("shows the server error message when the API returns 401", async () => {

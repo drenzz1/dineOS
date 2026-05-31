@@ -31,8 +31,12 @@ export default function LoginPage() {
     setFormError(null);
     const from = searchParams.get("from");
     try {
-      const { destination } = await login(values.username, values.password, from);
-      router.push(destination);
+      // Business login establishes the account (owner) session; the operational
+      // role is then chosen on the staff roster via PIN (#staff-pin-auth Phase
+      // 3). SuperAdmins are bounced to /admin by middleware. `from` is carried
+      // through so a deep link still resolves after staff selection.
+      await login(values.username, values.password, from);
+      router.push(from ? `/select-staff?from=${encodeURIComponent(from)}` : "/select-staff");
     } catch (err) {
       if (err instanceof FirstLoginRequiredError) {
         const params = new URLSearchParams({ email: err.email });

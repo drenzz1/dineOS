@@ -11,7 +11,7 @@ export { OrderStatus } from "./order";
 export type { Order, OrderItem, OrderType, KitchenQueueSummary } from "./order";
 export { MenuCategory } from "./menu";
 export type { MenuItem } from "./menu";
-export type { Role, StaffMember } from "./staff";
+export type { Role, StaffMember, StaffSession } from "./staff";
 export type { AppRole, MeResponse } from "./me";
 export type { Priority, Shift, ShiftSummary } from "./shift";
 export type { AdminUser, UserStatus } from "./admin";

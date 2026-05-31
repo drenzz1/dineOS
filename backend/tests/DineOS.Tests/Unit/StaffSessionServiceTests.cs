@@ -138,6 +138,30 @@ public class StaffSessionServiceTests
     }
 
     [Fact]
+    public async Task StartAsync_MalformedStoredHash_FailsGracefully()
+    {
+        // The demo seeder stores a placeholder "demo-pin-hash" that is not a
+        // valid BCrypt hash; verification must return a clean failure, not throw.
+        var (svc, db) = CreateSut();
+        var staff = new StaffMember
+        {
+            FullName = "Seeded Demo",
+            Email = "seeded@demo.test",
+            Role = Roles.Manager,
+            PinHash = "demo-pin-hash",
+            IsActive = true,
+            TenantId = 1,
+        };
+        db.StaffMembers.Add(staff);
+        db.SaveChanges();
+
+        var result = await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = "1234" });
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Invalid staff member or PIN.", result.Error);
+    }
+
+    [Fact]
     public async Task StartAsync_UnknownStaffId_Fails()
     {
         var (svc, db) = CreateSut();

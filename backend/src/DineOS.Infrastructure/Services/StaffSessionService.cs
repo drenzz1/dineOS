@@ -55,7 +55,7 @@ public sealed class StaffSessionService(
             .FirstOrDefaultAsync(
                 s => s.Id == request.StaffMemberId && s.TenantId == tenantId, ct);
 
-        if (staff is null || !staff.IsActive || !pinHasher.Verify(request.Pin, staff.PinHash))
+        if (staff is null || !staff.IsActive || !VerifyPin(request.Pin, staff.PinHash))
         {
             logger.LogWarning(
                 "Staff session denied. TenantId={TenantId} StaffMemberId={StaffMemberId} Reason={Reason}",
@@ -85,6 +85,22 @@ public sealed class StaffSessionService(
             staff.Id,
             staff.FullName,
             staff.Role));
+    }
+
+    // BCrypt.Verify throws on a malformed stored hash (e.g. the demo seeder's
+    // "demo-pin-hash" placeholder). Treat any such failure as a non-match so a
+    // bad/legacy PinHash yields a clean 401, never a 500.
+    private bool VerifyPin(string pin, string hash)
+    {
+        try
+        {
+            return pinHasher.Verify(pin, hash);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "PIN verification failed due to a malformed stored hash.");
+            return false;
+        }
     }
 
     private string IssueToken(StaffMember staff, DateTimeOffset now, TimeSpan lifetime)

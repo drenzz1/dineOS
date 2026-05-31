@@ -59,20 +59,44 @@ export default function ProtectedSidebar() {
   const { user: me } = useMe();
   const storedRole = useAuthStore((state) => state.role);
   const logout = useAuthStore((state) => state.logout);
+  const isStaffSession = useAuthStore((state) => state.isStaffSession);
+  const endStaffSession = useAuthStore((state) => state.endStaffSession);
   const isClient = useSyncExternalStore(
     subscribeClientReady,
     getClientSnapshot,
     getServerSnapshot
   );
-  const role = isClient
-    ? ((me ? getPrimaryRole(me.roles) : null) ?? storedRole)
-    : null;
-  const visibleNavItems =
+  // In a staff session the active token is the staff-session token, whose role
+  // lives in a `role` claim (not realm_access.roles) — so prefer the stored
+  // role and never let getPrimaryRole throw the sidebar down.
+  const meRole = (() => {
+    if (!me) return null;
+    try {
+      return getPrimaryRole(me.roles);
+    } catch {
+      return null;
+    }
+  })();
+  const role = !isClient ? null : isStaffSession ? storedRole : meRole ?? storedRole;
+
+  const baseNavItems =
     role && role !== "SuperAdmin" ? ROLE_NAV_ITEMS[role] : [];
+  // Account-level screens (Staff, Billing) are Owner-only — hide them in an
+  // operational staff session so a PIN-selected Manager doesn't hit a raw 403.
+  const visibleNavItems = isStaffSession
+    ? baseNavItems.filter(
+        ({ href }) => href !== "/staff" && href !== "/settings/billing"
+      )
+    : baseNavItems;
 
   const handleLogout = async () => {
     await logout();
     router.push("/login");
+  };
+
+  const handleSwitchUser = () => {
+    endStaffSession();
+    router.push("/select-staff");
   };
 
   return (
@@ -110,6 +134,14 @@ export default function ProtectedSidebar() {
       </nav>
 
       <div className="mt-auto border-t border-border p-2.5">
+        {role && role !== "SuperAdmin" && (
+          <button
+            onClick={handleSwitchUser}
+            className="flex items-center h-8 rounded-sm px-3 text-[13px] font-medium text-fg-muted hover:bg-surface-2 hover:text-fg transition-colors duration-150 w-full text-left"
+          >
+            Switch user
+          </button>
+        )}
         <button
           onClick={handleLogout}
           className="flex items-center h-8 rounded-sm px-3 text-[13px] font-medium text-fg-muted hover:bg-surface-2 hover:text-fg transition-colors duration-150 w-full text-left"
