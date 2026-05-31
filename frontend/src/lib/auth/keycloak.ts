@@ -37,14 +37,33 @@ function setCookie(name: string, value: string, maxAgeSeconds?: number): void {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; samesite=lax${maxAge}`;
 }
 
+// Accept only same-origin internal paths: a single leading `/` followed by a
+// character that is NOT `/` or `\`. This rejects:
+//   - protocol-relative URLs (`//evil.com`)
+//   - absolute URLs (`https://evil.com`) — they don't start with `/`
+//   - backslash variants browsers normalize (`/\evil.com`, `/\\evil.com`)
+//   - empty / non-string input
+const SAFE_INTERNAL_PATH = /^\/(?![/\\])/;
+
 export function getDestination(role: AppRole, from: string | null): string {
   if (role === "SuperAdmin") {
     return "/admin/dashboard";
   }
 
-  return from?.startsWith("/") && !from.startsWith("//")
+  return typeof from === "string" && SAFE_INTERNAL_PATH.test(from)
     ? from
     : ROLE_DEFAULTS[role];
+}
+
+// Writes only the access_token cookie. Used during login to authorize the
+// bootstrap /me + profile calls BEFORE the role is known (and thus before the
+// full cookie set can be written via persistAuthCookies). The apiClient
+// request interceptor reads this cookie to attach the Authorization header.
+export function persistAccessTokenCookie(
+  accessToken: string,
+  expiresIn?: number
+): void {
+  setCookie("access_token", accessToken, expiresIn);
 }
 
 export function persistAuthCookies(

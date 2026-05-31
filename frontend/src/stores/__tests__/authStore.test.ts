@@ -147,6 +147,22 @@ describe("useAuthStore.login — Manager success", () => {
     expect(getCookie("access_token")).toBe(MANAGER_JWT);
   });
 
+  // Regression: the access_token cookie must exist BEFORE getMe runs, because
+  // the apiClient request interceptor authorizes /me from that cookie. If it
+  // is written only after getMe, a first-time login sends /me with no bearer
+  // token → 401 → bounce back to /login.
+  it("persists the access_token cookie before calling getMe", async () => {
+    let cookieAtGetMe: string | null = null;
+    mockGetMe.mockImplementation(async () => {
+      cookieAtGetMe = getCookie("access_token");
+      return meFromClaims(MANAGER_CLAIMS);
+    });
+
+    await useAuthStore.getState().login("alice", "s3cr3t");
+
+    expect(cookieAtGetMe).toBe(MANAGER_JWT);
+  });
+
   it("writes the refresh_token cookie from the token response", async () => {
     await useAuthStore.getState().login("alice", "s3cr3t");
 
@@ -214,12 +230,42 @@ describe("useAuthStore.login — SuperAdmin success", () => {
     expect(getCookie("tenant_id")).toBeNull();
   });
 
+  it("sets restaurantName to the Platform sentinel", async () => {
+    await useAuthStore.getState().login("admin", "pass");
+
+    expect(useAuthStore.getState().restaurantName).toBe("Platform");
+  });
+
   it("returns /admin/dashboard regardless of from", async () => {
     const { destination } = await useAuthStore
       .getState()
       .login("admin", "pass", "/orders");
 
     expect(destination).toBe("/admin/dashboard");
+  });
+});
+
+// ─── Open-redirect guards via getDestination ──────────────────────────────────
+
+describe("useAuthStore.login — destination open-redirect guards", () => {
+  beforeEach(() => {
+    mockLogin.mockResolvedValue(makeTokens(MANAGER_JWT));
+    mockGetMe.mockResolvedValue(meFromClaims(MANAGER_CLAIMS));
+  });
+
+  it.each([
+    "//evil.com/steal",
+    "https://evil.com",
+    "http://evil.com",
+    "/\\evil.com",
+    "/\\\\evil.com",
+    "",
+  ])("falls back to the role default for unsafe `from` value: %p", async (from) => {
+    const { destination } = await useAuthStore
+      .getState()
+      .login("alice", "s3cr3t", from);
+
+    expect(destination).toBe("/dashboard");
   });
 });
 
@@ -268,5 +314,59 @@ describe("useAuthStore.login — failure", () => {
     expect(role).toBeNull();
     expect(tenantId).toBeNull();
     expect(accessToken).toBeNull();
+  });
+});
+
+// ─── Re-login from an authenticated session ───────────────────────────────────
+
+describe("useAuthStore.login — re-login from authenticated session", () => {
+  function seedAuthenticated(): void {
+    useAuthStore.setState({
+      userId: "existing-user",
+      role: "Manager",
+      tenantId: "tenant-existing",
+      restaurantName: "Existing Restaurant",
+      accessToken: "existing-token",
+    });
+  }
+
+  it("preserves prior session when apiLogin throws", async () => {
+    seedAuthenticated();
+    mockLogin.mockRejectedValue(new Error("Network error"));
+
+    await useAuthStore.getState().login("alice", "wrong").catch(() => {});
+
+    const state = useAuthStore.getState();
+    expect(state.userId).toBe("existing-user");
+    expect(state.role).toBe("Manager");
+    expect(state.tenantId).toBe("tenant-existing");
+    expect(state.restaurantName).toBe("Existing Restaurant");
+    expect(state.accessToken).toBe("existing-token");
+  });
+
+  it("preserves prior session when getMe throws", async () => {
+    seedAuthenticated();
+    mockLogin.mockResolvedValue(makeTokens(MANAGER_JWT));
+    mockGetMe.mockRejectedValue(new Error("Unauthorized"));
+
+    await useAuthStore.getState().login("alice", "s3cr3t").catch(() => {});
+
+    const state = useAuthStore.getState();
+    expect(state.userId).toBe("existing-user");
+    expect(state.role).toBe("Manager");
+    expect(state.accessToken).toBe("existing-token");
+  });
+
+  it("replaces prior session on successful re-login", async () => {
+    seedAuthenticated();
+    mockLogin.mockResolvedValue(makeTokens(MANAGER_JWT));
+    mockGetMe.mockResolvedValue(meFromClaims(MANAGER_CLAIMS));
+
+    await useAuthStore.getState().login("alice", "s3cr3t");
+
+    const state = useAuthStore.getState();
+    expect(state.userId).toBe("user-abc");
+    expect(state.tenantId).toBe("tenant-xyz");
+    expect(state.accessToken).toBe(MANAGER_JWT);
   });
 });
