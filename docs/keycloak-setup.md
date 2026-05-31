@@ -48,6 +48,46 @@ The `dineos-frontend` client includes two access-token mappers:
 - audience mapper for `dineos-api`
 - user attribute mapper for `tenant_id`
 
+## Demo role must be composite over `Manager`
+
+Demo users (#216) are granted the realm role `Demo`, which `realm-export.json`
+declares as **composite over `Manager`**. Keycloak expands composite roles into
+the access token, so a correctly-imported realm issues demo tokens carrying both
+`Demo` and `Manager` in `realm_access.roles`. The backend's `ManagerAndAbove` /
+`CashierAndAbove` policies (`Program.cs`) require `Manager`, and the frontend
+maps `Demo → Manager` for its UI (`lib/auth/keycloak.ts`). All three only line
+up when the composite is present.
+
+**Stale-realm gotcha.** Keycloak runs `start-dev --import-realm`, which imports
+the realm **only if it does not already exist**. A dev volume created before the
+`Demo → Manager` composite was added keeps a `Demo` role with no associated
+roles. Demo logins then carry only `Demo`, so every protected endpoint returns
+`403` ("you don't have permission") even though the Manager UI renders. Diagnose
+with:
+
+```bash
+# 0 composites on a stale realm; should list "Manager" when healthy
+TOKEN=$(curl -s -X POST http://localhost:8080/realms/dineos/protocol/openid-connect/token \
+  -d grant_type=client_credentials -d client_id=dineos-admin \
+  -d client_secret=dev-admin-secret-change-me | jq -r .access_token)
+curl -s http://localhost:8080/admin/realms/dineos/roles/Demo/composites \
+  -H "Authorization: Bearer $TOKEN" | jq '.[].name'
+```
+
+Fix a running stack without losing data:
+
+```bash
+./backend/scripts/heal-demo-composite-role.sh   # idempotent
+```
+
+…or do a destructive re-import (throwaway environments only):
+
+```bash
+docker compose down -v && docker compose up --build
+```
+
+After either, existing demo sessions must log in again to get a fresh token.
+
 ## Test a protected endpoint
 
 ```bash
@@ -115,3 +155,58 @@ The local realm allows these redirect URIs for the public client:
 - `https://localhost:7202/swagger/oauth2-redirect.html`
 
 For deployed environments, configure the backend with a confidential client and set `Keycloak__ClientSecret` through the deployment secret store.
+
+## Mandatory rotation: `test1@gmail.com`
+
+During the 2026-05-22 "Account is not fully set up" diagnosis, the dev
+Keycloak instance running in Docker was manually adjusted: the
+`test1@gmail.com` user had its password reset via the Admin REST API to a
+known value, and its `requiredActions` list was cleared, so the account
+could log in for debugging. That password was disclosed in the debugging
+transcript and **must be rotated on every machine that pulled this
+branch**. The rotation is not optional — it is a precondition of the
+branch being safe to share.
+
+Run the committed rotation script once against your local Docker
+Keycloak:
+
+```bash
+backend/scripts/rotate-test1-dev-credential.sh
+```
+
+The script (idempotent) authenticates as the admin, disables the
+account, and resets the password to a fresh random value with
+`UPDATE_PASSWORD` enforced — so even if you re-enable the account, the
+old credential is rejected and the first interactive login is forced
+through a password change. Override `KC_BASE` / `TARGET_EMAIL` to point
+at a remote dev realm or a different account.
+
+### Underlying defect (fixed)
+
+`OwnerProvisioningJob` previously produced an empty `lastName` for
+single-word owner names. Keycloak's declarative user-profile
+(`unmanagedAttributePolicy: ENABLED`) rejects direct-grant logins for
+profiles with any declared attribute empty, surfacing as the same
+`"Account is not fully set up"` error string that pending
+`requiredActions` produce.
+
+The fix lives in
+`backend/src/DineOS.Infrastructure/Auth/KeycloakProfileDefaults.cs`:
+a shared, testable helper splits any free-form display name into the
+`(firstName, lastName)` pair Keycloak expects, always emitting non-empty
+values. Both `OwnerProvisioningJob` and `DemoProvisioningJob` route
+through this helper / its constants so the same class of bug cannot
+re-appear in a sibling provisioning path. Single-word names now produce
+`(token, "—")` rather than mirroring the token into the lastName — the
+em dash sentinel is honest about "lastName was not provided" instead of
+storing fabricated surname data.
+
+Regression coverage:
+
+- `tests/DineOS.Tests/Unit/KeycloakProfileDefaultsTests.cs` (whitespace
+  edge cases — null, empty, tabs, double-space, three-plus tokens).
+- `tests/DineOS.Tests/Unit/OwnerProvisioningJobTests.cs` (`[Theory]`
+  `RunAsync_AlwaysSendsNonEmptyLastNameToKeycloak`).
+- `tests/DineOS.Tests/Integration/LiveKeycloak/LiveOwnerProvisioningTests.cs`
+  drives the full provision → first-login → standard-login flow against
+  a real Keycloak Testcontainer (`live.runsettings`).
