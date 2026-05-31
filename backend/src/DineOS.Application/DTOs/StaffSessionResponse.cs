@@ -10,4 +10,6 @@ public sealed record StaffSessionResponse(
     int ExpiresIn,
     long StaffMemberId,
     string FullName,
-    string Role);
+    string Role,
+    string RefreshToken,
+    int RefreshExpiresIn);

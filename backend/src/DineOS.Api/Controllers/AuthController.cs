@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using DineOS.Application.Authorization;
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
 
 namespace DineOS.Api.Controllers;
 
@@ -104,6 +106,48 @@ public class AuthController(
         return Ok(ApiResponse<StaffSessionResponse>.Ok(
             result.Value!,
             "Staff session started."));
+    }
+
+    /// <summary>
+    /// Exchanges a staff refresh token for a fresh access token without
+    /// re-entering the PIN. Anonymous — authenticated by the refresh token in
+    /// the body.
+    /// </summary>
+    [HttpPost("auth/staff-session/refresh")]
+    [AllowAnonymous]
+    [EnableRateLimiting("public")]
+    [ProducesResponseType(typeof(ApiResponse<StaffSessionResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> RefreshStaffSession(
+        [FromBody] RefreshStaffSessionRequest request,
+        CancellationToken ct)
+    {
+        var result = await staffSessionService.RefreshAsync(request.RefreshToken, ct);
+        if (!result.IsSuccess)
+            return ToFailureResponse(result.Error, result.Errors);
+
+        return Ok(ApiResponse<StaffSessionResponse>.Ok(result.Value!, "Staff session refreshed."));
+    }
+
+    /// <summary>
+    /// Ends the current staff session: revokes the presented access token and
+    /// the supplied refresh token. Idempotent — always 204.
+    /// </summary>
+    [HttpPost("auth/staff-session/end")]
+    [Authorize(AuthenticationSchemes = AuthSchemes.StaffSession)]
+    [EnableRateLimiting("authenticated")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> EndStaffSession(
+        [FromBody] EndStaffSessionRequest request,
+        CancellationToken ct)
+    {
+        var accessJti = User.FindFirstValue("jti");
+        long? accessExp = long.TryParse(User.FindFirstValue("exp"), out var exp) ? exp : null;
+
+        await staffSessionService.EndAsync(accessJti, accessExp, request.RefreshToken, ct);
+        return NoContent();
     }
 
     /// <summary>Blacklists the provided refresh token, effectively invalidating the session. Idempotent — returns 204 even if the token is already blacklisted or jti is missing.</summary>

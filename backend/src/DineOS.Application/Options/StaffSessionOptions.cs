@@ -26,8 +26,16 @@ public sealed class StaffSessionOptions
     public string Audience { get; set; } = "dineos-api";
 
     /// <summary>
-    /// Staff-session lifetime in minutes. Defaults to a 12-hour shift; the
-    /// session ends (or is switched) when the staff member signs out.
+    /// Access-token lifetime in minutes. Kept short because a refresh token
+    /// (below) extends the shift seamlessly; a short access token bounds the
+    /// blast radius of a leaked/stale token between refreshes.
     /// </summary>
-    public int TokenLifetimeMinutes { get; set; } = 720;
+    public int TokenLifetimeMinutes { get; set; } = 60;
+
+    /// <summary>
+    /// Refresh-token lifetime in minutes — the real shift length. The frontend
+    /// silently exchanges it for new access tokens via
+    /// <c>POST /auth/staff-session/refresh</c>; ending a shift revokes it.
+    /// </summary>
+    public int RefreshTokenLifetimeMinutes { get; set; } = 720;
 }

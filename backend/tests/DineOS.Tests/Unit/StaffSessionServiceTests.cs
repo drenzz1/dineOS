@@ -18,7 +18,8 @@ public class StaffSessionServiceTests
 {
     private const string Pin = "1234";
 
-    private static (StaffSessionService svc, AppDbContext db) CreateSut(long? tenantId = 1L)
+    private static (StaffSessionService svc, AppDbContext db, ITokenBlacklistService blacklist) CreateSut(
+        long? tenantId = 1L)
     {
         var tenantSvc = Substitute.For<ITenantService>();
         tenantSvc.TenantId.Returns(tenantId);
@@ -29,23 +30,28 @@ public class StaffSessionServiceTests
                 .Options,
             tenantSvc);
 
+        var blacklist = Substitute.For<ITokenBlacklistService>();
+        blacklist.IsBlacklistedAsync(Arg.Any<string>()).Returns(false);
+
         var options = Options.Create(new StaffSessionOptions
         {
             SigningKey = "test-staff-session-signing-key-0123456789abcdef",
             Issuer = "dineos-staff-session",
             Audience = "dineos-api",
             TokenLifetimeMinutes = 60,
+            RefreshTokenLifetimeMinutes = 720,
         });
 
         var svc = new StaffSessionService(
             db,
             tenantSvc,
             new PinHasher(),
+            blacklist,
             new StartStaffSessionRequestValidator(),
             options,
             NullLogger<StaffSessionService>.Instance);
 
-        return (svc, db);
+        return (svc, db, blacklist);
     }
 
     private static StaffMember SeedStaff(AppDbContext db, long tenantId = 1, bool active = true, string role = Roles.Manager)
@@ -75,7 +81,7 @@ public class StaffSessionServiceTests
     [Fact]
     public async Task StartAsync_ValidPin_ReturnsRoleScopedToken()
     {
-        var (svc, db) = CreateSut();
+        var (svc, db, _) = CreateSut();
         var staff = SeedStaff(db, role: Roles.Cashier);
 
         var result = await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = Pin });
@@ -91,7 +97,7 @@ public class StaffSessionServiceTests
     [Fact]
     public async Task StartAsync_TokenCarriesTenantAndRoleClaims()
     {
-        var (svc, db) = CreateSut(tenantId: 7L);
+        var (svc, db, _) = CreateSut(tenantId: 7L);
         var staff = SeedStaff(db, tenantId: 7, role: Roles.KitchenStaff);
 
         var result = await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = Pin });
@@ -105,7 +111,7 @@ public class StaffSessionServiceTests
     [Fact]
     public async Task StartAsync_WrongPin_Fails()
     {
-        var (svc, db) = CreateSut();
+        var (svc, db, _) = CreateSut();
         var staff = SeedStaff(db);
 
         var result = await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = "9999" });
@@ -117,7 +123,7 @@ public class StaffSessionServiceTests
     [Fact]
     public async Task StartAsync_InactiveStaff_Fails()
     {
-        var (svc, db) = CreateSut();
+        var (svc, db, _) = CreateSut();
         var staff = SeedStaff(db, active: false);
 
         var result = await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = Pin });
@@ -129,7 +135,7 @@ public class StaffSessionServiceTests
     [Fact]
     public async Task StartAsync_NoTenantContext_Fails()
     {
-        var (svc, _) = CreateSut(tenantId: null);
+        var (svc, _, _) = CreateSut(tenantId: null);
 
         var result = await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = 1, Pin = Pin });
 
@@ -142,7 +148,7 @@ public class StaffSessionServiceTests
     {
         // The demo seeder stores a placeholder "demo-pin-hash" that is not a
         // valid BCrypt hash; verification must return a clean failure, not throw.
-        var (svc, db) = CreateSut();
+        var (svc, db, _) = CreateSut();
         var staff = new StaffMember
         {
             FullName = "Seeded Demo",
@@ -164,12 +170,114 @@ public class StaffSessionServiceTests
     [Fact]
     public async Task StartAsync_UnknownStaffId_Fails()
     {
-        var (svc, db) = CreateSut();
+        var (svc, db, _) = CreateSut();
         SeedStaff(db);
 
         var result = await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = 999, Pin = Pin });
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Invalid staff member or PIN.", result.Error);
+    }
+
+    [Fact]
+    public async Task StartAsync_IssuesAccessAndRefreshTokens()
+    {
+        var (svc, db, _) = CreateSut();
+        var staff = SeedStaff(db);
+
+        var result = await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = Pin });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, result.Value!.RefreshToken.Split('.').Length);
+        Assert.NotEqual(result.Value.AccessToken, result.Value.RefreshToken);
+        Assert.Equal("staff_refresh", DecodePayload(result.Value.RefreshToken)["token_use"].GetString());
+        Assert.Equal("staff_session", DecodePayload(result.Value.AccessToken)["token_use"].GetString());
+        Assert.True(result.Value.RefreshExpiresIn > result.Value.ExpiresIn);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ValidToken_IssuesFreshAccessToken()
+    {
+        var (svc, db, _) = CreateSut();
+        var staff = SeedStaff(db, role: Roles.Manager);
+        var session = (await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = Pin })).Value!;
+
+        var refreshed = await svc.RefreshAsync(session.RefreshToken);
+
+        Assert.True(refreshed.IsSuccess);
+        Assert.Equal(Roles.Manager, refreshed.Value!.Role);
+        Assert.Equal("staff_session", DecodePayload(refreshed.Value.AccessToken)["token_use"].GetString());
+        // The refresh token is echoed unchanged (non-rotating).
+        Assert.Equal(session.RefreshToken, refreshed.Value.RefreshToken);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_AccessTokenAsRefresh_Fails()
+    {
+        var (svc, db, _) = CreateSut();
+        var staff = SeedStaff(db);
+        var session = (await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = Pin })).Value!;
+
+        // Presenting the access token (token_use=staff_session) to refresh must fail.
+        var refreshed = await svc.RefreshAsync(session.AccessToken);
+
+        Assert.False(refreshed.IsSuccess);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_RevokedToken_Fails()
+    {
+        var (svc, db, blacklist) = CreateSut();
+        var staff = SeedStaff(db);
+        var session = (await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = Pin })).Value!;
+        blacklist.IsBlacklistedAsync(Arg.Any<string>()).Returns(true);
+
+        var refreshed = await svc.RefreshAsync(session.RefreshToken);
+
+        Assert.False(refreshed.IsSuccess);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_InactiveStaff_Fails()
+    {
+        var (svc, db, _) = CreateSut();
+        var staff = SeedStaff(db);
+        var session = (await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = Pin })).Value!;
+
+        staff.IsActive = false;
+        db.SaveChanges();
+
+        var refreshed = await svc.RefreshAsync(session.RefreshToken);
+
+        Assert.False(refreshed.IsSuccess);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_GarbageToken_Fails()
+    {
+        var (svc, _, _) = CreateSut();
+
+        var refreshed = await svc.RefreshAsync("not.a.jwt");
+
+        Assert.False(refreshed.IsSuccess);
+    }
+
+    [Fact]
+    public async Task EndAsync_BlacklistsBothTokenIds()
+    {
+        var (svc, db, blacklist) = CreateSut();
+        var staff = SeedStaff(db);
+        var session = (await svc.StartAsync(new StartStaffSessionRequest { StaffMemberId = staff.Id, Pin = Pin })).Value!;
+
+        var accessJti = DecodePayload(session.AccessToken)["jti"].GetString();
+        var refreshJti = DecodePayload(session.RefreshToken)["jti"].GetString();
+        var accessExp = DecodePayload(session.AccessToken)["exp"].GetInt64();
+
+        await svc.EndAsync(accessJti, accessExp, session.RefreshToken);
+
+        await blacklist.Received(1).BlacklistAsync(
+            $"{StaffSessionService.BlacklistKeyPrefix}{accessJti}", Arg.Any<TimeSpan>());
+        await blacklist.Received(1).BlacklistAsync(
+            $"{StaffSessionService.BlacklistKeyPrefix}{refreshJti}", Arg.Any<TimeSpan>());
     }
 }

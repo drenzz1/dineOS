@@ -8,6 +8,7 @@ using DineOS.Application.Authentication;
 using DineOS.Application.Authorization;
 using DineOS.Application.Common;
 using DineOS.Application.Interfaces.Services;
+using DineOS.Infrastructure.Services;
 using DineOS.Application.Options;
 using DineOS.Infrastructure;
 using Hangfire;
@@ -17,6 +18,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Serilog;
@@ -141,6 +143,24 @@ try
                         : staffSession.SigningKey.PadRight(32, '0'))),
                 NameClaimType = "name",
                 RoleClaimType = "role",
+            };
+
+            // Server-side revocation: reject a staff token whose jti has been
+            // blacklisted (ended shift). The signature/exp are already valid
+            // here; this is the only thing that can revoke before expiry.
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = async context =>
+                {
+                    var jti = context.Principal?.FindFirst("jti")?.Value;
+                    if (string.IsNullOrEmpty(jti))
+                        return;
+
+                    var blacklist = context.HttpContext.RequestServices
+                        .GetRequiredService<ITokenBlacklistService>();
+                    if (await blacklist.IsBlacklistedAsync(StaffSessionService.BlacklistKeyPrefix + jti))
+                        context.Fail("Staff session has been revoked.");
+                }
             };
         });
     builder.Services.AddTransient<IClaimsTransformation, KeycloakRolesTransformation>();
