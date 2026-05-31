@@ -1,4 +1,5 @@
 using DineOS.Application.Interfaces.Services;
+using DineOS.Infrastructure.Auth;
 using DineOS.Infrastructure.Persistence;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
@@ -10,10 +11,11 @@ namespace DineOS.Infrastructure.Jobs;
 /// Provisions the tenant owner's Keycloak account after a Stripe checkout
 /// completes (#205): creates the user with a temporary password gated by
 /// the <c>UPDATE_PASSWORD</c> required action, persists
-/// <c>KeycloakUserId</c>, assigns the <c>Manager</c> realm role, then
-/// enqueues the welcome email. Owners are stamped as <c>Manager</c>
-/// directly so the JWT's <c>realm_access.roles</c> claim aligns with
-/// backend <c>[Authorize(Roles="Manager")]</c> checks and the FE role enum.
+/// <c>KeycloakUserId</c>, assigns the account-level <c>Owner</c> realm role,
+/// then enqueues the welcome email. <c>Owner</c> is a composite over
+/// <c>Manager</c> in Keycloak, so the JWT still carries <c>Manager</c> for the
+/// operational <c>[Authorize]</c> policies and the FE role enum, while
+/// <c>Owner</c> gates account-level capabilities (staff, billing).
 /// </summary>
 /// <remarks>
 /// Lives in Hangfire (not inline in the webhook) because the webhook
@@ -28,11 +30,16 @@ public sealed class OwnerProvisioningJob(
     IBackgroundJobClient backgroundJobs,
     ILogger<OwnerProvisioningJob> logger)
 {
-    // Tenant owners are functionally Managers of their own restaurant.
-    // Assigning the Manager realm role directly keeps the JWT's
-    // realm_access.roles aligned with backend [Authorize(Roles="Manager")]
-    // checks and the frontend role enum — no role aliasing required.
-    private const string OwnerRoleName = "Manager";
+    // The business account gets the account-level Owner role (#staff-pin-auth
+    // Phase 2): it can manage staff + billing, while operational work is done
+    // per-shift via PIN-issued staff sessions. Owner is a composite over
+    // Manager in Keycloak, so the token still carries Manager — operational
+    // policies (ManagerAndAbove/CashierAndAbove) keep passing during the
+    // transition and the FE's getPrimaryRole still resolves to Manager. This is
+    // what makes assigning Owner safe now: the historical "Owner broke FE role
+    // gating" bug was the empty role claim, not the role name itself. The final
+    // tightening (drop the Owner->Manager composite) lands with the PIN UI.
+    private const string OwnerRoleName = "Owner";
 
     // Emailed password must be rotated on first login. UPDATE_PASSWORD is
     // attached as a Keycloak required action so the credential cannot be
@@ -68,7 +75,11 @@ public sealed class OwnerProvisioningJob(
             return;
         }
 
-        var (firstName, lastName) = SplitOwnerName(tenant.OwnerName);
+        // Delegated to the shared helper so this job and DemoProvisioningJob
+        // share one source of truth for "Keycloak requires non-empty
+        // firstName/lastName". See KeycloakProfileDefaults for the constraint
+        // rationale and the sentinel-vs-mirror decision.
+        var (firstName, lastName) = KeycloakProfileDefaults.SplitDisplayName(tenant.OwnerName);
 
         // The emailed password is created as TEMPORARY with the
         // UPDATE_PASSWORD required action. The owner cannot use it as a
@@ -95,17 +106,5 @@ public sealed class OwnerProvisioningJob(
         logger.LogInformation(
             "Owner provisioned: TenantId={TenantId} KeycloakUserId={KeycloakUserId} Email={OwnerEmail}",
             tenant.Id, userId, tenant.OwnerEmail);
-    }
-
-    private static (string First, string Last) SplitOwnerName(string ownerName)
-    {
-        if (string.IsNullOrWhiteSpace(ownerName))
-            return ("Owner", "");
-
-        var trimmed = ownerName.Trim();
-        var spaceIndex = trimmed.IndexOf(' ');
-        return spaceIndex < 0
-            ? (trimmed, "")
-            : (trimmed[..spaceIndex], trimmed[(spaceIndex + 1)..].Trim());
     }
 }

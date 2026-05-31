@@ -33,15 +33,22 @@
       },
       {
         "name": "Owner",
-        "composite": false,
+        "description": "Account-level role for the business Keycloak account (#staff-pin-auth Phase 2): staff management + billing. Composite over Manager during the transition so owner tokens keep operational access (and the FE resolves to Manager); the final tightening drops the composite once the PIN UI ships.",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "Manager"
+          ]
+        },
         "clientRole": false
       },
       {
         "name": "Demo",
-        "description": "Composite role for shared demo tenant access (#216). Includes Manager + KitchenStaff so demo users can exercise the full app incl. the kitchen board.",
+        "description": "Composite role for shared demo tenant access (#216). Includes Owner + Manager + KitchenStaff so demo users get the full owner experience incl. staff management and the kitchen board.",
         "composite": true,
         "composites": {
           "realm": [
+            "Owner",
             "Manager",
             "KitchenStaff"
           ]

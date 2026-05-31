@@ -15,8 +15,10 @@ namespace DineOS.Api.Controllers;
 /// (not in-restaurant payments). Backed by Stripe Billing.
 /// </summary>
 /// <remarks>
-/// Three caller-facing endpoints require an authenticated Manager+ user;
-/// <c>POST /webhook</c> is anonymous and authenticated via Stripe signature.
+/// Three caller-facing endpoints require the business Owner account
+/// (#staff-pin-auth Phase 2 — billing is an account-level, not operational,
+/// concern); <c>POST /webhook</c> is anonymous and authenticated via Stripe
+/// signature.
 /// </remarks>
 [ApiController]
 [ApiVersion("1.0")]
@@ -26,7 +28,7 @@ public class BillingController(IBillingService billingService) : ControllerBase
 {
     /// <summary>Returns the current tenant's subscription state.</summary>
     [HttpGet("subscription")]
-    [Authorize(Policy = Policies.ManagerAndAbove)]
+    [Authorize(Policy = Policies.OwnerOnly)]
     [EnableRateLimiting("authenticated")]
     [ProducesResponseType(typeof(ApiResponse<BillingSubscriptionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -36,7 +38,7 @@ public class BillingController(IBillingService billingService) : ControllerBase
 
     /// <summary>Creates a Stripe Checkout session for the requested cycle and returns a URL the client should redirect to.</summary>
     [HttpPost("checkout-session")]
-    [Authorize(Policy = Policies.ManagerAndAbove)]
+    [Authorize(Policy = Policies.OwnerOnly)]
     [EnableRateLimiting("authenticated")]
     [ProducesResponseType(typeof(ApiResponse<StripeRedirectDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
@@ -49,7 +51,7 @@ public class BillingController(IBillingService billingService) : ControllerBase
 
     /// <summary>Creates a Stripe Customer Portal session so the tenant can swap card, cancel, or view invoices.</summary>
     [HttpPost("portal-session")]
-    [Authorize(Policy = Policies.ManagerAndAbove)]
+    [Authorize(Policy = Policies.OwnerOnly)]
     [EnableRateLimiting("authenticated")]
     [ProducesResponseType(typeof(ApiResponse<StripeRedirectDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status422UnprocessableEntity)]
@@ -60,7 +62,7 @@ public class BillingController(IBillingService billingService) : ControllerBase
 
     /// <summary>Returns the current tenant's invoice history, newest first.</summary>
     [HttpGet("invoices")]
-    [Authorize(Policy = Policies.ManagerAndAbove)]
+    [Authorize(Policy = Policies.OwnerOnly)]
     [EnableRateLimiting("authenticated")]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<TenantInvoiceDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

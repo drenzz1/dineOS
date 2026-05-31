@@ -1,8 +1,8 @@
 # Staff-session PIN authentication
 
-> Status: **Phase 1 implemented** (backend staff-session issuance + verification).
-> Phases 2–4 (role-model split, frontend roster, cleanup) are planned — see the
-> bottom of this doc.
+> Status: **Phases 1–2 implemented** (backend staff-session issuance +
+> verification; account-vs-operational role split). Phases 3–4 (frontend roster,
+> cleanup) are planned — see the bottom of this doc.
 
 ## Problem
 
@@ -86,6 +86,46 @@ lets an attacker mint any staff role — treat it like a signing secret.
 - `Api/Program.cs`, `Api/Controllers/AuthController.cs`
 - Tests: `tests/DineOS.Tests/Unit/StaffSessionServiceTests.cs`
 
+## Phase 2 — what exists today (account vs operational split)
+
+The business Keycloak account is now the account-level **`Owner`** role, distinct
+from the operational roles a staff member acquires per-shift via a PIN.
+
+- **New `Owner` realm role + `OwnerOnly` policy** (`RequireRole(SuperAdmin, Owner)`).
+- **Account-level endpoints moved to `OwnerOnly`:** `StaffController` (staff +
+  PIN management) and `BillingController`. Operational endpoints
+  (orders/payments/menu/shifts/reports/kitchen) keep their `*AndAbove` /
+  `KitchenStaffOnly` policies.
+- **`OwnerProvisioningJob` now assigns `Owner`** (was `Manager`).
+- **`Owner` is a composite over `Manager`** in `realm-export.json`. This is the
+  safety mechanism: an owner token still carries `Manager`, so operational
+  policies keep passing during the transition and the FE's `getPrimaryRole`
+  still resolves to `Manager` — avoiding the historical "Owner broke FE role
+  gating" bug. **`Demo`** is now composite over `Owner` + `Manager` +
+  `KitchenStaff` so demo users get the full owner experience.
+- A staff-session token carries only its one operational role, so a PIN-selected
+  Manager can run the restaurant but **cannot** manage staff or billing
+  (verified: Manager staff token → `/menu` 200, `/orders` 200, `/staff` 403,
+  `/billing` 403).
+
+**Running-realm reconciliation:** Keycloak only imports a realm if absent, so
+apply the composite graph to an existing dev stack with
+`./backend/scripts/heal-composite-roles.sh` (idempotent). Existing **owner**
+users provisioned before Phase 2 hold `Manager` directly — grant them `Owner`
+(or re-provision) to restore staff/billing access.
+
+**The final tightening (deferred to after Phase 3):** drop the `Owner → Manager`
+composite so an owner token no longer carries operational access — at that point
+*everyone*, including the owner, must start a PIN staff session to run
+operations. Safe to do only once the frontend roster/PIN screen exists.
+
+### Frontend follow-up implied by Phase 2
+The FE middleware still maps owner/demo tokens to `Manager` and lets `Manager`
+visit every route — including the staff/billing pages, which now 403 for a
+non-owner *staff* token. Phase 3 must hide account screens from operational
+staff sessions (and surface `Owner` capability explicitly) rather than relying
+on the backend 403.
+
 ## Known limitations / hardening follow-ups
 - **PIN brute-force** is bounded only by the IP+tenant rate limiter. Add a
   per-staff failed-attempt lockout (e.g. disable after N misses in a window).
@@ -98,12 +138,6 @@ lets an attacker mint any staff role — treat it like a signing secret.
 
 ## Planned phases
 
-- **Phase 2 — role-model split.** Repurpose the unused `Owner` realm role for
-  account-level capabilities (staff management, billing, settings) and change
-  `OwnerProvisioningJob` from `Manager` → `Owner`. Reclassify each controller's
-  `[Authorize]` into account-level (`Owner`) vs operational (staff-session role).
-  Migrate existing owners and adjust the demo flow (which currently maps `Demo`
-  → `Manager` + `KitchenStaff`).
 - **Phase 3 — frontend roster + PIN.** Post-login "Who's working?" screen
   (roster from `GET /staff`, never PINs) → tap → 4-digit PIN → store the
   staff-session token, set the role cookie from the staff role. "Switch user"

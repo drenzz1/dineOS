@@ -159,6 +159,10 @@ try
             .Build();
 
         options.AddPolicy(Policies.SuperAdminOnly,   p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin));
+        // Account-level (#staff-pin-auth Phase 2): only the business Owner
+        // account (or SuperAdmin) manages staff + billing. Operational
+        // staff-session roles deliberately do NOT satisfy this.
+        options.AddPolicy(Policies.OwnerOnly,        p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Owner));
         options.AddPolicy(Policies.ManagerAndAbove,  p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Manager));
         options.AddPolicy(Policies.CashierAndAbove,  p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Manager, Roles.Cashier));
         options.AddPolicy(Policies.KitchenStaffOnly, p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.KitchenStaff));

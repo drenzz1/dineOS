@@ -48,40 +48,40 @@ The `dineos-frontend` client includes two access-token mappers:
 - audience mapper for `dineos-api`
 - user attribute mapper for `tenant_id`
 
-## Demo role must be composite over `Manager`
+## Composite realm roles (`Owner`, `Demo`)
 
-Demo users (#216) are granted the realm role `Demo`, which `realm-export.json`
-declares as **composite over `Manager` and `KitchenStaff`**. Keycloak expands
-composite roles into the access token, so a correctly-imported realm issues demo
-tokens carrying `Demo`, `Manager`, and `KitchenStaff` in `realm_access.roles`.
-The backend's `ManagerAndAbove` / `CashierAndAbove` policies (`Program.cs`)
-require `Manager`; the kitchen board uses `KitchenStaffOnly` =
-`RequireRole(KitchenStaff)`, which `Manager` alone does **not** satisfy — hence
-both children. The frontend maps `Demo → Manager` for its UI
-(`lib/auth/keycloak.ts`) and `Manager` may visit every tenant route
-(`middleware.ts`), so the demo user can reach `/kitchen`. All of this only lines
-up when both composites are present.
+`realm-export.json` declares two composite realm roles. Keycloak expands
+composites into the access token, so a correctly-imported realm issues tokens
+carrying the parent **and** its children in `realm_access.roles`:
+
+| Role | Composite over | Why |
+|------|----------------|-----|
+| `Owner` | `Manager` | The business account (#staff-pin-auth Phase 2) is the account-level `Owner` — it gates staff management + billing (`OwnerOnly` policy). The `Manager` child keeps operational access working (and the FE's `getPrimaryRole` resolving to `Manager`) until the PIN roster UI ships; the final tightening drops this composite. |
+| `Demo` | `Owner`, `Manager`, `KitchenStaff` | Demo users (#216) get the full owner experience: account screens (`Owner`), all tenant routes (`Manager`), and the kitchen board (`KitchenStaffOnly` = `RequireRole(KitchenStaff)`, which `Manager` alone does not satisfy). |
+
+The frontend maps `Demo → Manager` / `Owner → Manager` for its UI and middleware
+gating, so these tokens render the Manager experience. All of this only lines up
+when the composites are present.
 
 **Stale-realm gotcha.** Keycloak runs `start-dev --import-realm`, which imports
-the realm **only if it does not already exist**. A dev volume created before the
-`Demo → Manager` composite was added keeps a `Demo` role with no associated
-roles. Demo logins then carry only `Demo`, so every protected endpoint returns
-`403` ("you don't have permission") even though the Manager UI renders. Diagnose
-with:
+the realm **only if it does not already exist**. A dev volume created before a
+composite was added keeps a role with no associated roles, so tokens are missing
+the expected roles and protected endpoints return `403` ("you don't have
+permission") even though the UI renders. Diagnose with:
 
 ```bash
-# 0 composites on a stale realm; should list "Manager" when healthy
 TOKEN=$(curl -s -X POST http://localhost:8080/realms/dineos/protocol/openid-connect/token \
   -d grant_type=client_credentials -d client_id=dineos-admin \
   -d client_secret=dev-admin-secret-change-me | jq -r .access_token)
-curl -s http://localhost:8080/admin/realms/dineos/roles/Demo/composites \
-  -H "Authorization: Bearer $TOKEN" | jq '.[].name'
+for r in Owner Demo; do echo "$r ->"; \
+  curl -s http://localhost:8080/admin/realms/dineos/roles/$r/composites \
+    -H "Authorization: Bearer $TOKEN" | jq -r '.[].name'; done
 ```
 
 Fix a running stack without losing data:
 
 ```bash
-./backend/scripts/heal-demo-composite-role.sh   # idempotent
+./backend/scripts/heal-composite-roles.sh   # idempotent; heals the full graph
 ```
 
 …or do a destructive re-import (throwaway environments only):
@@ -90,7 +90,10 @@ Fix a running stack without losing data:
 docker compose down -v && docker compose up --build
 ```
 
-After either, existing demo sessions must log in again to get a fresh token.
+After either, existing sessions must log in again to get a fresh token. Note:
+existing **owner** users provisioned before Phase 2 carry `Manager` directly
+(not `Owner`); grant them `Owner` (or re-provision) to restore staff/billing
+access.
 
 ## Test a protected endpoint
 
