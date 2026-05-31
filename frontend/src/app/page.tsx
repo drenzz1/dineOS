@@ -84,6 +84,51 @@ const navLinks = [
   ["Docs", "#footer"],
 ] as const;
 
+// Product links point to on-page marketing anchors so a logged-out visitor lands on
+// the relevant section (the protected app routes would bounce them to /login). Every
+// other link resolves to a public destination: an anchor, a mailto, or an /info/* page.
+const footerSections = [
+  {
+    heading: "Product",
+    links: [
+      { label: "Order board", href: "#product" },
+      { label: "Kitchen display", href: "#kds" },
+      { label: "Manager dashboard", href: "#manager" },
+      { label: "Platform console", href: "#platform" },
+      { label: "Pricing", href: "#pricing" },
+    ],
+  },
+  {
+    heading: "Company",
+    links: [
+      { label: "About", href: "#story" },
+      { label: "Customers", href: "#customers" },
+      { label: "Careers", href: "/info/careers" },
+      { label: "Press", href: "/info/press" },
+      { label: "Contact", href: "mailto:hello@dineos.app" },
+    ],
+  },
+  {
+    heading: "Resources",
+    links: [
+      { label: "Design system", href: "/info/design-system" },
+      { label: "Docs", href: "/info/docs" },
+      { label: "Changelog", href: "/info/changelog" },
+      { label: "API", href: "/info/api" },
+      { label: "Status", href: "/info/status" },
+    ],
+  },
+  {
+    heading: "Legal",
+    links: [
+      { label: "Privacy", href: "/info/privacy" },
+      { label: "Terms", href: "/info/terms" },
+      { label: "Security", href: "/info/security" },
+      { label: "DPA", href: "/info/dpa" },
+    ],
+  },
+] as const;
+
 function Brand() {
   return (
     <Link href="/" className="flex items-center gap-2.5 text-fg">
@@ -101,6 +146,14 @@ function CheckIcon() {
       <path d="m5 12 5 5L20 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+}
+
+function FooterLink({ href, label }: { href: string; label: string }) {
+  const className = "text-[13px] text-fg-muted transition-colors hover:text-fg";
+  if (href.startsWith("/")) {
+    return <Link href={href} className={className}>{label}</Link>;
+  }
+  return <a href={href} className={className}>{label}</a>;
 }
 
 function SurfaceIcon({ index }: { index: number }) {
@@ -321,7 +374,7 @@ export default function Home() {
             <h2 className="text-[34px] font-semibold leading-tight tracking-[-0.03em] md:text-[40px]">Built for service speed, not software demos.</h2>
           </div>
 
-          <div className="grid gap-12 border-b border-dashed border-border py-14 lg:grid-cols-[1fr_1.1fr] lg:items-center">
+          <div id="kds" className="grid scroll-mt-20 gap-12 border-b border-dashed border-border py-14 lg:grid-cols-[1fr_1.1fr] lg:items-center">
             <div>
               <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">Kitchen display</div>
               <h3 className="text-[32px] font-semibold leading-tight tracking-[-0.02em]">Tickets you can read from the pass.</h3>
@@ -345,7 +398,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="grid gap-12 border-b border-dashed border-border py-14 lg:grid-cols-[1.1fr_1fr] lg:items-center">
+          <div id="manager" className="grid scroll-mt-20 gap-12 border-b border-dashed border-border py-14 lg:grid-cols-[1.1fr_1fr] lg:items-center">
             <div className="order-2 rounded-[14px] border border-border-strong bg-bg-elevated p-4 shadow-lg lg:order-1">
               <div className="grid gap-2 sm:grid-cols-3">
                 {["Orders today|312|+18%", "Revenue|$4,820|+12%", "Avg prep|11:42|-1:18"].map((kpi) => {
@@ -376,7 +429,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="grid gap-12 py-14 lg:grid-cols-[1fr_1.1fr] lg:items-center">
+          <div id="platform" className="grid scroll-mt-20 gap-12 py-14 lg:grid-cols-[1fr_1.1fr] lg:items-center">
             <div>
               <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">Multi-location</div>
               <h3 className="text-[32px] font-semibold leading-tight tracking-[-0.02em]">Grow from one room to a group, without switching tools.</h3>
@@ -429,7 +482,7 @@ export default function Home() {
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-ember-300 to-ember-700 text-[13px] font-bold text-white">AC</span>
           <div>
             <p className="text-[13px] font-semibold">Ava Chen</p>
-            <p className="text-[11.5px] text-fg-subtle">General Manager · Olio & Sale · Brooklyn</p>
+            <p className="text-[11.5px] text-fg-subtle">General Manager · Olio & Sale · Prishtina</p>
           </div>
         </div>
       </section>
@@ -439,7 +492,7 @@ export default function Home() {
           <div>
             <span className="mb-2.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">Our story</span>
             <h2 className="text-[36px] font-semibold leading-tight tracking-[-0.025em]">We spent a decade on the line. Then we built the software we wanted.</h2>
-            <p className="mt-4 text-[14.5px] leading-7 text-fg-muted">dineOS started in 2023 in a 38-seat dining room in Brooklyn, after our founding team realized their restaurant was running on six disconnected tools.</p>
+            <p className="mt-4 text-[14.5px] leading-7 text-fg-muted">dineOS started in 2023 in a 38-seat dining room in Prishtina, after our founding team realized their restaurant was running on six disconnected tools.</p>
             <p className="mt-3 text-[14.5px] leading-7 text-fg-muted">We started over. One data model. One design system. One team that ships from the floor out.</p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {values.map(([title, copy]) => (
@@ -510,19 +563,14 @@ export default function Home() {
           <div className="grid gap-10 border-b border-border pb-10 md:grid-cols-[1.6fr_repeat(4,1fr)]">
             <div>
               <Brand />
-              <p className="mt-3 max-w-64 text-[12.5px] leading-6 text-fg-muted">The operating system for the modern restaurant. Built in Brooklyn, running in restaurants from Portland to Miami.</p>
+              <p className="mt-3 max-w-64 text-[12.5px] leading-6 text-fg-muted">The operating system for the modern restaurant. Built in Prishtina, running in restaurants across Kosovo.</p>
             </div>
-            {[
-              ["Product", ["Order board", "Kitchen display", "Manager dashboard", "Platform console", "Pricing"]],
-              ["Company", ["About", "Customers", "Careers", "Press", "Contact"]],
-              ["Resources", ["Design system", "Docs", "Changelog", "API", "Status"]],
-              ["Legal", ["Privacy", "Terms", "Security", "DPA"]],
-            ].map(([heading, links]) => (
-              <div key={heading as string}>
-                <h5 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle">{heading}</h5>
+            {footerSections.map((section) => (
+              <div key={section.heading}>
+                <h5 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle">{section.heading}</h5>
                 <ul className="space-y-2">
-                  {(links as string[]).map((link) => (
-                    <li key={link}><a href={link === "Pricing" ? "#pricing" : "#"} className="text-[13px] text-fg-muted hover:text-fg">{link}</a></li>
+                  {section.links.map((link) => (
+                    <li key={link.label}><FooterLink href={link.href} label={link.label} /></li>
                   ))}
                 </ul>
               </div>

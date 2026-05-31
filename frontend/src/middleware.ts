@@ -21,6 +21,10 @@ const PUBLIC_PATHS = [
   "/first-login",
 ];
 
+// Prefix-matched public routes (the path itself or anything nested under it).
+// `/info/*` serves the public marketing/legal/resources pages linked from the footer.
+const PUBLIC_PREFIXES = ["/info"];
+
 function isAllowed(pathname: string, allowed: string[]): boolean {
   return allowed.some(
     (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
@@ -39,7 +43,7 @@ export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
 
   // Always allow public marketing/auth pages through — prevents redirect loops.
-  if (PUBLIC_PATHS.includes(pathname)) {
+  if (PUBLIC_PATHS.includes(pathname) || isAllowed(pathname, PUBLIC_PREFIXES)) {
     return NextResponse.next();
   }
 
