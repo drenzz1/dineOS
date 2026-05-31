@@ -31,14 +31,13 @@ public sealed class OwnerProvisioningJob(
     ILogger<OwnerProvisioningJob> logger)
 {
     // The business account gets the account-level Owner role (#staff-pin-auth
-    // Phase 2): it can manage staff + billing, while operational work is done
-    // per-shift via PIN-issued staff sessions. Owner is a composite over
-    // Manager in Keycloak, so the token still carries Manager — operational
-    // policies (ManagerAndAbove/CashierAndAbove) keep passing during the
-    // transition and the FE's getPrimaryRole still resolves to Manager. This is
-    // what makes assigning Owner safe now: the historical "Owner broke FE role
-    // gating" bug was the empty role claim, not the role name itself. The final
-    // tightening (drop the Owner->Manager composite) lands with the PIN UI.
+    // Phase 2): it gates staff + billing. Owner is a composite over Manager in
+    // Keycloak, so the token also carries Manager — the owner login keeps full
+    // operational access and the FE's getPrimaryRole resolves to Manager. This
+    // composite is permanent by design (decided 2026-05-31): owners operate
+    // directly, and PIN-issued staff sessions provide role-scoped switching on
+    // shared terminals. (It also sidesteps the historical "Owner broke FE role
+    // gating" bug, which was the empty role claim, not the role name.)
     private const string OwnerRoleName = "Owner";
 
     // Emailed password must be rotated on first login. UPDATE_PASSWORD is

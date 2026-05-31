@@ -33,7 +33,7 @@
       },
       {
         "name": "Owner",
-        "description": "Account-level role for the business Keycloak account (#staff-pin-auth Phase 2): staff management + billing. Composite over Manager during the transition so owner tokens keep operational access (and the FE resolves to Manager); the final tightening drops the composite once the PIN UI ships.",
+        "description": "Account-level role for the business Keycloak account (#staff-pin-auth Phase 2): gates staff management + billing. Composite over Manager BY DESIGN (permanent, decided 2026-05-31) so the owner login keeps full operational access and the FE resolves to Manager; PIN-issued staff sessions provide role-scoped switching on shared terminals. Do not remove this composite without revisiting that decision (see docs/backend/staff-pin-auth.md).",
         "composite": true,
         "composites": {
           "realm": [

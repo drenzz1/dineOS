@@ -2,7 +2,9 @@
 
 > Status: **Phases 1–3 implemented** (backend staff-session issuance +
 > verification; account-vs-operational role split; frontend roster + PIN).
-> Phase 4 (cleanup) + the final tightening are planned — see the bottom.
+> The "final tightening" was **considered and declined** — the owner keeps full
+> access by design (see the Phase 2 decision note). Phase 4 (cleanup) is the
+> only remaining planned work.
 
 ## Problem
 
@@ -97,12 +99,12 @@ from the operational roles a staff member acquires per-shift via a PIN.
   (orders/payments/menu/shifts/reports/kitchen) keep their `*AndAbove` /
   `KitchenStaffOnly` policies.
 - **`OwnerProvisioningJob` now assigns `Owner`** (was `Manager`).
-- **`Owner` is a composite over `Manager`** in `realm-export.json`. This is the
-  safety mechanism: an owner token still carries `Manager`, so operational
-  policies keep passing during the transition and the FE's `getPrimaryRole`
-  still resolves to `Manager` — avoiding the historical "Owner broke FE role
-  gating" bug. **`Demo`** is now composite over `Owner` + `Manager` +
-  `KitchenStaff` so demo users get the full owner experience.
+- **`Owner` is a composite over `Manager`** in `realm-export.json` — **by
+  design and permanently** (see the decision below). The owner token therefore
+  carries `Manager`, so the owner login keeps full operational access and the
+  FE's `getPrimaryRole` resolves to `Manager` (also avoiding the historical
+  "Owner broke FE role gating" bug). **`Demo`** is composite over `Owner` +
+  `Manager` + `KitchenStaff` so demo users get the full owner experience.
 - A staff-session token carries only its one operational role, so a PIN-selected
   Manager can run the restaurant but **cannot** manage staff or billing
   (verified: Manager staff token → `/menu` 200, `/orders` 200, `/staff` 403,
@@ -114,10 +116,25 @@ apply the composite graph to an existing dev stack with
 users provisioned before Phase 2 hold `Manager` directly — grant them `Owner`
 (or re-provision) to restore staff/billing access.
 
-**The final tightening (deferred to after Phase 3):** drop the `Owner → Manager`
-composite so an owner token no longer carries operational access — at that point
-*everyone*, including the owner, must start a PIN staff session to run
-operations. Safe to do only once the frontend roster/PIN screen exists.
+**Decision (2026-05-31): keep the `Owner → Manager` composite — do NOT tighten
+further.** We considered dropping it so that even owners must start a PIN staff
+session for operations. We chose not to. Rationale:
+
+- The security goal is already met: PIN staff sessions are role-scoped (a
+  Cashier session cannot perform Manager actions — verified), and the
+  staff-session expiry escalation is closed (the apiClient 401 path re-PINs
+  instead of refreshing into an owner token).
+- In the common restaurant-POS model the owner/manager account legitimately does
+  everything; PINs are for fast, scoped *staff* switching on a shared terminal.
+  Forcing the owner to PIN-in for every operation degrades UX with no security
+  gain.
+- Dropping it would require a first-class `Owner` FE role (else `getPrimaryRole`
+  throws), reclassifying ~10 controllers, and an owner-onboarding redesign —
+  cost without benefit.
+
+So `Owner → Manager` is intentional and permanent. **Do not remove it** as a
+"cleanup" — revisit this decision explicitly if the product ever needs a strict
+shared-terminal mode where owners cannot operate without a PIN.
 
 ## Phase 3 — what exists today (frontend roster + PIN)
 

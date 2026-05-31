@@ -6,13 +6,18 @@ public static class Roles
 
     /// <summary>
     /// Account-level role for the business's Keycloak account (#staff-pin-auth
-    /// Phase 2): staff management, billing, settings. Distinct from the
-    /// operational roles below, which a staff member acquires per-shift via a
-    /// PIN-issued staff session. During the transition <c>Owner</c> is a
-    /// composite over <see cref="Manager"/> in Keycloak, so an owner token also
-    /// carries operational access (and the FE's getPrimaryRole still resolves
-    /// to Manager). The final tightening drops that composite once the staff
-    /// roster/PIN UI ships.
+    /// Phase 2): gates staff management + billing (<see cref="Policies.OwnerOnly"/>).
+    /// <para>
+    /// By design <c>Owner</c> is a composite over <see cref="Manager"/> in
+    /// Keycloak, so the owner login also has full operational access. This is a
+    /// deliberate, permanent choice (decided 2026-05-31): the owner/business
+    /// account can do everything, and PIN-issued staff sessions exist for quick,
+    /// role-scoped staff switching on a shared terminal (a Cashier session
+    /// genuinely cannot perform Manager actions). We intentionally did NOT drop
+    /// the composite to force owners to PIN-in for operations — that would
+    /// degrade UX without adding security, since the staff-session boundary is
+    /// already enforced. Do not "tighten" this without revisiting that call.
+    /// </para>
     /// </summary>
     public const string Owner        = "Owner";
 
