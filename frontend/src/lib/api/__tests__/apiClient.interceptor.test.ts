@@ -46,9 +46,16 @@ jest.mock("@/lib/auth/keycloak", () => ({
 
 jest.mock("@/stores/authStore", () => {
   const clearAuth = jest.fn();
+  const endStaffSession = jest.fn();
   return {
     useAuthStore: {
-      getState: jest.fn(() => ({ role: "Manager", tenantId: "tenant-1", clearAuth })),
+      getState: jest.fn(() => ({
+        role: "Manager",
+        tenantId: "tenant-1",
+        isStaffSession: false,
+        clearAuth,
+        endStaffSession,
+      })),
     },
   };
 });
@@ -188,6 +195,38 @@ describe("apiClient — 401 response interceptor", () => {
     // equals `expectedUrl` — verifiable here since both sides share the same
     // jsdom window.location.pathname at the time of the call.
     expect(expectedUrl).toMatch(/^\/login\?from=/);
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  // ── 3b. staff session: do NOT refresh into an owner token ─────────────────────
+
+  it("staff session 401: ends the session + redirects to roster, never refreshes", async () => {
+    const endStaffSession = jest.fn();
+    (useAuthStore.getState as jest.Mock).mockReturnValue({
+      role: "Cashier",
+      tenantId: "tenant-1",
+      isStaffSession: true,
+      clearAuth: jest.fn(),
+      endStaffSession,
+    });
+
+    // window.location.replace is observable in jsdom only via the
+    // "Not implemented: navigation" console.error signal (see test 3).
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    adapter.onGet("/resource").replyOnce(401);
+
+    await expect(client.get("/resource")).rejects.toThrow();
+
+    // The Keycloak refresh path must NOT run for a staff session.
+    expect(refreshPostMock).not.toHaveBeenCalled();
+    expect(jest.mocked(persistAuthCookies)).not.toHaveBeenCalled();
+    // The staff session is ended and the user is bounced to the roster.
+    expect(endStaffSession).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("Not implemented: navigation") })
+    );
 
     consoleErrorSpy.mockRestore();
   });

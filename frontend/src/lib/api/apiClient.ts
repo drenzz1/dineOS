@@ -53,7 +53,7 @@ apiClient.interceptors.request.use((config) => {
 
 apiClient.interceptors.request.use((config) => {
   const token = getCookie("access_token");
-  if (token && token !== "dev") {
+  if (token) {
     config.headers["Authorization"] = `Bearer ${token}`;
   }
   return config;
@@ -67,6 +67,20 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as RetryConfig | undefined;
 
     if (error.response?.status !== 401 || originalRequest?._retry) {
+      return Promise.reject(error);
+    }
+
+    // A staff-session token must NOT be refreshed via the Keycloak refresh
+    // token: that would mint an owner token and silently swap the operating
+    // identity (privilege escalation — a Cashier session would gain Manager
+    // access). End the staff session (restores owner mode so the roster loads)
+    // and bounce to /select-staff to re-authenticate via PIN. The original
+    // operational request is rejected, never retried with the owner token.
+    if (useAuthStore.getState().isStaffSession) {
+      useAuthStore.getState().endStaffSession();
+      if (typeof window !== "undefined") {
+        window.location.replace("/select-staff");
+      }
       return Promise.reject(error);
     }
 

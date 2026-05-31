@@ -152,19 +152,25 @@ Key files: `app/select-staff/{page,loading,error}.tsx`, `lib/api/staffSessionApi
 `components/shared/ProtectedSidebar.tsx`.
 
 ### Phase 3 follow-ups
-- **Staff-session token expiry mid-shift:** the apiClient 401 refresh path uses
-  the Keycloak `refresh_token`, which would mint an *owner* token and silently
-  drop the operational role. Pair with the staff-session refresh/revocation
-  follow-up below.
+- **Staff-session token expiry mid-shift — FIXED.** The apiClient 401 interceptor
+  now detects a staff session (`isStaffSession`) and, instead of refreshing via
+  the Keycloak `refresh_token` (which would mint an *owner* token and silently
+  escalate a Cashier to Manager-backed access), it ends the staff session and
+  redirects to `/select-staff` to re-PIN. The operational request is rejected,
+  never retried with an owner token. Seamless staff-session *refresh* (without a
+  re-PIN) and server-side revocation remain follow-ups below.
 - A real owner with **no staff yet** must "Continue as owner" → Staff settings to
   create staff before the roster is useful (expected; surfaced via empty state).
 
 ## Known limitations / hardening follow-ups
 - **PIN brute-force** is bounded only by the IP+tenant rate limiter. Add a
   per-staff failed-attempt lockout (e.g. disable after N misses in a window).
-- **No staff-session revocation/refresh** yet — the token is valid until `exp`.
-  Add `…/staff-session/refresh` and `…/end`, and consider a server-side
-  blacklist (Redis, like the Keycloak refresh-token path) for "sign out".
+- **No seamless staff-session refresh / server-side revocation** yet. On
+  expiry the user is bounced to the roster to re-PIN (safe — see Phase 3 fix
+  above), but there is no `…/staff-session/refresh` to extend a shift without a
+  re-PIN, and `…/end` only drops the client cookie (the token stays valid until
+  `exp`). Add a Redis blacklist (like the Keycloak refresh-token path) for true
+  "sign out", and a refresh endpoint for long shifts.
 - The business Keycloak account still carries `Manager` today (Phase 2 moves
   operational roles entirely behind the PIN — see below). Until then, the
   Keycloak token alone can still authorize Manager actions.
