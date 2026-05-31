@@ -43,6 +43,27 @@ username/password on the backend via `POST /api/v1/auth/login`.
 | cashier@dineos.dev | Test1234! | Cashier | `tenant_id=1` |
 | kitchen@dineos.dev | Test1234! | KitchenStaff | `tenant_id=1` |
 
+These per-role Keycloak users are kept deliberately as **RBAC test fixtures**
+(the live `LiveRbacTests` / `LiveAuthLoginTests` log in as each to validate the
+role→policy mapping). They are not part of the staff-PIN model below.
+
+### Demo-tenant staff PINs (#staff-pin-auth)
+
+The demo tenant is seeded with loginable staff so the post-login
+**`/select-staff`** roster works out-of-the-box. Log in as the demo business
+(via the demo-access flow), then pick a profile and enter its PIN:
+
+| Staff | Role | PIN |
+|-------|------|-----|
+| Ada Manager | Manager | `1111` |
+| Bram Cashier | Cashier | `2222` |
+| Cleo Cashier | Cashier | `3333` |
+| Dario Kitchen | KitchenStaff | `4444` |
+| Elif Kitchen | KitchenStaff | `5555` |
+
+Non-secret demo credentials only. `DemoTenantSeeder` is idempotent and self-heals
+older demo tenants that were seeded before real PINs existed.
+
 The `dineos-frontend` client includes two access-token mappers:
 
 - audience mapper for `dineos-api`

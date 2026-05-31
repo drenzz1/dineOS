@@ -1,10 +1,11 @@
 # Staff-session PIN authentication
 
-> Status: **Phases 1–3 implemented** (backend staff-session issuance +
-> verification; account-vs-operational role split; frontend roster + PIN).
-> The "final tightening" was **considered and declined** — the owner keeps full
-> access by design (see the Phase 2 decision note). Phase 4 (cleanup) is the
-> only remaining planned work.
+> Status: **Phases 1–4 complete.** Backend staff-session issuance + verification;
+> account-vs-operational role split; frontend roster + PIN; demo staff seeded
+> with real PINs. The "final tightening" was **considered and declined** — the
+> owner keeps full access by design (see the Phase 2 decision note). Remaining
+> work is optional hardening only (seamless staff-session refresh + server-side
+> revocation — see the bottom).
 
 ## Problem
 
@@ -192,13 +193,17 @@ Key files: `app/select-staff/{page,loading,error}.tsx`, `lib/api/staffSessionApi
   operational roles entirely behind the PIN — see below). Until then, the
   Keycloak token alone can still authorize Manager actions.
 
-## Planned phases
+## Phase 4 — cleanup (status)
 
-- **Phase 3 — frontend roster + PIN.** Post-login "Who's working?" screen
-  (roster from `GET /staff`, never PINs) → tap → 4-digit PIN → store the
-  staff-session token, set the role cookie from the staff role. "Switch user"
-  returns to the roster. `apiClient` sends the staff-session token; middleware
-  gates on the staff role.
-- **Phase 4 — owner self-setup & cleanup.** Owner onboarding to create staff
-  (incl. themselves) with PINs; migrate the seeded `manager@/cashier@/kitchen@`
-  users into staff records and retire those Keycloak accounts.
+- **Demo staff have real, loginable PINs — DONE.** `DemoTenantSeeder` now seeds
+  the demo staff with BCrypt-hashed PINs (documented in `keycloak-setup.md`) and
+  self-heals demo tenants seeded before real PINs existed, so `/select-staff`
+  works out-of-the-box on the shared demo tenant.
+- **Owner self-setup** is covered by the existing Staff settings screen: a new
+  owner logs in → roster (empty) → "Continue as owner" → Staff → adds staff with
+  PINs → "Switch user" → operates via PIN. No dedicated onboarding wizard.
+- **Retiring the seeded `manager@/cashier@/kitchen@` Keycloak users — DECLINED.**
+  They are kept as **RBAC test fixtures**: `LiveRbacTests` / `LiveAuthLoginTests`
+  log in as each to validate the role→policy mapping (still meaningful — staff
+  sessions carry the same roles). Removing them would force a live-test rewrite
+  for no functional gain. Revisit only if the dev realm is reworked.

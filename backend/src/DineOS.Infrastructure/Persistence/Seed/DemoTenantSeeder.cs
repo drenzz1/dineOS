@@ -36,10 +36,11 @@ public sealed class DemoTenantSeeder(
 
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var pinHasher = scope.ServiceProvider.GetRequiredService<IPinHasher>();
 
         var tenant = await EnsureTenantAsync(db, opts.TenantSlug, ct);
         await EnsureMenuAsync(db, tenant.Id, ct);
-        await EnsureStaffAsync(db, tenant.Id, ct);
+        await EnsureStaffAsync(db, pinHasher, tenant.Id, ct);
         await EnsureTablesAsync(db, tenant.Id, ct);
         await EnsureOrdersAsync(db, tenant.Id, ct);
 
@@ -127,40 +128,58 @@ public sealed class DemoTenantSeeder(
         await db.SaveChangesAsync(ct);
     }
 
-    private static async Task EnsureStaffAsync(
-        AppDbContext db, long tenantId, CancellationToken ct)
-    {
-        var hasStaff = await db.StaffMembers
-            .IgnoreQueryFilters()
-            .AnyAsync(s => s.TenantId == tenantId && s.DeletedAt == null, ct);
-        if (hasStaff)
-            return;
+    // PinHash placeholder used before demo staff had real, loginable PINs
+    // (#staff-pin-auth). Rows carrying it are healed to a real hash below.
+    private const string LegacyPlaceholderPinHash = "demo-pin-hash";
 
-        (string FullName, string Email, string Role)[] staff =
+    private static async Task EnsureStaffAsync(
+        AppDbContext db, IPinHasher pinHasher, long tenantId, CancellationToken ct)
+    {
+        // Non-secret demo PINs so the /select-staff roster (#staff-pin-auth
+        // Phase 3) is usable out-of-the-box on the shared demo tenant. Documented
+        // in docs/keycloak-setup.md. Per-row idempotent: adds any missing staff
+        // and heals the legacy placeholder hash, without disturbing real edits.
+        (string FullName, string Email, string Role, string Pin)[] staff =
         [
-            ("Ada Manager",    "ada.manager@demo.dineos.local",    "Manager"),
-            ("Bram Cashier",   "bram.cashier@demo.dineos.local",   "Cashier"),
-            ("Cleo Cashier",   "cleo.cashier@demo.dineos.local",   "Cashier"),
-            ("Dario Kitchen",  "dario.kitchen@demo.dineos.local",  "KitchenStaff"),
-            ("Elif Kitchen",   "elif.kitchen@demo.dineos.local",   "KitchenStaff"),
+            ("Ada Manager",    "ada.manager@demo.dineos.local",    "Manager",      "1111"),
+            ("Bram Cashier",   "bram.cashier@demo.dineos.local",   "Cashier",      "2222"),
+            ("Cleo Cashier",   "cleo.cashier@demo.dineos.local",   "Cashier",      "3333"),
+            ("Dario Kitchen",  "dario.kitchen@demo.dineos.local",  "KitchenStaff", "4444"),
+            ("Elif Kitchen",   "elif.kitchen@demo.dineos.local",   "KitchenStaff", "5555"),
         ];
 
-        foreach (var (fullName, email, role) in staff)
+        var changed = false;
+        foreach (var (fullName, email, role, pin) in staff)
         {
-            db.StaffMembers.Add(new StaffMember
+            var existing = await db.StaffMembers
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(
+                    s => s.TenantId == tenantId && s.Email == email && s.DeletedAt == null, ct);
+
+            if (existing is null)
             {
-                TenantId  = tenantId,
-                FullName  = fullName,
-                Email     = email,
-                Role      = role,
-                // Hash of a non-secret demo PIN; not used in the demo flow itself.
-                PinHash   = "demo-pin-hash",
-                IsActive  = true,
-                CreatedAt = DateTime.UtcNow,
-            });
+                db.StaffMembers.Add(new StaffMember
+                {
+                    TenantId  = tenantId,
+                    FullName  = fullName,
+                    Email     = email,
+                    Role      = role,
+                    PinHash   = pinHasher.Hash(pin),
+                    IsActive  = true,
+                    CreatedAt = DateTime.UtcNow,
+                });
+                changed = true;
+            }
+            else if (existing.PinHash == LegacyPlaceholderPinHash)
+            {
+                // Heal demo tenants seeded before real PINs existed.
+                existing.PinHash = pinHasher.Hash(pin);
+                changed = true;
+            }
         }
 
-        await db.SaveChangesAsync(ct);
+        if (changed)
+            await db.SaveChangesAsync(ct);
     }
 
     private static async Task EnsureTablesAsync(
