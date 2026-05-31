@@ -2,6 +2,7 @@ using Asp.Versioning;
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -12,7 +13,9 @@ namespace DineOS.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}")]
 [Produces("application/json")]
-public class AuthController(IKeycloakAuthService authService) : ControllerBase
+public class AuthController(
+    IKeycloakAuthService authService,
+    IStaffSessionService staffSessionService) : ControllerBase
 {
     /// <summary>Authenticates a user through Keycloak and returns an access/refresh token pair.</summary>
     [HttpPost("auth/login")]
@@ -78,6 +81,31 @@ public class AuthController(IKeycloakAuthService authService) : ControllerBase
             "Token refreshed successfully."));
     }
 
+    /// <summary>
+    /// Verifies a staff member's PIN within the authenticated business (tenant)
+    /// and returns a short-lived, role-scoped staff-session token. Requires a
+    /// Keycloak business token (the StaffSession scheme cannot bootstrap itself).
+    /// </summary>
+    [HttpPost("auth/staff-session")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [EnableRateLimiting("staff-pin")]
+    [ProducesResponseType(typeof(ApiResponse<StaffSessionResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> StartStaffSession(
+        [FromBody] StartStaffSessionRequest request,
+        CancellationToken ct)
+    {
+        var result = await staffSessionService.StartAsync(request, ct);
+        if (!result.IsSuccess)
+            return ToFailureResponse(result.Error, result.Errors);
+
+        return Ok(ApiResponse<StaffSessionResponse>.Ok(
+            result.Value!,
+            "Staff session started."));
+    }
+
     /// <summary>Blacklists the provided refresh token, effectively invalidating the session. Idempotent — returns 204 even if the token is already blacklisted or jti is missing.</summary>
     [HttpPost("auth/logout")]
     [Authorize]
@@ -112,6 +140,10 @@ public class AuthController(IKeycloakAuthService authService) : ControllerBase
             // error so the FE can route the user to /first-login.
             "Account requires first-login password change." =>
                 Conflict(ApiResponse.Fail(message)),
+            "Tenant context is required." =>
+                BadRequest(ApiResponse.Fail(message)),
+            "Staff sessions are not configured." =>
+                StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse.Fail(message)),
             _ => Unauthorized(ApiResponse.Fail(message))
         };
     }

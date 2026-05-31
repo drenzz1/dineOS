@@ -17,12 +17,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.Grafana.Loki;
 using System.Reflection;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 
@@ -111,20 +113,55 @@ try
                     return Task.CompletedTask;
                 }
             };
+        })
+        // Backend-issued, PIN-gated staff-session tokens (#staff-pin-auth). A
+        // single business authenticates via Keycloak, then a staff member's
+        // PIN mints an HS256 token carrying their operational role + tenant_id.
+        // Validated here with the shared symmetric key; role claim is "role".
+        .AddJwtBearer(AuthSchemes.StaffSession, options =>
+        {
+            var staffSession = builder.Configuration
+                .GetSection(StaffSessionOptions.SectionName)
+                .Get<StaffSessionOptions>() ?? new StaffSessionOptions();
+
+            // Keep custom claims (tenant_id, role, token_use) verbatim instead
+            // of remapping to the long Microsoft claim URIs.
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = staffSession.Issuer,
+                ValidateAudience = true,
+                ValidAudience = staffSession.Audience,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(staffSession.SigningKey.Length >= 32
+                        ? staffSession.SigningKey
+                        : staffSession.SigningKey.PadRight(32, '0'))),
+                NameClaimType = "name",
+                RoleClaimType = "role",
+            };
         });
     builder.Services.AddTransient<IClaimsTransformation, KeycloakRolesTransformation>();
 
     // ── Authorization ─────────────────────────────────────────────────────────────
     builder.Services.AddAuthorization(options =>
     {
-        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        // Both bearer schemes are accepted everywhere: a request authenticates
+        // with the Keycloak token (business / Owner) OR a PIN-issued
+        // staff-session token (operational role). The role claim from whichever
+        // token authenticated drives RequireRole below.
+        var bothSchemes = new[] { JwtBearerDefaults.AuthenticationScheme, AuthSchemes.StaffSession };
+
+        options.FallbackPolicy = new AuthorizationPolicyBuilder(bothSchemes)
             .RequireAuthenticatedUser()
             .Build();
 
-        options.AddPolicy(Policies.SuperAdminOnly,   p => p.RequireRole(Roles.SuperAdmin));
-        options.AddPolicy(Policies.ManagerAndAbove,  p => p.RequireRole(Roles.SuperAdmin, Roles.Manager));
-        options.AddPolicy(Policies.CashierAndAbove,  p => p.RequireRole(Roles.SuperAdmin, Roles.Manager, Roles.Cashier));
-        options.AddPolicy(Policies.KitchenStaffOnly, p => p.RequireRole(Roles.KitchenStaff));
+        options.AddPolicy(Policies.SuperAdminOnly,   p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin));
+        options.AddPolicy(Policies.ManagerAndAbove,  p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Manager));
+        options.AddPolicy(Policies.CashierAndAbove,  p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Manager, Roles.Cashier));
+        options.AddPolicy(Policies.KitchenStaffOnly, p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.KitchenStaff));
     });
 
     // ── API Versioning ────────────────────────────────────────────────────────────
@@ -170,6 +207,23 @@ try
             policy.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
             policy.QueueLimit = 0;
         });
+
+        // Staff-session PIN verification (#staff-pin-auth). Partitioned by the
+        // authenticating business (tenant_id claim) + remote IP so PIN
+        // brute-force is bounded per business/host. Tight cap, no queue. A
+        // per-staff lockout after N failures is a planned hardening follow-up.
+        options.AddPolicy("staff-pin", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey:
+                    (httpContext.User.FindFirstValue("tenant_id") ?? "no-tenant")
+                    + "|" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0,
+                }));
 
         // Anonymous owner-facing email-verification confirm — partitioned by
         // remote IP so one noisy client cannot lock everyone out. The cap is

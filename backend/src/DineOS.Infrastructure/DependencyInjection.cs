@@ -55,6 +55,8 @@ public static class DependencyInjection
         services.AddScoped<IHealthService, HealthService>();
 
         services.AddScoped<IStaffService, StaffService>();
+        services.Configure<StaffSessionOptions>(configuration.GetSection(StaffSessionOptions.SectionName));
+        services.AddScoped<IStaffSessionService, StaffSessionService>();
         services.AddScoped<IAdminRestaurantService, AdminRestaurantService>();
         services.AddScoped<IMenuService, MenuService>();
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
