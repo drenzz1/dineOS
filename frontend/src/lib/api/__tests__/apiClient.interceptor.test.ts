@@ -12,7 +12,7 @@
 
 import type MockAdapterType from "axios-mock-adapter";
 import type { AxiosInstance, AxiosStatic } from "axios";
-import { persistAuthCookies, clearAuthCookies } from "@/lib/auth/keycloak";
+import { persistAuthCookies, persistStaffSessionCookies, clearAuthCookies } from "@/lib/auth/keycloak";
 import { useAuthStore } from "@/stores/authStore";
 
 // ─── refresh stub ─────────────────────────────────────────────────────────────
@@ -41,6 +41,8 @@ jest.mock("axios", () => {
 
 jest.mock("@/lib/auth/keycloak", () => ({
   persistAuthCookies: jest.fn(),
+  persistStaffSessionCookies: jest.fn(),
+  getStaffRefreshToken: jest.fn(() => "staff-refresh-token"),
   clearAuthCookies: jest.fn(),
 }));
 
@@ -199,9 +201,45 @@ describe("apiClient — 401 response interceptor", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  // ── 3b. staff session: do NOT refresh into an owner token ─────────────────────
+  // ── 3b. staff session: refresh via the STAFF endpoint, then retry ─────────────
 
-  it("staff session 401: ends the session + redirects to roster, never refreshes", async () => {
+  it("staff session 401: refreshes via /staff-session/refresh and retries (no owner refresh)", async () => {
+    (useAuthStore.getState as jest.Mock).mockReturnValue({
+      role: "Cashier",
+      tenantId: "tenant-1",
+      isStaffSession: true,
+      clearAuth: jest.fn(),
+      endStaffSession: jest.fn(),
+    });
+
+    adapter.onGet("/resource").replyOnce(401).onGet("/resource").replyOnce(200, { ok: true });
+    refreshPostMock.mockResolvedValue({
+      data: {
+        success: true,
+        data: { accessToken: "new-staff-access", role: "Cashier", expiresIn: 3600 },
+        message: "ok",
+        errors: null,
+      },
+    });
+
+    const response = await client.get("/resource");
+
+    expect(response.status).toBe(200);
+    // Refresh went to the STAFF endpoint, NOT the Keycloak /v1/auth/refresh.
+    expect(refreshPostMock).toHaveBeenCalledWith("/v1/auth/staff-session/refresh", {
+      refreshToken: "staff-refresh-token",
+    });
+    expect(jest.mocked(persistStaffSessionCookies)).toHaveBeenCalledWith(
+      "new-staff-access",
+      "Cashier",
+      3600,
+      null // no tenant_id cookie in this harness
+    );
+    // Owner cookie path must not run.
+    expect(jest.mocked(persistAuthCookies)).not.toHaveBeenCalled();
+  });
+
+  it("staff session 401: when refresh fails, ends the session + redirects to roster", async () => {
     const endStaffSession = jest.fn();
     (useAuthStore.getState as jest.Mock).mockReturnValue({
       role: "Cashier",
@@ -211,18 +249,13 @@ describe("apiClient — 401 response interceptor", () => {
       endStaffSession,
     });
 
-    // window.location.replace is observable in jsdom only via the
-    // "Not implemented: navigation" console.error signal (see test 3).
     const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
     adapter.onGet("/resource").replyOnce(401);
+    refreshPostMock.mockRejectedValue(new Error("refresh expired"));
 
     await expect(client.get("/resource")).rejects.toThrow();
 
-    // The Keycloak refresh path must NOT run for a staff session.
-    expect(refreshPostMock).not.toHaveBeenCalled();
-    expect(jest.mocked(persistAuthCookies)).not.toHaveBeenCalled();
-    // The staff session is ended and the user is bounced to the roster.
     expect(endStaffSession).toHaveBeenCalledTimes(1);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.objectContaining({ message: expect.stringContaining("Not implemented: navigation") })

@@ -84,7 +84,7 @@ const SUPERADMIN_JWT = makeJwt(SUPERADMIN_CLAIMS);
 // ─── Setup / teardown ─────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  ["access_token", "refresh_token", "role", "tenant_id", "business_token"].forEach((name) => {
+  ["access_token", "refresh_token", "role", "tenant_id", "business_token", "staff_refresh_token"].forEach((name) => {
     document.cookie = `${name}=; max-age=0; path=/`;
   });
 
@@ -392,6 +392,8 @@ describe("useAuthStore — staff session", () => {
       staffMemberId: 9,
       fullName: "Carol Cashier",
       role: "Cashier",
+      refreshToken: "staff.refresh.token",
+      refreshExpiresIn: 43200,
     });
 
     const { role } = await useAuthStore.getState().startStaffSession(9, "1234");
@@ -416,6 +418,8 @@ describe("useAuthStore — staff session", () => {
       staffMemberId: 9,
       fullName: "Carol Cashier",
       role: "Cashier",
+      refreshToken: "staff.refresh.token",
+      refreshExpiresIn: 43200,
     });
     await useAuthStore.getState().startStaffSession(9, "1234");
 

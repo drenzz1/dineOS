@@ -10,14 +10,20 @@ import {
   persistAuthCookies,
   persistBusinessToken,
   persistStaffSessionCookies,
+  persistStaffRefreshToken,
   persistRoleCookie,
   getBusinessToken,
+  getStaffRefreshToken,
+  clearStaffRefreshToken,
   clearAuthCookies,
   getDestination,
 } from "@/lib/auth/keycloak";
 import { getMe } from "@/lib/api/meApi";
 import { getRestaurantProfile } from "@/lib/api/restaurantProfileApi";
-import { startStaffSession as apiStartStaffSession } from "@/lib/api/staffSessionApi";
+import {
+  startStaffSession as apiStartStaffSession,
+  endStaffSession as apiEndStaffSession,
+} from "@/lib/api/staffSessionApi";
 
 // The Keycloak business login resolves to Manager (owners are Owner→Manager
 // composites); the operational role then comes from the PIN-selected staff
@@ -38,6 +44,7 @@ interface AuthState {
   login: (username: string, password: string, from?: string | null) => Promise<{ destination: string }>;
   startStaffSession: (staffMemberId: number, pin: string) => Promise<{ role: Role }>;
   endStaffSession: () => void;
+  signOutOfShift: () => Promise<void>;
   logout: () => Promise<void>;
   setAuth: (
     userId: string,
@@ -154,6 +161,9 @@ export const useAuthStore = create<AuthState>()(
           session.expiresIn,
           tenantId
         );
+        // Retain the refresh token so the apiClient can renew the access token
+        // mid-shift without a re-PIN.
+        persistStaffRefreshToken(session.refreshToken, session.refreshExpiresIn);
 
         set({
           role: session.role,
@@ -167,7 +177,10 @@ export const useAuthStore = create<AuthState>()(
       endStaffSession: () => {
         // Restore owner mode: the business (Keycloak) token becomes the active
         // token again so account screens (staff/billing) work. Caller routes
-        // back to the roster.
+        // back to the roster. Local-only (no network) — used by the apiClient
+        // when a refresh has already failed; see signOutOfShift for the
+        // revoking variant.
+        clearStaffRefreshToken();
         const businessToken = getBusinessToken();
         if (businessToken) {
           persistAccessTokenCookie(businessToken);
@@ -179,6 +192,20 @@ export const useAuthStore = create<AuthState>()(
           isStaffSession: false,
           activeStaffName: null,
         });
+      },
+      signOutOfShift: async () => {
+        // "Switch user": revoke the staff tokens server-side (best-effort) so
+        // they can't be reused, then restore owner mode locally.
+        const accessToken = get().accessToken;
+        const refreshToken = getStaffRefreshToken();
+        if (get().isStaffSession && accessToken && refreshToken) {
+          try {
+            await apiEndStaffSession(accessToken, refreshToken);
+          } catch {
+            // Revocation is best-effort; the tokens are short-lived regardless.
+          }
+        }
+        get().endStaffSession();
       },
       logout: async () => {
         try {

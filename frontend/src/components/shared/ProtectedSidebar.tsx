@@ -60,7 +60,7 @@ export default function ProtectedSidebar() {
   const storedRole = useAuthStore((state) => state.role);
   const logout = useAuthStore((state) => state.logout);
   const isStaffSession = useAuthStore((state) => state.isStaffSession);
-  const endStaffSession = useAuthStore((state) => state.endStaffSession);
+  const signOutOfShift = useAuthStore((state) => state.signOutOfShift);
   const isClient = useSyncExternalStore(
     subscribeClientReady,
     getClientSnapshot,
@@ -94,8 +94,8 @@ export default function ProtectedSidebar() {
     router.push("/login");
   };
 
-  const handleSwitchUser = () => {
-    endStaffSession();
+  const handleSwitchUser = async () => {
+    await signOutOfShift();
     router.push("/select-staff");
   };
 

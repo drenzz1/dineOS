@@ -29,3 +29,17 @@ export async function startStaffSession(
     throw toApiError(error);
   }
 }
+
+// Server-side revocation of a staff session (ending a shift / switching user).
+// Authenticated by the staff access token; the refresh token is revoked too.
+// Best-effort: callers proceed with local cleanup regardless of the result.
+export async function endStaffSession(
+  accessToken: string,
+  refreshToken: string
+): Promise<void> {
+  await businessClient.post(
+    "/v1/auth/staff-session/end",
+    { refreshToken },
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+}

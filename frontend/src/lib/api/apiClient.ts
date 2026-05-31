@@ -2,8 +2,11 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/stores/authStore";
 import {
   persistAuthCookies,
+  persistStaffSessionCookies,
+  getStaffRefreshToken,
   clearAuthCookies,
 } from "@/lib/auth/keycloak";
+import type { AppRole } from "@/types";
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "/api",
@@ -23,6 +26,13 @@ interface RefreshResponseData {
 interface RefreshApiResponse {
   success: boolean;
   data: RefreshResponseData | null;
+  message: string;
+  errors: string[] | null;
+}
+
+interface StaffRefreshApiResponse {
+  success: boolean;
+  data: { accessToken: string; role: AppRole; expiresIn: number } | null;
   message: string;
   errors: string[] | null;
 }
@@ -60,6 +70,7 @@ apiClient.interceptors.request.use((config) => {
 });
 
 let refreshPromise: Promise<void> | null = null;
+let staffRefreshPromise: Promise<void> | null = null;
 
 apiClient.interceptors.response.use(
   (response) => response,
@@ -70,18 +81,45 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // A staff-session token must NOT be refreshed via the Keycloak refresh
-    // token: that would mint an owner token and silently swap the operating
-    // identity (privilege escalation — a Cashier session would gain Manager
-    // access). End the staff session (restores owner mode so the roster loads)
-    // and bounce to /select-staff to re-authenticate via PIN. The original
-    // operational request is rejected, never retried with the owner token.
+    // A staff-session token is refreshed via the STAFF refresh endpoint, never
+    // the Keycloak refresh token (which would mint an owner token and silently
+    // escalate a Cashier session). On success the new access token is swapped in
+    // and the request retried; on failure (expired/revoked) we restore owner
+    // mode and bounce to /select-staff to re-PIN — never retrying with an owner
+    // token.
     if (useAuthStore.getState().isStaffSession) {
-      useAuthStore.getState().endStaffSession();
-      if (typeof window !== "undefined") {
-        window.location.replace("/select-staff");
+      staffRefreshPromise ??= (async () => {
+        const refreshToken = getStaffRefreshToken();
+        if (!refreshToken) {
+          throw new Error("No staff refresh token");
+        }
+        const { data: envelope } = await refreshClient.post<StaffRefreshApiResponse>(
+          "/v1/auth/staff-session/refresh",
+          { refreshToken }
+        );
+        if (!envelope.success || !envelope.data) {
+          throw new Error(envelope.message ?? "Staff session refresh failed");
+        }
+        const { accessToken, role, expiresIn } = envelope.data;
+        persistStaffSessionCookies(accessToken, role, expiresIn, getCookie("tenant_id"));
+      })();
+
+      try {
+        await staffRefreshPromise;
+        if (!originalRequest) {
+          return Promise.reject(error);
+        }
+        originalRequest._retry = true;
+        return apiClient(originalRequest);
+      } catch {
+        useAuthStore.getState().endStaffSession();
+        if (typeof window !== "undefined") {
+          window.location.replace("/select-staff");
+        }
+        return Promise.reject(error);
+      } finally {
+        staffRefreshPromise = null;
       }
-      return Promise.reject(error);
     }
 
     refreshPromise ??= (async () => {

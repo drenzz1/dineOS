@@ -17,4 +17,6 @@ export interface StaffSession {
   staffMemberId: number;
   fullName: string;
   role: Role;
+  refreshToken: string;
+  refreshExpiresIn: number;
 }

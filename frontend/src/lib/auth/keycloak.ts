@@ -119,8 +119,29 @@ export function persistRoleCookie(role: AppRole, expiresIn?: number): void {
   setCookie("role", role, expiresIn);
 }
 
+// The staff refresh token (longer-lived than the access token) lets the
+// apiClient silently exchange an expired staff access token for a new one
+// without a re-PIN (#staff-pin-auth refresh).
+export function persistStaffRefreshToken(token: string, expiresIn?: number): void {
+  setCookie("staff_refresh_token", token, expiresIn);
+}
+
+export function getStaffRefreshToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const cookie = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("staff_refresh_token="));
+  return cookie ? decodeURIComponent(cookie.split("=")[1] ?? "") : null;
+}
+
+export function clearStaffRefreshToken(): void {
+  document.cookie = `staff_refresh_token=; path=/; max-age=0; samesite=lax`;
+}
+
 export function clearAuthCookies(): void {
-  ["access_token", "refresh_token", "role", "tenant_id", "business_token"].forEach((name) => {
-    document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
-  });
+  ["access_token", "refresh_token", "role", "tenant_id", "business_token", "staff_refresh_token"].forEach(
+    (name) => {
+      document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
+    }
+  );
 }
