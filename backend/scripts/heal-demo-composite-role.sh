@@ -17,12 +17,18 @@
 #
 # What it does (idempotent):
 #   1. Authenticates against the local Keycloak as `admin / admin`.
-#   2. Resolves the `Manager` realm-role representation in the `dineos` realm.
+#   2. For each child role (default `Manager` and `KitchenStaff`), resolves its
+#      realm-role representation in the `dineos` realm.
 #   3. POSTs it as a composite of the `Demo` role (Keycloak returns 204 whether
 #      or not the association already exists).
 #
+# `Manager` lets demo users reach every tenant route; `KitchenStaff` is needed
+# on top because the kitchen board endpoints use the `KitchenStaffOnly` policy
+# (RequireRole(KitchenStaff)) which Manager alone does not satisfy.
+#
 # Usage:
-#   ./backend/scripts/heal-demo-composite-role.sh            # localhost:8080
+#   ./backend/scripts/heal-demo-composite-role.sh                  # both roles
+#   CHILD_ROLES="Manager" ./backend/scripts/heal-demo-composite-role.sh
 #   KC_BASE=https://kc.dev.example ./backend/scripts/heal-demo-composite-role.sh
 #
 # Prerequisites:
@@ -37,7 +43,9 @@ KC_REALM="${KC_REALM:-dineos}"
 KC_ADMIN_USER="${KC_ADMIN_USER:-admin}"
 KC_ADMIN_PASSWORD="${KC_ADMIN_PASSWORD:-admin}"
 PARENT_ROLE="${PARENT_ROLE:-Demo}"
-CHILD_ROLE="${CHILD_ROLE:-Manager}"
+# Space-separated list of realm roles to fold into the Demo composite.
+# CHILD_ROLE (singular) is still honored for backward compatibility.
+CHILD_ROLES="${CHILD_ROLES:-${CHILD_ROLE:-Manager KitchenStaff}}"
 
 echo "[heal-demo] Acquiring admin access token from ${KC_BASE} ..."
 ADMIN_TOKEN="$(
@@ -55,25 +63,27 @@ if [[ -z "${ADMIN_TOKEN}" ]]; then
   exit 1
 fi
 
-echo "[heal-demo] Fetching '${CHILD_ROLE}' role representation in realm '${KC_REALM}' ..."
-CHILD_JSON="$(
-  curl -fsS "${KC_BASE}/admin/realms/${KC_REALM}/roles/${CHILD_ROLE}" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}"
-)"
+for CHILD_ROLE in ${CHILD_ROLES}; do
+  echo "[heal-demo] Fetching '${CHILD_ROLE}' role representation in realm '${KC_REALM}' ..."
+  CHILD_JSON="$(
+    curl -fsS "${KC_BASE}/admin/realms/${KC_REALM}/roles/${CHILD_ROLE}" \
+      -H "Authorization: Bearer ${ADMIN_TOKEN}"
+  )"
 
-if ! python3 -c "import sys,json;json.loads(sys.argv[1])['id']" "${CHILD_JSON}" >/dev/null 2>&1; then
-  echo "[heal-demo] Could not resolve the '${CHILD_ROLE}' role — is the realm imported?" >&2
-  exit 1
-fi
+  if ! python3 -c "import sys,json;json.loads(sys.argv[1])['id']" "${CHILD_JSON}" >/dev/null 2>&1; then
+    echo "[heal-demo] Could not resolve the '${CHILD_ROLE}' role — is the realm imported?" >&2
+    exit 1
+  fi
 
-echo "[heal-demo] Adding '${CHILD_ROLE}' as a composite of '${PARENT_ROLE}' ..."
-curl -fsS -X POST "${KC_BASE}/admin/realms/${KC_REALM}/roles/${PARENT_ROLE}/composites" \
-  -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-  -H 'Content-Type: application/json' \
-  -d "[${CHILD_JSON}]" > /dev/null
+  echo "[heal-demo] Adding '${CHILD_ROLE}' as a composite of '${PARENT_ROLE}' ..."
+  curl -fsS -X POST "${KC_BASE}/admin/realms/${KC_REALM}/roles/${PARENT_ROLE}/composites" \
+    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+    -H 'Content-Type: application/json' \
+    -d "[${CHILD_JSON}]" > /dev/null
+done
 
 echo
-echo "[heal-demo] DONE. '${PARENT_ROLE}' is now composite over '${CHILD_ROLE}'."
-echo "[heal-demo] New demo logins will carry the '${CHILD_ROLE}' role in realm_access.roles,"
-echo "[heal-demo] so ManagerAndAbove / CashierAndAbove backend policies will pass."
+echo "[heal-demo] DONE. '${PARENT_ROLE}' is now composite over: ${CHILD_ROLES}."
+echo "[heal-demo] New demo logins will carry those roles in realm_access.roles, so the"
+echo "[heal-demo] ManagerAndAbove / CashierAndAbove / KitchenStaffOnly policies will pass."
 echo "[heal-demo] Existing demo sessions must log in again to pick up the new token."

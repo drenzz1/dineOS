@@ -38,11 +38,12 @@
       },
       {
         "name": "Demo",
-        "description": "Composite role for shared demo tenant access (#216). Includes Manager.",
+        "description": "Composite role for shared demo tenant access (#216). Includes Manager + KitchenStaff so demo users can exercise the full app incl. the kitchen board.",
         "composite": true,
         "composites": {
           "realm": [
-            "Manager"
+            "Manager",
+            "KitchenStaff"
           ]
         },
         "clientRole": false

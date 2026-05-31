@@ -51,12 +51,16 @@ The `dineos-frontend` client includes two access-token mappers:
 ## Demo role must be composite over `Manager`
 
 Demo users (#216) are granted the realm role `Demo`, which `realm-export.json`
-declares as **composite over `Manager`**. Keycloak expands composite roles into
-the access token, so a correctly-imported realm issues demo tokens carrying both
-`Demo` and `Manager` in `realm_access.roles`. The backend's `ManagerAndAbove` /
-`CashierAndAbove` policies (`Program.cs`) require `Manager`, and the frontend
-maps `Demo → Manager` for its UI (`lib/auth/keycloak.ts`). All three only line
-up when the composite is present.
+declares as **composite over `Manager` and `KitchenStaff`**. Keycloak expands
+composite roles into the access token, so a correctly-imported realm issues demo
+tokens carrying `Demo`, `Manager`, and `KitchenStaff` in `realm_access.roles`.
+The backend's `ManagerAndAbove` / `CashierAndAbove` policies (`Program.cs`)
+require `Manager`; the kitchen board uses `KitchenStaffOnly` =
+`RequireRole(KitchenStaff)`, which `Manager` alone does **not** satisfy — hence
+both children. The frontend maps `Demo → Manager` for its UI
+(`lib/auth/keycloak.ts`) and `Manager` may visit every tenant route
+(`middleware.ts`), so the demo user can reach `/kitchen`. All of this only lines
+up when both composites are present.
 
 **Stale-realm gotcha.** Keycloak runs `start-dev --import-realm`, which imports
 the realm **only if it does not already exist**. A dev volume created before the
