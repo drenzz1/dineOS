@@ -97,6 +97,16 @@ public sealed class OwnerProvisioningJob(
         tenant.KeycloakUserId = userId;
         await db.SaveChangesAsync(ct);
 
+        // The tenant_id user attribute is mapped to the tenant_id token claim by
+        // a Keycloak protocol mapper (realm-export.json). Without it the owner's
+        // JWT carries no tenant_id, and TenantIsolationMiddleware rejects every
+        // authenticated request with "Tenant context is required." — including
+        // the auto-login that follows the first-login password change, which
+        // stranded the owner on the set-password screen. DemoProvisioningJob
+        // already does this; owner provisioning must too.
+        await keycloakAdmin.SetUserAttributeAsync(
+            userId, "tenant_id", tenant.Id.ToString(), ct);
+
         await keycloakAdmin.AssignRealmRoleAsync(userId, OwnerRoleName, ct);
 
         backgroundJobs.Enqueue<OwnerWelcomeEmailJob>(

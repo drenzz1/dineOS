@@ -109,6 +109,23 @@ public class OwnerProvisioningJobTests
     }
 
     [Fact]
+    public async Task RunAsync_SetsTenantIdAttributeForTokenClaim()
+    {
+        // Regression: the owner user was created without the tenant_id attribute
+        // that the Keycloak protocol mapper turns into the tenant_id token claim.
+        // Its absence made TenantIsolationMiddleware reject every authenticated
+        // request as "Tenant context is required." — the owner could change the
+        // first-login password but was then stranded, unable to load any data.
+        var (job, db, admin, _) = CreateSut();
+        var tenant = SeedTenant(db);
+
+        await job.RunAsync(tenant.Id, "TempPass!23", CancellationToken.None);
+
+        await admin.Received(1).SetUserAttributeAsync(
+            "kc-user-id", "tenant_id", tenant.Id.ToString(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task RunAsync_PersistsKeycloakUserIdAndEnqueuesWelcomeEmail()
     {
         var (job, db, _, bg) = CreateSut();
