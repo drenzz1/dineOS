@@ -68,6 +68,14 @@ public interface IKeycloakAdminClient
     /// to clear all pending actions so direct-access grant logins succeed.
     /// </summary>
     Task SetRequiredActionsAsync(string userId, IReadOnlyList<string> requiredActions, CancellationToken ct);
+
+    /// <summary>
+    /// Sets the <c>emailVerified</c> flag on a Keycloak user. Called when the
+    /// owner completes the first-login password change — which is only possible
+    /// if they received the emailed temporary credentials — so the IdP reflects
+    /// the now-proven verified state.
+    /// </summary>
+    Task SetEmailVerifiedAsync(string userId, bool emailVerified, CancellationToken ct);
 }
 
 /// <summary>

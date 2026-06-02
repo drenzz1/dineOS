@@ -14,6 +14,8 @@ namespace DineOS.Tests.Unit;
 public class KeycloakAuthServiceTests
 {
     private readonly ITokenBlacklistService _blacklist = Substitute.For<ITokenBlacklistService>();
+    private readonly IKeycloakAdminClient _admin = Substitute.For<IKeycloakAdminClient>();
+    private readonly IEmailVerificationService _emailVerification = Substitute.For<IEmailVerificationService>();
 
     [Fact]
     public async Task LoginAsync_WithValidCredentials_ReturnsTokenPairAndUsesPasswordGrant()
@@ -150,6 +152,45 @@ public class KeycloakAuthServiceTests
         Assert.Equal("refresh_token", form["token_type_hint"]);
     }
 
+    [Fact]
+    public async Task ChangeFirstLoginPasswordAsync_OnSuccess_MarksEmailVerifiedInKeycloakAndTenant()
+    {
+        _admin.FindUserByEmailAsync("owner@dineos.dev", Arg.Any<CancellationToken>())
+            .Returns(new KeycloakUserSummary("user-123", new[] { "UPDATE_PASSWORD" }));
+
+        // Two token exchanges happen: (1) verify the temporary password,
+        // (2) re-login against the freshly chosen password.
+        var handler = new RecordingHandler(
+            JsonResponse(HttpStatusCode.OK, new { access_token = "a1", refresh_token = "r1", expires_in = 300 }),
+            JsonResponse(HttpStatusCode.OK, new { access_token = "a2", refresh_token = "r2", expires_in = 300 }));
+        var sut = CreateService(handler);
+
+        var result = await sut.ChangeFirstLoginPasswordAsync(
+            new FirstLoginPasswordChangeRequest("owner@dineos.dev", "TempPass-123", "BrandNewPass-456"));
+
+        Assert.True(result.IsSuccess);
+        await _admin.Received(1).SetEmailVerifiedAsync("user-123", true, Arg.Any<CancellationToken>());
+        await _emailVerification.Received(1)
+            .MarkOwnerEmailVerifiedAsync("owner@dineos.dev", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ChangeFirstLoginPasswordAsync_WhenNotInFirstLoginState_DoesNotMarkVerified()
+    {
+        _admin.FindUserByEmailAsync("owner@dineos.dev", Arg.Any<CancellationToken>())
+            .Returns(new KeycloakUserSummary("user-123", Array.Empty<string>()));
+
+        var sut = CreateService(new RecordingHandler());
+
+        var result = await sut.ChangeFirstLoginPasswordAsync(
+            new FirstLoginPasswordChangeRequest("owner@dineos.dev", "TempPass-123", "BrandNewPass-456"));
+
+        Assert.False(result.IsSuccess);
+        await _admin.DidNotReceive().SetEmailVerifiedAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        await _emailVerification.DidNotReceive()
+            .MarkOwnerEmailVerifiedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
     private KeycloakAuthService CreateService(RecordingHandler handler, KeycloakOptions? options = null)
     {
         var client = new HttpClient(handler);
@@ -159,11 +200,12 @@ public class KeycloakAuthServiceTests
             factory,
             Options.Create(options ?? DefaultOptions()),
             _blacklist,
-            Substitute.For<IKeycloakAdminClient>(),
+            _admin,
             new LoginRequestValidator(),
             new RefreshTokenRequestValidator(),
             new LogoutRequestValidator(),
             new FirstLoginPasswordChangeRequestValidator(),
+            _emailVerification,
             NullLogger<KeycloakAuthService>.Instance);
     }
 

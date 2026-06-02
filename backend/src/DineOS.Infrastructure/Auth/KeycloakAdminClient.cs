@@ -161,6 +161,9 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
             obj["requiredActions"] = array;
         }, "requiredActions update", ct);
 
+    public Task SetEmailVerifiedAsync(string userId, bool emailVerified, CancellationToken ct) =>
+        MergeUserAsync(userId, obj => obj["emailVerified"] = emailVerified, "emailVerified update", ct);
+
     public async Task<KeycloakUserSummary?> FindUserByEmailAsync(string email, CancellationToken ct)
     {
         var realm = RequireRealm();

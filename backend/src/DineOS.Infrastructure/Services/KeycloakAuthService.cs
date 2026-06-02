@@ -21,6 +21,7 @@ public sealed class KeycloakAuthService(
     IValidator<RefreshTokenRequest> refreshValidator,
     IValidator<LogoutRequest> logoutValidator,
     IValidator<FirstLoginPasswordChangeRequest> firstLoginValidator,
+    IEmailVerificationService emailVerification,
     ILogger<KeycloakAuthService> logger) : IKeycloakAuthService
 {
     public const string HttpClientName = "Keycloak";
@@ -164,6 +165,24 @@ public sealed class KeycloakAuthService(
         }
 
         await keycloakAdmin.ResetPasswordAsync(user.Id, request.NewPassword, temporary: false, cancellationToken);
+
+        // Completing the first-login password change proves the owner received
+        // the emailed credentials, so mark the account verified — both the
+        // Keycloak IdP flag and the dineOS tenant record. Best-effort: the
+        // password rotation has already succeeded, so a failure stamping
+        // verification must not fail the request (the 6-digit code flow remains
+        // as a fallback).
+        try
+        {
+            await keycloakAdmin.SetEmailVerifiedAsync(user.Id, true, cancellationToken);
+            await emailVerification.MarkOwnerEmailVerifiedAsync(request.Email, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "First-login password rotated for {Email} but marking the account verified failed.",
+                request.Email);
+        }
 
         // Re-issue a token pair against the new password so the FE doesn't
         // have to call /auth/login separately. The token from the
