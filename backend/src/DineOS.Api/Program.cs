@@ -150,6 +150,19 @@ try
             // here; this is the only thing that can revoke before expiry.
             options.Events = new JwtBearerEvents
             {
+                // SignalR: browsers can't set Authorization headers on the
+                // WebSocket/SSE transports, so the staff token arrives as
+                // ?access_token=<token> on /hubs URLs. Mirror the Keycloak
+                // scheme so a staff-session connection authenticates on the
+                // transport (negotiate uses the header; the transport uses this).
+                OnMessageReceived = context =>
+                {
+                    var token = context.Request.Query["access_token"];
+                    if (!string.IsNullOrEmpty(token) &&
+                        context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                        context.Token = token;
+                    return Task.CompletedTask;
+                },
                 OnTokenValidated = async context =>
                 {
                     var jti = context.Principal?.FindFirst("jti")?.Value;
@@ -175,6 +188,16 @@ try
         var bothSchemes = new[] { JwtBearerDefaults.AuthenticationScheme, AuthSchemes.StaffSession };
 
         options.FallbackPolicy = new AuthorizationPolicyBuilder(bothSchemes)
+            .RequireAuthenticatedUser()
+            .Build();
+
+        // A bare [Authorize] (no policy) — e.g. OrderUpdatesHub, /me, /menu/items,
+        // shift notes — resolves to DefaultPolicy, NOT FallbackPolicy. The framework
+        // default only authenticates the default (Keycloak) scheme, so a PIN-issued
+        // staff-session token would 401 on those endpoints (incl. the SignalR hub
+        // negotiate). Mirror FallbackPolicy here so both schemes are truly accepted
+        // everywhere.
+        options.DefaultPolicy = new AuthorizationPolicyBuilder(bothSchemes)
             .RequireAuthenticatedUser()
             .Build();
 

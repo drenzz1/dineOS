@@ -193,6 +193,31 @@ Key files: `app/select-staff/{page,loading,error}.tsx`, `lib/api/staffSessionApi
   operational roles entirely behind the PIN — see below). Until then, the
   Keycloak token alone can still authorize Manager actions.
 
+## Fix (2026-06-02): both schemes on bare `[Authorize]` (incl. SignalR hub)
+
+The dual-scheme model (Keycloak **or** StaffSession accepted everywhere) was
+only applied via `FallbackPolicy` — which ASP.NET Core uses **only for endpoints
+with no authorization metadata**. Endpoints carrying a bare `[Authorize]` (no
+policy) — `OrderUpdatesHub`, `GET /me`, `GET /menu/items`, shift-note reads —
+resolve to `DefaultPolicy`, which was never overridden and therefore
+authenticated only the default (Keycloak) scheme. Result: a PIN-issued
+staff-session token got **401** on the SignalR hub negotiate (so Cashier /
+KitchenStaff lost the realtime kitchen + order boards) and on those REST
+endpoints.
+
+Fix (`Program.cs`):
+- Set `options.DefaultPolicy` to the same `bothSchemes` builder as
+  `FallbackPolicy`, so a bare `[Authorize]` accepts the Keycloak **and**
+  StaffSession schemes.
+- Add the `OnMessageReceived` (`?access_token=` on `/hubs`) handler to the
+  StaffSession scheme — the Keycloak scheme already had it. Browsers can't set
+  headers on the WebSocket/SSE transports, so without this a staff token
+  authenticated at negotiate (header) but not on the persistent connection.
+
+Verified against the live stack with a real KitchenStaff PIN session: hub
+negotiate via header = 200, via `?access_token=` = 200, `GET /menu/items` = 200,
+`GET /me` = 200 — all were 401 for staff tokens before.
+
 ## Phase 4 — cleanup (status)
 
 - **Demo staff have real, loginable PINs — DONE.** `DemoTenantSeeder` now seeds
