@@ -21,6 +21,7 @@ public class NoMagicStringsTests
     private static readonly HashSet<string> KnownPolicies = new(StringComparer.Ordinal)
     {
         Policies.SuperAdminOnly,
+        Policies.OwnerOnly,
         Policies.ManagerAndAbove,
         Policies.CashierAndAbove,
         Policies.KitchenStaffOnly,
@@ -29,6 +30,7 @@ public class NoMagicStringsTests
     private static readonly HashSet<string> KnownRoles = new(StringComparer.Ordinal)
     {
         Roles.SuperAdmin,
+        Roles.Owner,
         Roles.Manager,
         Roles.Cashier,
         Roles.KitchenStaff,

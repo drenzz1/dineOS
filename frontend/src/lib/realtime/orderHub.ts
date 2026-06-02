@@ -8,6 +8,7 @@ import {
 } from "@microsoft/signalr";
 import { queryClient } from "@/lib/queryClient";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { resolveOrderHubUrl } from "@/lib/realtime/hubUrl";
 
 export interface OrderCreatedEvent {
   orderId: number;
@@ -48,7 +49,7 @@ function readAccessTokenCookie(): string {
 }
 
 function buildConnection(): HubConnection {
-  const hubUrl = `${process.env.NEXT_PUBLIC_API_URL ?? "/api"}/hubs/orders`;
+  const hubUrl = resolveOrderHubUrl();
   return new HubConnectionBuilder()
     .withUrl(hubUrl, { accessTokenFactory: () => readAccessTokenCookie() })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
@@ -89,11 +90,6 @@ export function useOrderHub(options?: UseOrderHubOptions): void {
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") {
-      return;
-    }
-
-    if (readAccessTokenCookie() === "dev") {
-      console.warn("[orderHub] skipping SignalR connection in dev token mode");
       return;
     }
 

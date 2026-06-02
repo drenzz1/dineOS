@@ -1,9 +1,12 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { staffMemberSchema } from "@/lib/validations/staffMember";
+import {
+  staffMemberSchema,
+  editStaffMemberSchema,
+} from "@/lib/validations/staffMember";
 import type { StaffMemberFormValues } from "@/lib/validations/staffMember";
 import { saveStaffMember } from "@/lib/api/staffApi";
 import { queryKeys } from "@/lib/api/queryKeys";
@@ -24,15 +27,22 @@ export default function StaffMemberForm({
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
 
+  const isEdit = defaultValues?.id !== undefined;
+
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<StaffMemberFormValues>({
-    resolver: zodResolver(staffMemberSchema),
+    // On create the PIN is required; on edit it is optional (blank keeps the
+    // current PIN). Both schemas share the same field set, so the cast is safe.
+    resolver: zodResolver(
+      isEdit ? editStaffMemberSchema : staffMemberSchema
+    ) as Resolver<StaffMemberFormValues>,
     defaultValues: {
       fullName: "",
       email: "",
+      pin: "",
       ...defaultValues,
     },
   });
@@ -114,6 +124,34 @@ export default function StaffMemberForm({
         </select>
         {errors.role && (
           <p className="text-sm text-red-600">{errors.role.message}</p>
+        )}
+      </div>
+
+      {/* PIN */}
+      <div className="space-y-1">
+        <label
+          htmlFor="sm-pin"
+          className="block text-sm font-medium text-zinc-700"
+        >
+          {isEdit ? "New PIN (optional)" : "4-digit PIN"}
+        </label>
+        <input
+          id="sm-pin"
+          type="text"
+          inputMode="numeric"
+          maxLength={4}
+          autoComplete="off"
+          {...register("pin")}
+          placeholder="••••"
+          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+        <p className="text-xs text-zinc-500">
+          {isEdit
+            ? "Leave blank to keep the current PIN."
+            : "The staff member types this PIN to start a shift on a shared terminal."}
+        </p>
+        {errors.pin && (
+          <p className="text-sm text-red-600">{errors.pin.message}</p>
         )}
       </div>
 

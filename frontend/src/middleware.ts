@@ -105,5 +105,9 @@ export function middleware(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next|favicon.ico).*)"],
+  // `hubs` is excluded alongside `api`: SignalR negotiate/WebSocket traffic to
+  // /hubs/* is proxied to the backend hub, which enforces its own [Authorize].
+  // Without this, page-role gating would redirect realtime requests to /login
+  // (or /kitchen, /orders for Cashier/KitchenStaff) and silently break it.
+  matcher: ["/((?!api|hubs|_next|favicon.ico).*)"],
 };

@@ -9,7 +9,7 @@ import { StaffTable, StaffTableSkeleton } from "@/components/staff/StaffTable";
 import StaffMemberForm from "@/components/staff/StaffMemberForm";
 import { useStaff } from "@/hooks/useStaff";
 import { useTenant } from "@/hooks/useTenant";
-import { toggleStaffActive } from "@/lib/api/staffApi";
+import { setStaffActive } from "@/lib/api/staffApi";
 import { queryKeys } from "@/lib/api/queryKeys";
 import type { StaffMember, Role } from "@/types/staff";
 
@@ -83,7 +83,8 @@ export default function StaffPage() {
   const { staff, isLoading, isError } = useStaff();
 
   const { mutate: doToggle, isPending: isToggling } = useMutation({
-    mutationFn: (id: number) => toggleStaffActive(id),
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      setStaffActive(id, isActive),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.staff.all });
       setDeactivateTarget(null);
@@ -111,7 +112,7 @@ export default function StaffPage() {
     if (member.isActive) {
       setDeactivateTarget(member);
     } else {
-      doToggle(member.id);
+      doToggle({ id: member.id, isActive: true });
     }
   }
 
@@ -207,7 +208,8 @@ export default function StaffPage() {
               variant="danger"
               isLoading={isToggling}
               onClick={() =>
-                deactivateTarget && doToggle(deactivateTarget.id)
+                deactivateTarget &&
+                doToggle({ id: deactivateTarget.id, isActive: false })
               }
             >
               Deactivate

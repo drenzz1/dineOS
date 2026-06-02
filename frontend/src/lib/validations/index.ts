@@ -2,8 +2,11 @@ export { orderSchema } from "./order";
 export type { OrderFormValues } from "./order";
 export { menuItemSchema } from "./menuItem";
 export type { MenuItemFormValues } from "./menuItem";
-export { staffMemberSchema } from "./staffMember";
-export type { StaffMemberFormValues } from "./staffMember";
+export { staffMemberSchema, editStaffMemberSchema } from "./staffMember";
+export type {
+  StaffMemberFormValues,
+  EditStaffMemberFormValues,
+} from "./staffMember";
 export { shiftNoteSchema } from "./shiftNote";
 export type { ShiftNoteFormValues } from "./shiftNote";
 export { shiftSchema } from "./shift";
