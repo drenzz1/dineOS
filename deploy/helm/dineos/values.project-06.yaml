@@ -1,0 +1,170 @@
+# ============================================================
+# values.project-06.yaml — deploy to the shared school cluster
+#   namespace : project-06   (life-cluster @ 159.69.213.73)
+#
+# Everything runs in-cluster: API + frontend + Postgres + Redis
+# + RabbitMQ + Keycloak. No persistence (data is ephemeral, fine
+# for a demo), no TLS, no Ingress — reached via `kubectl port-forward`.
+#
+# Images are pulled from Endriti's public GHCR.
+# Install:
+#   helm upgrade --install dineos deploy/helm/dineos \
+#     -f deploy/helm/dineos/values.project-06.yaml -n project-06
+# ============================================================
+
+api:
+  image:
+    repository: ghcr.io/endrit77/dineos-api
+    tag: demo
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  env:
+    ASPNETCORE_ENVIRONMENT: Development
+    # Keycloak — HTTP (no TLS), in-cluster. Login uses the password grant
+    # via the backend, so the browser never talks to Keycloak directly.
+    # NOTE: Keycloak is served under /auth (KC_HTTP_RELATIVE_PATH below),
+    # so every Keycloak URL here carries the /auth prefix.
+    Keycloak__Realm: dineos
+    Keycloak__GrantType: "password"
+    Keycloak__RequireHttpsMetadata: "false"
+    Keycloak__PublicAuthServerUrl: "http://dineos-keycloak-http/auth"
+    Keycloak__AuthServerUrl: "http://dineos-keycloak-http/auth"
+    Keycloak__Authority: "http://dineos-keycloak-http/auth/realms/dineos"
+    Keycloak__MetadataAddress: "http://dineos-keycloak-http/auth/realms/dineos/.well-known/openid-configuration"
+    # Loki/Mailhog are not deployed here; unreachable values are tolerated
+    # (Serilog logs locally, email is simply not exercised in the demo).
+    Loki__Uri: "http://dineos-loki:3100"
+    Smtp__Host: dineos-mailhog
+    Smtp__Port: "1025"
+    Smtp__UseStartTls: "false"
+    # CORS — browser only ever talks to the frontend origin, but keep these sane.
+    AllowedOrigins__0: "http://localhost:3000"
+    AllowedOrigins__1: "http://localhost:8080"
+
+frontend:
+  image:
+    repository: ghcr.io/endrit77/dineos-web
+    tag: demo2
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  env:
+    NODE_ENV: production
+    # Relative path — the browser calls /api on the frontend origin, and the
+    # Next.js server proxies it to API_INTERNAL_URL (see next.config.ts rewrites).
+    NEXT_PUBLIC_API_URL: "/api"
+    # FIX: the API Service listens on port 80 (not 8080). The chart default
+    # of :8080 would make the Next.js /api proxy fail to connect.
+    API_INTERNAL_URL: "http://dineos-api:80"
+    NEXT_PUBLIC_KEYCLOAK_URL: "http://dineos-keycloak-http"
+    NEXT_PUBLIC_KEYCLOAK_REALM: dineos
+
+# No Ingress — we reach the app with `kubectl port-forward` (no cluster
+# ingress controller assumptions, works on any cluster).
+ingress:
+  enabled: false
+
+# Dev secrets — these match the bundled Keycloak realm-export.json.
+# Safe placeholder values; never use beyond a class demo.
+secrets:
+  create: true
+  postgresPassword: "dineos_dev"
+  keycloakClientSecret: "dev-client-secret-change-me"
+  keycloakAdminClientSecret: "dev-admin-secret-change-me"
+  jwtSigningKey: "dev-jwt-signing-key-32-chars-min!"
+  smtpPassword: ""
+  rabbitMqPassword: "dineos_dev"
+  providerApiKeys:
+    stripe: ""
+    stripeWebhook: ""
+    anthropic: ""
+    openai: ""
+    googleai: ""
+
+# All four dependencies run in-cluster (no managed cloud services).
+dependencies:
+  postgres:
+    enabled: true
+    host: dineos-postgres
+    port: 5432
+    database: dineos
+    username: dineos
+  redis:
+    enabled: true
+    host: dineos-redis-master
+    port: 6379
+  rabbitmq:
+    enabled: true
+    host: dineos-rabbitmq
+    port: 5672
+    username: dineos
+    vhost: /
+  keycloak:
+    enabled: true
+    internalHost: dineos-keycloak
+    internalPort: 8080
+
+# ── Sub-chart overrides — passwords must match secrets.* above ──────────────
+postgres:
+  auth:
+    password: "dineos_dev"
+  primary:
+    persistence:
+      enabled: false
+
+redis:
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+  replica:
+    replicaCount: 0
+
+rabbitmq:
+  # FIX: Bitnami relocated versioned images (Aug 2025) from docker.io/bitnami/*
+  # to docker.io/bitnamilegacy/*. The chart's pinned tag no longer exists at
+  # the old path → ImagePullBackOff. Point at the legacy repo.
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/rabbitmq
+  auth:
+    password: "dineos_dev"
+    erlangCookie: "dineos-erlang-cookie-dev"
+  persistence:
+    enabled: false
+
+# ── Keycloak (codecentric sub-chart) — fixes for a real deploy ──────────────
+# 1) The chart's default image is 17.0.1-legacy (WildFly), which has no
+#    /opt/keycloak/bin/kc.sh — but the chart's command IS the Quarkus kc.sh.
+#    Pin a modern Quarkus image (24.0.5, matching backend/docker-compose.yml).
+# 2) The chart's health probes hit /auth/realms/master and /auth/ — modern
+#    Keycloak serves at / by default, so we relocate it under /auth via
+#    KC_HTTP_RELATIVE_PATH. This makes the existing probes pass unchanged.
+keycloak:
+  image:
+    tag: "24.0.5"
+  extraEnv: |
+    - name: KEYCLOAK_ADMIN
+      value: admin
+    - name: KEYCLOAK_ADMIN_PASSWORD
+      value: admin
+    - name: KC_HTTP_ENABLED
+      value: "true"
+    - name: KC_HOSTNAME_STRICT
+      value: "false"
+    - name: KC_HTTP_RELATIVE_PATH
+      value: /auth
