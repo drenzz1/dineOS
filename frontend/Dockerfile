@@ -16,9 +16,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_API_URL=http://localhost/api
 ARG NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8080
 ARG NEXT_PUBLIC_KEYCLOAK_REALM=dineos
+# API_INTERNAL_URL is consumed by next.config.ts rewrites() to proxy /api → backend.
+# Next.js evaluates rewrites() at BUILD time, so this must be set here (not just at
+# runtime). Default to the in-cluster API Service so the proxy works on Kubernetes.
+ARG API_INTERNAL_URL=http://dineos-api:80
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_KEYCLOAK_URL=$NEXT_PUBLIC_KEYCLOAK_URL \
-    NEXT_PUBLIC_KEYCLOAK_REALM=$NEXT_PUBLIC_KEYCLOAK_REALM
+    NEXT_PUBLIC_KEYCLOAK_REALM=$NEXT_PUBLIC_KEYCLOAK_REALM \
+    API_INTERNAL_URL=$API_INTERNAL_URL
 
 RUN npm run build
 
