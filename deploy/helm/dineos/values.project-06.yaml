@@ -15,9 +15,16 @@
 api:
   image:
     repository: ghcr.io/endrit77/dineos-api
-    tag: demo
+    tag: demo3
     pullPolicy: IfNotPresent
-  replicaCount: 1
+  replicaCount: 2
+  # Shared uploads volume so both API replicas serve the same images
+  # (local per-pod storage would split uploads → intermittent 404s).
+  uploads:
+    persistence:
+      enabled: true
+      accessMode: ReadWriteMany
+      size: 1Gi
   resources:
     requests:
       cpu: 100m
@@ -53,7 +60,7 @@ frontend:
     repository: ghcr.io/endrit77/dineos-web
     tag: demo2
     pullPolicy: IfNotPresent
-  replicaCount: 1
+  replicaCount: 2
   resources:
     requests:
       cpu: 50m
@@ -72,10 +79,27 @@ frontend:
     NEXT_PUBLIC_KEYCLOAK_URL: "http://dineos-keycloak-http"
     NEXT_PUBLIC_KEYCLOAK_REALM: dineos
 
-# No Ingress — we reach the app with `kubectl port-forward` (no cluster
-# ingress controller assumptions, works on any cluster).
+# ── Public web deploy — app.project-06.gjirafa.dev (single-origin) ──────────
+# Real web deployment. One host serves the whole product: /api, /hubs (SignalR),
+# /uploads → API; / → frontend. cert-manager issues the Let's Encrypt cert into
+# dineos-tls; the long proxy timeouts keep SignalR WebSocket connections alive.
 ingress:
-  enabled: false
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - app.project-06.gjirafa.dev
+  tls:
+    - hosts:
+        - app.project-06.gjirafa.dev
+      secretName: dineos-tls
+  swagger:
+    enabled: false
 
 # Dev secrets — these match the bundled Keycloak realm-export.json.
 # Safe placeholder values; never use beyond a class demo.
@@ -123,7 +147,8 @@ postgres:
     password: "dineos_dev"
   primary:
     persistence:
-      enabled: false
+      enabled: true
+      size: 2Gi
 
 redis:
   auth:
@@ -161,10 +186,86 @@ keycloak:
     - name: KEYCLOAK_ADMIN
       value: admin
     - name: KEYCLOAK_ADMIN_PASSWORD
-      value: admin
+      valueFrom:
+        secretKeyRef:
+          name: dineos-keycloak-admin
+          key: password
     - name: KC_HTTP_ENABLED
       value: "true"
     - name: KC_HOSTNAME_STRICT
       value: "false"
     - name: KC_HTTP_RELATIVE_PATH
       value: /auth
+
+# ── Observability add-ons (persisted from the live --set flags) ─────────────
+# Prometheus + Uptime Kuma run in-cluster; persistence OFF (no StorageClass
+# assumption). Alertmanager is ON (plumbing): the earlier crash-loop (unsupported
+# --config.expand-env) is fixed — the Deployment renders the config via an
+# initContainer. Alert delivery works; AI triage + Slack stay inert until an AI
+# provider key and Slack__WebhookUrl are supplied (see the alertmanager block).
+observability:
+  prometheus:
+    enabled: true
+    persistence:
+      enabled: false
+  alertmanager:
+    enabled: true
+    # Closed-cluster plumbing only — no Slack/secret wired yet. The webhook is
+    # reachable only inside the cluster, so it is left unauthenticated (empty
+    # shared secret). To light up AI triage + Slack, set an AI provider key under
+    # secrets.providerApiKeys.* and secrets.slackWebhookUrl, then (optionally)
+    # create the alertmanager-slack / alertmanager-webhook Secrets and reference
+    # them via slackWebhookSecretName / alertWebhookSecretName.
+  uptimeKuma:
+    enabled: true
+    # Durable storage (Longhorn, RWO) so the admin account, monitors, and the
+    # public status page survive pod restarts. Without a PVC, Kuma resets to the
+    # first-run "create admin" screen on every reschedule (it was on emptyDir).
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClass: longhorn
+    # ── Public status page — status.project-06.gjirafa.dev (DO-7) ───────────
+    ingress:
+      enabled: true
+      className: nginx
+      clusterIssuer: letsencrypt-prod
+      host: status.project-06.gjirafa.dev
+      tls:
+        - hosts:
+            - status.project-06.gjirafa.dev
+          secretName: dineos-status-tls
+  # ── ELK (Elasticsearch + Logstash + Kibana) — DO-6 centralized logging ──────
+  # Enabling this auto-wires the API's Logstash__Uri (see configmap.yaml), so app
+  # logs flow: API → Logstash:5001 → Elasticsearch → Kibana. Kibana stays private
+  # (ingress disabled) — reach it with `kubectl port-forward`. The ES PVC size is
+  # pinned here because a StatefulSet's volumeClaimTemplates are immutable once
+  # created (5Gi is ample for a demo; the chart default is 20Gi).
+  elk:
+    enabled: true
+    elasticsearch:
+      persistence:
+        size: 5Gi
+    logstash:
+      # Logstash was OOMKilled (exit 137) at the 1Gi default: its default 1g heap
+      # left no headroom for non-heap memory. Run a 1g heap inside a 2Gi limit.
+      javaOpts: "-Xms1g -Xmx1g"
+      resources:
+        requests:
+          cpu: 250m
+          memory: 1Gi
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+    kibana:
+      ingress:
+        enabled: false
+      # Kibana 8.x (Node.js) OOMs at the 512Mi chart default — "Reached heap
+      # limit … JavaScript heap out of memory", exit 134. Give it 1Gi to start.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+        limits:
+          cpu: 500m
+          memory: 1Gi
