@@ -21,6 +21,12 @@ spec:
         app.kubernetes.io/component: elasticsearch
     spec:
       serviceAccountName: {{ include "dineos.serviceAccountName" . }}
+      # Elasticsearch runs as uid 1000; fsGroup makes the mounted Longhorn data
+      # volume group-writable so ES can create node.lock. Without it ES dies with
+      # "failed to obtain node locks … AccessDenied /usr/share/elasticsearch/data/node.lock".
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
         - name: elasticsearch
           image: {{ .Values.observability.elk.elasticsearch.image }}
@@ -28,9 +34,13 @@ spec:
           env:
             - name: ES_JAVA_OPTS
               value: "-Xms512m -Xmx512m"
-          args:
-            - "-Ediscovery.type=single-node"
-            - "-Expack.security.enabled=false"
+            # Pass ES settings via env vars — the image's documented method.
+            # Do NOT use `args: ["-E..."]`: the image entrypoint execs the first
+            # arg, so a leading "-E" flag dies with "exec: -E: invalid option".
+            - name: discovery.type
+              value: single-node
+            - name: xpack.security.enabled
+              value: "false"
           ports:
             - name: http
               containerPort: 9200

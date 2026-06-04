@@ -1,0 +1,25 @@
+{{- /*
+  Shared uploads volume for the API.
+  Opt-in via api.uploads.persistence.enabled (default off, so other
+  environments are unaffected). Use a ReadWriteMany access mode so all
+  API replicas share the same /app/uploads directory — otherwise an
+  image uploaded to one replica is invisible to the others.
+*/ -}}
+{{- if dig "uploads" "persistence" "enabled" false .Values.api }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "dineos.fullname" . }}-uploads
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  accessModes:
+    - {{ .Values.api.uploads.persistence.accessMode | default "ReadWriteMany" }}
+  resources:
+    requests:
+      storage: {{ .Values.api.uploads.persistence.size | default "1Gi" }}
+  {{- with .Values.api.uploads.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}

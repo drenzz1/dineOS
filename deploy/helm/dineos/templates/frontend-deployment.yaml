@@ -18,10 +18,23 @@ spec:
         app.kubernetes.io/component: frontend
     spec:
       serviceAccountName: {{ include "dineos.serviceAccountName" . }}
+      # Hardened pod security context (clears Trivy KSV-0118). Matches the
+      # non-root uid the image already uses (Dockerfile: USER 1001).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: frontend
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - name: http
               containerPort: 3000
