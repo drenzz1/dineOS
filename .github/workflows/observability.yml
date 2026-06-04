@@ -54,14 +54,17 @@ jobs:
               /rules/api.rules.yml \
               /rules/infra.rules.yml
 
-      # alertmanager.yml uses ${SLACK_WEBHOOK_URL} expanded at runtime via
-      # --config.expand-env. amtool does not perform env expansion, so we
-      # substitute a syntactically valid dummy URL before running the check.
-      # The sed pattern uses single quotes so the shell does not expand the
-      # variable — sed sees the literal string "${SLACK_WEBHOOK_URL}".
+      # alertmanager.yml uses ${SLACK_WEBHOOK_URL} and ${ALERT_WEBHOOK_SECRET},
+      # substituted at runtime by the alertmanager entrypoint (compose) /
+      # initContainer (Helm). amtool does not perform
+      # env expansion, so we substitute syntactically valid dummy values before
+      # running the check. The sed pattern uses single quotes so the shell does
+      # not expand the variables — sed sees the literal strings.
       - name: Check Alertmanager config (amtool check-config)
         run: |
-          sed "s|\${SLACK_WEBHOOK_URL}|https://hooks.slack.com/services/ci-dummy|g" \
+          sed \
+            -e "s|\${SLACK_WEBHOOK_URL}|https://hooks.slack.com/services/ci-dummy|g" \
+            -e "s|\${ALERT_WEBHOOK_SECRET}|ci-dummy-secret|g" \
             backend/prometheus/alertmanager.yml \
             > /tmp/alertmanager-ci.yml
           docker run --rm \

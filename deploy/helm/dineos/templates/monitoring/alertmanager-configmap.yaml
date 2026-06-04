@@ -1,9 +1,9 @@
 {{- if .Values.observability.alertmanager.enabled }}
 ---
 # alertmanager.yml is loaded with Files.Get (no tpl).
-# The file contains ${SLACK_WEBHOOK_URL} (expanded at runtime via
-# --config.expand-env) and Alertmanager template syntax. Both are
-# preserved literally because Files.Get returns a raw string that
+# The file contains ${SLACK_WEBHOOK_URL}/${ALERT_WEBHOOK_SECRET} (rendered at
+# startup by the Deployment's initContainer) and Alertmanager template syntax.
+# Both are preserved literally because Files.Get returns a raw string that
 # Helm does not re-parse as a template.
 apiVersion: v1
 kind: ConfigMap

@@ -105,9 +105,31 @@ causes alert fatigue. The inhibition rule ensures only `ApiDown` pages on-call.
 
 ---
 
+## Backend webhook and AI triage (DO-12)
+
+Alertmanager's default receiver (`dineos-webhook`) routes all firing alerts to
+the dineOS API at `POST /api/v1/alerts/webhook`.  The backend runs AI triage
+and posts a structured Slack message with the result.
+
+Key configuration:
+
+| Variable | Description |
+|---|---|
+| `ALERT_WEBHOOK_SECRET` | Shared secret — set in `.env` and matched by `AlertWebhook:SharedSecret` in the API. Leave empty on a closed Docker network. |
+| `Anthropic__ApiKey` (or OpenAI / Google) | AI provider key for triage. Leave blank to disable AI; the webhook still returns 200. |
+| `SLACK_WEBHOOK_URL` | Used by both the API's `SlackNotifier` and the `slack-direct` fallback receiver. |
+
+To fall back to direct Alertmanager → Slack (without AI triage), change
+`route.receiver` in `alertmanager.yml` to `slack-direct`.
+
+See [docs/devops/aiops-triage.md](../../docs/devops/aiops-triage.md) for the
+full architecture diagram, secret setup, demo steps, and failure-path behavior.
+
+---
+
 ## Slack webhook setup
 
 Set `SLACK_WEBHOOK_URL` in `.env` (never commit the real value).
-The alertmanager container must be started with `--config.expand-env` for
-variable substitution to work — add it to the `command:` block in
-`docker-compose.yml`.
+The alertmanager container's entrypoint (in `docker-compose.yml`) substitutes
+`${SLACK_WEBHOOK_URL}` and `${ALERT_WEBHOOK_SECRET}` into a runtime copy of the
+config with `sed` at startup (Alertmanager has no built-in env-var expansion).

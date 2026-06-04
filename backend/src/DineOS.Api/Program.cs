@@ -455,6 +455,11 @@ try
     app.UseMiddleware<TenantIsolationMiddleware>();
     app.MapControllers();
     app.MapHub<OrderUpdatesHub>("/hubs/orders");
+    // Also expose the hub under /api: the single-origin frontend builds its hub URL as
+    // `${NEXT_PUBLIC_API_URL ?? "/api"}/hubs/orders` = "/api/hubs/orders", and the ingress
+    // routes "/api" → this service. Without this second mapping, SignalR negotiate 404/405s
+    // through the proxy/ingress and real-time order updates never connect.
+    app.MapHub<OrderUpdatesHub>("/api/hubs/orders");
 
     // ── Prometheus scrape endpoint ────────────────────────────────────────────────
     // AllowAnonymous overrides the RequireAuthenticatedUser fallback policy so the

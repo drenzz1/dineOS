@@ -24,6 +24,15 @@ spec:
         - name: logstash
           image: {{ .Values.observability.elk.logstash.image }}
           imagePullPolicy: IfNotPresent
+          {{- with .Values.observability.elk.logstash.javaOpts }}
+          env:
+            # Pin the JVM heap below the container memory limit. Logstash defaults
+            # to a 1g heap; with a 1Gi limit and no room for its non-heap memory
+            # (metaspace, direct buffers, threads) the pod is OOMKilled (exit 137).
+            # Keep the heap at roughly 50% of the memory limit set in resources.
+            - name: LS_JAVA_OPTS
+              value: {{ . | quote }}
+          {{- end }}
           ports:
             - name: beats
               containerPort: 5044
@@ -58,8 +67,13 @@ spec:
               subPath: logstash.yml
               readOnly: true
             - name: logstash-pipeline
-              mountPath: /usr/share/logstash/pipeline/dineos.conf
-              subPath: dineos.conf
+              # Mount the whole pipeline dir (NOT a subPath file). A subPath mount
+              # leaves the image's default /usr/share/logstash/pipeline/logstash.conf
+              # in place, and that stock sample also declares a beats input on 5044.
+              # Loaded alongside dineos.conf it binds 5044 twice → "Address already
+              # in use" → the beats plugin crash-loops every ~6s. Mounting the dir
+              # shadows the default file so only dineos.conf loads.
+              mountPath: /usr/share/logstash/pipeline
               readOnly: true
       volumes:
         - name: logstash-config

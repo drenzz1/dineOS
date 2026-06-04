@@ -217,6 +217,24 @@ public static class DependencyInjection
         });
         services.AddScoped<IAiMenuService, AiMenuService>();
 
+        // ── Incident triage (Alertmanager webhook) ─────────────────────────
+        services.Configure<AlertWebhookOptions>(
+            configuration.GetSection(AlertWebhookOptions.SectionName));
+        services.AddScoped<IIncidentTriageService, IncidentTriageService>();
+
+        // ── Slack notifications ────────────────────────────────────────────
+        services.Configure<SlackOptions>(configuration.GetSection(SlackOptions.SectionName));
+        services.AddHttpClient(SlackNotifier.HttpClientName, (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SlackOptions>>().Value;
+            client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+        });
+        services.AddScoped<ISlackNotifier>(sp =>
+            new SlackNotifier(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient(SlackNotifier.HttpClientName),
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SlackOptions>>(),
+                sp.GetRequiredService<ILogger<SlackNotifier>>()));
+
         return services;
     }
 }
