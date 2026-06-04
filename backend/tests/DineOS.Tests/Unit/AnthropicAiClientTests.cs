@@ -164,4 +164,109 @@ public class AnthropicAiClientTests
             client.GenerateMenuDescriptionAsync(
                 new MenuDescriptionAiRequest("X", "Y", 1m, null)));
     }
+
+    // ── TriageIncidentAsync ───────────────────────────────────────────────
+
+    private static IncidentTriageAiRequest SampleTriageRequest() => new(
+        AlertName:   "HighErrorRate",
+        Severity:    "critical",
+        Component:   "order-api",
+        Status:      "firing",
+        Summary:     "Error rate above 10% for 5 minutes",
+        Description: "HTTP 500 responses spiking on /api/orders",
+        Labels:      [new KeyValuePair<string, string>("env", "prod"), new KeyValuePair<string, string>("namespace", "project-06")],
+        FiringSince: new DateTimeOffset(2026, 6, 4, 12, 0, 0, TimeSpan.Zero));
+
+    [Fact]
+    public async Task TriageIncidentAsync_ParsesToolUseResponse()
+    {
+        var (client, handler) = CreateSut();
+        handler.Responder = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""
+                {
+                  "content": [
+                    {
+                      "type": "tool_use",
+                      "name": "report_incident_triage",
+                      "input": {
+                        "severity": "high",
+                        "likely_causes": ["Redis connection pool exhausted", "Memory pressure on order-service"],
+                        "suggested_next_actions": ["Restart Redis replica", "Check order-service memory metrics"],
+                        "short_summary": "Redis is unreachable causing order writes to fail."
+                      }
+                    }
+                  ],
+                  "usage": { "input_tokens": 200, "output_tokens": 80 }
+                }
+                """, Encoding.UTF8, "application/json"),
+        };
+
+        var result = await client.TriageIncidentAsync(SampleTriageRequest());
+
+        Assert.Equal("high", result.Severity);
+        Assert.Equal(2, result.LikelyCauses.Count);
+        Assert.Contains("Redis connection pool exhausted", result.LikelyCauses);
+        Assert.Equal(2, result.SuggestedNextActions.Count);
+        Assert.Contains("Restart Redis replica", result.SuggestedNextActions);
+        Assert.Contains("Redis", result.ShortSummary, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(200, result.Usage.InputTokens);
+        Assert.Equal(80,  result.Usage.OutputTokens);
+
+        Assert.NotNull(handler.LastBody);
+        Assert.Contains("\"report_incident_triage\"", handler.LastBody);
+        Assert.Contains("\"tool_choice\"",            handler.LastBody);
+        Assert.Contains("\"max_tokens\"",             handler.LastBody);
+    }
+
+    [Fact]
+    public async Task TriageIncidentAsync_MissingApiKey_ThrowsAiUnavailable()
+    {
+        var (client, _) = CreateSut(new AnthropicOptions { ApiKey = "" });
+
+        await Assert.ThrowsAsync<AiUnavailableException>(() =>
+            client.TriageIncidentAsync(SampleTriageRequest()));
+    }
+
+    [Fact]
+    public async Task TriageIncidentAsync_HttpError_ThrowsAiUnavailable()
+    {
+        var (client, handler) = CreateSut();
+        handler.Responder = _ => new HttpResponseMessage(HttpStatusCode.BadGateway)
+        {
+            Content = new StringContent("upstream error"),
+        };
+
+        await Assert.ThrowsAsync<AiUnavailableException>(() =>
+            client.TriageIncidentAsync(SampleTriageRequest()));
+    }
+
+    [Fact]
+    public async Task TriageIncidentAsync_EmptyShortSummary_ThrowsAiUnavailable()
+    {
+        var (client, handler) = CreateSut();
+        handler.Responder = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""
+                {
+                  "content": [
+                    {
+                      "type": "tool_use",
+                      "name": "report_incident_triage",
+                      "input": {
+                        "severity": "high",
+                        "likely_causes": ["OOM"],
+                        "suggested_next_actions": ["Restart pod"],
+                        "short_summary": ""
+                      }
+                    }
+                  ],
+                  "usage": { "input_tokens": 1, "output_tokens": 1 }
+                }
+                """, Encoding.UTF8, "application/json"),
+        };
+
+        await Assert.ThrowsAsync<AiUnavailableException>(() =>
+            client.TriageIncidentAsync(SampleTriageRequest()));
+    }
 }

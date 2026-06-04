@@ -81,6 +81,7 @@ deploy/helm/dineos/charts/*.tgz
 # Backend / infrastructure artifacts
 bin/
 obj/
+backend/publish/
 target/
 *.class
 *.jar

@@ -1,35 +1,47 @@
 # =============================================================================
-# Alertmanager configuration — DineOS
+# Alertmanager configuration — DineOS  (local Docker Compose)
 # =============================================================================
 #
-# SLACK WEBHOOK
-#   Alertmanager 0.28+ supports environment variable expansion when the daemon
-#   is started with --config.expand-env.  Add the flag to the alertmanager
-#   command in docker-compose.yml and pass SLACK_WEBHOOK_URL as an environment
-#   variable to the container:
+# ENVIRONMENT VARIABLE EXPANSION
+#   Alertmanager has NO built-in env-var expansion (--config.expand-env is not a
+#   real flag and crash-loops v0.28.0). The docker-compose entrypoint substitutes
+#   every ${VAR} placeholder below into a runtime copy with sed before starting
+#   alertmanager.  See .env.example for the full variable list.
+#   Never commit real secrets — set them only in your local .env file.
 #
-#     command:
-#       - --config.file=/etc/alertmanager/alertmanager.yml
-#       - --storage.path=/alertmanager
-#       - --config.expand-env
-#     environment:
-#       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+# RECEIVERS
+#   dineos-webhook (default)
+#     Posts to the dineOS API webhook endpoint.  The backend runs AI triage
+#     and then posts to Slack via SlackNotifier (Slack__WebhookUrl env var).
+#     This is the recommended path: one receiver, structured triage, AI summary.
 #
-#   Without --config.expand-env the literal string "${SLACK_WEBHOOK_URL}" is
-#   used, which will produce a 403 from Slack.  Replace it inline for a quick
-#   local test, but never commit a real webhook URL to version control.
+#   slack-direct (TOGGLE — currently disabled)
+#     Posts raw Alertmanager payloads straight to Slack, bypassing the backend.
+#     To activate: change route.receiver below to "slack-direct".
+#     Useful as a fallback if the API is unreachable.
+#
+# SHARED SECRET
+#   Alertmanager 0.28 does NOT support http_config.headers for arbitrary custom
+#   headers, so the dineos-webhook receiver sends the secret as an Authorization:
+#   Bearer credential (http_config.authorization). The API accepts it via either
+#   Authorization: Bearer or X-Webhook-Secret.  Set ALERT_WEBHOOK_SECRET in .env
+#   to the same value as AlertWebhook:SharedSecret in appsettings (or the
+#   corresponding k8s secret).  Leave both empty on a closed Docker network — the
+#   endpoint is unauthenticated but only reachable within the dineos-net bridge.
 # =============================================================================
 
 global:
   resolve_timeout: 5m
-  # Slack template shared across all receivers that use slack_configs.
+  # Used by the slack-direct receiver below (no-op when that receiver is inactive).
   slack_api_url: "${SLACK_WEBHOOK_URL}"
 
 # ---------------------------------------------------------------------------
 # Routing tree
 # ---------------------------------------------------------------------------
 route:
-  receiver: slack-default
+  # Default: route through the backend for AI triage + structured Slack posts.
+  # Toggle: change to "slack-direct" to bypass the backend and post raw alerts.
+  receiver: dineos-webhook
   group_by:
     - alertname
     - cluster
@@ -48,13 +60,28 @@ route:
 # Receivers
 # ---------------------------------------------------------------------------
 receivers:
-  - name: slack-default
+  # Primary receiver — backend-owned AI triage + Slack notification.
+  - name: dineos-webhook
+    webhook_configs:
+      - url: "http://api:8080/api/v1/alerts/webhook"
+        send_resolved: true
+        http_config:
+          # Alertmanager 0.28 does not support http_config.headers for arbitrary custom
+          # headers. Use authorization instead — Alertmanager sets "Authorization: Bearer
+          # <credentials>" and the backend accepts it alongside X-Webhook-Secret.
+          # Set ALERT_WEBHOOK_SECRET in .env to the same value as AlertWebhook:SharedSecret.
+          # Leave empty to disable the check on a closed Docker network.
+          authorization:
+            credentials: "${ALERT_WEBHOOK_SECRET}"
+
+  # Toggle receiver — direct Slack without backend triage.
+  # Activate by setting route.receiver to "slack-direct".
+  - name: slack-direct
     slack_configs:
       - send_resolved: true
         channel: "#dineos-alerts"
         username: "DineOS Alertmanager"
         icon_emoji: ":rotating_light:"
-        # Title changes colour: firing alerts prepend [FIRING:N].
         title: >-
           [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}]
           {{ .GroupLabels.alertname }}

@@ -49,6 +49,8 @@ services:
       - Anthropic__Model=${Anthropic__Model:-claude-sonnet-4-5}
       - OpenAI__ApiKey=${OpenAI__ApiKey:-}
       - GoogleAI__ApiKey=${GoogleAI__ApiKey:-}
+      - Slack__WebhookUrl=${SLACK_WEBHOOK_URL:-}
+      - AlertWebhook__SharedSecret=${ALERT_WEBHOOK_SECRET:-}
     volumes:
       - dineos_uploads:/app/uploads
     healthcheck:
@@ -267,17 +269,24 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.28.0
     container_name: dineos-alertmanager
+    # Alertmanager has no built-in env-var expansion: --config.expand-env is not
+    # a real flag and crash-loops v0.28.0 ("unknown long flag"). Substitute the
+    # ${SLACK_WEBHOOK_URL} and ${ALERT_WEBHOOK_SECRET} placeholders into a runtime
+    # copy of the config with sed, then exec alertmanager against it.
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         set -e
-        sed "s|\$${SLACK_WEBHOOK_URL}|$${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/placeholder}|g" \
+        sed \
+          -e "s|\$${SLACK_WEBHOOK_URL}|$${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/placeholder}|g" \
+          -e "s|\$${ALERT_WEBHOOK_SECRET}|$${ALERT_WEBHOOK_SECRET:-}|g" \
           /etc/alertmanager/alertmanager.yml > /tmp/alertmanager-runtime.yml
         exec /bin/alertmanager \
           --config.file=/tmp/alertmanager-runtime.yml \
           --storage.path=/alertmanager
     environment:
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/placeholder}
+      - ALERT_WEBHOOK_SECRET=${ALERT_WEBHOOK_SECRET:-}
     ports:
       - "${ALERTMANAGER_PORT:-9093}:9093"
     volumes:

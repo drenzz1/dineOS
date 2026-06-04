@@ -382,8 +382,9 @@ helm upgrade dineos deploy/helm/dineos \
 ```
 
 The Alertmanager Deployment mounts the Secret as a `SLACK_WEBHOOK_URL`
-environment variable and starts with `--config.expand-env` to substitute the
-placeholder in `alertmanager.yml` at runtime.
+environment variable; an initContainer substitutes the placeholder in
+`alertmanager.yml` into a runtime copy before Alertmanager starts (Alertmanager
+has no built-in env-var expansion).
 
 ### Disable persistence (ephemeral clusters)
 

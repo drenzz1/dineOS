@@ -193,6 +193,10 @@ secrets:
     openai: ""          # OpenAI__ApiKey
     googleai: ""        # GoogleAI__ApiKey
 
+  # AI incident triage (DO-12)
+  alertWebhookSecret: ""  # AlertWebhook__SharedSecret — shared between Alertmanager and the API
+  slackWebhookUrl: ""     # Slack__WebhookUrl — Incoming Webhook URL for triage notifications
+
 # ------------------------------------------------------------
 # In-cluster dependency toggles
 # enabled=false → chart skips the sub-chart / StatefulSet and
@@ -352,6 +356,13 @@ observability:
     #            --from-literal=url=https://hooks.slack.com/...
     # Leave empty to start Alertmanager without a Slack receiver.
     slackWebhookSecretName: ""
+    # Name of an existing Kubernetes Secret that contains the shared secret
+    # for the dineOS backend webhook under the key "secret".
+    # Must match AlertWebhook:SharedSecret in the API configuration.
+    # Example: kubectl create secret generic alertmanager-webhook \
+    #            --from-literal=secret=<random-strong-secret>
+    # Leave empty to allow unauthenticated webhook calls on a closed cluster network.
+    alertWebhookSecretName: ""
 
   grafana:
     # Toggle the Prometheus datasource provisioning in Grafana.
@@ -381,6 +392,10 @@ observability:
         storageClass: ""
     logstash:
       image: docker.elastic.co/logstash/logstash:8.15.0
+      # JVM heap, kept at ~50% of the memory limit below so the container has room
+      # for Logstash's non-heap memory. Without this, Logstash defaults to a 1g
+      # heap that equals the 1Gi limit and the pod is OOMKilled (exit 137).
+      javaOpts: "-Xms512m -Xmx512m"
       resources:
         requests:
           cpu: 250m

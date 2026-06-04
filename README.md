@@ -204,6 +204,8 @@ See [docs/devops/observability.md](docs/devops/observability.md) for the archite
 An optional **ELK stack** (`--profile elk`) adds Elasticsearch + Logstash + Kibana with pre-built dashboards for API logs and Nginx access analytics — see [docs/devops/elk.md](docs/devops/elk.md).
 An optional **Uptime Kuma** instance (`--profile uptime`) adds synthetic black-box monitoring and a public status page — seven HTTP/TCP/keyword monitors cover every service, with Slack and email notifications sharing the same `SLACK_WEBHOOK_URL` used by Alertmanager. Run `bash scripts/demo-uptime-kuma.sh` to watch a DOWN alert and recovery email arrive in Mailhog end-to-end. In Kubernetes, flip `observability.uptimeKuma.enabled=true` in the Helm chart — see [docs/devops/uptime-kuma.md](docs/devops/uptime-kuma.md).
 
+Alertmanager routes all firing alerts to the **dineOS backend webhook** (`POST /api/v1/alerts/webhook`) rather than posting raw payloads directly to Slack. The backend runs AI triage (Anthropic / OpenAI / Google) — producing severity, likely causes, suggested next actions, and a short summary — then posts a structured Block Kit message to Slack via `SlackNotifier`. Every step is failure-isolated; Alertmanager always receives `200 OK`. The original Alertmanager → Slack path is preserved as a `slack-direct` receiver that can be toggled on instantly. Run `bash scripts/demo-do12.sh` to post a synthetic alert and watch the full triage pipeline. See [docs/devops/aiops-triage.md](docs/devops/aiops-triage.md) for the architecture diagram, config/secrets reference, demo steps, and failure-path behavior.
+
 ## Security
 
 Trivy scans dependency manifests on every pull request (`trivy fs`) and the built Docker images after every push to `main` (`trivy image`). Both scans gate on CRITICAL/HIGH unfixed CVEs and fail CI with exit code 1 before a vulnerable image can reach the `deploy` job. Both runtime images run as a non-root UID 1001 user on Alpine-based minimal bases. Justified exceptions are documented in `.trivyignore` with an explicit expiry date; Trivy enforces the expiry natively so suppressions cannot silently persist beyond their review window.
@@ -226,5 +228,6 @@ See [docs/devops/security.md](docs/devops/security.md) for the image hardening c
 - Observability (Prometheus, Alertmanager, Grafana): `docs/devops/observability.md`
 - Observability (ELK centralized logging): `docs/devops/elk.md`
 - Observability (Uptime Kuma status page): `docs/devops/uptime-kuma.md`
+- AI-powered incident triage (DO-12): `docs/devops/aiops-triage.md`
 - Container security (image hardening, Trivy scanning): `docs/devops/security.md`
 - Release workflow (Conventional Commits, release-please, semver): `docs/devops/releases.md`
