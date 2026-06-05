@@ -1,10 +1,10 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { useMe } from "@/hooks/useMe";
+import { useIsClient } from "@/hooks/useIsClient";
 import { getPrimaryRole } from "@/lib/auth/keycloak";
 import type { Role } from "@/types";
 
@@ -41,18 +41,6 @@ function mergeClasses(...classes: Array<string | undefined | false>): string {
   return classes.filter(Boolean).join(" ");
 }
 
-function subscribeClientReady(): () => void {
-  return () => {};
-}
-
-function getClientSnapshot(): boolean {
-  return true;
-}
-
-function getServerSnapshot(): boolean {
-  return false;
-}
-
 export default function ProtectedSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -61,11 +49,7 @@ export default function ProtectedSidebar() {
   const logout = useAuthStore((state) => state.logout);
   const isStaffSession = useAuthStore((state) => state.isStaffSession);
   const signOutOfShift = useAuthStore((state) => state.signOutOfShift);
-  const isClient = useSyncExternalStore(
-    subscribeClientReady,
-    getClientSnapshot,
-    getServerSnapshot
-  );
+  const isClient = useIsClient();
   // In a staff session the active token is the staff-session token, whose role
   // lives in a `role` claim (not realm_access.roles) — so prefer the stored
   // role and never let getPrimaryRole throw the sidebar down.

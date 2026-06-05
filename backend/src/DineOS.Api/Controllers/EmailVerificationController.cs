@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using DineOS.Application.Common;
+using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Restaurants;
 using Hangfire;
@@ -27,7 +28,7 @@ public class EmailVerificationController(
 {
     /// <summary>Re-enqueues the verification email for the given restaurant.</summary>
     [HttpPost("resend")]
-    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ApiResponse<ResendVerificationEmailResponse>), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
@@ -35,7 +36,8 @@ public class EmailVerificationController(
     {
         var jobId = backgroundJobs.Enqueue<AccountVerificationEmailJob>(
             job => job.SendAsync(tenantId, CancellationToken.None));
-        return Accepted(ApiResponse.Ok($"Verification email queued. JobId={jobId}"));
+        return Accepted(ApiResponse<ResendVerificationEmailResponse>.Ok(
+            new ResendVerificationEmailResponse(jobId), "Verification email queued."));
     }
 
     /// <summary>Confirms a verification code submitted by the owner.</summary>
