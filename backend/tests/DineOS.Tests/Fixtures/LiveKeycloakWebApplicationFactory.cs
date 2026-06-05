@@ -38,6 +38,22 @@ public sealed class LiveKeycloakWebApplicationFactory : WebApplicationFactory<Pr
     public LiveKeycloakWebApplicationFactory(KeycloakContainerFixture keycloak)
     {
         _keycloak = keycloak;
+
+        // Defensive: the hardcoded `dineos-admin` / `dev-admin-secret-change-me`
+        // pair below is the seeded service-account credential carried inside
+        // `backend/keycloak/realm-export.json`. It is only safe to send those
+        // creds at a throwaway Testcontainer instance — KeycloakContainerFixture
+        // always uses an ephemeral random mapped port via `_container.GetBaseAddress()`,
+        // so the BaseUrl can never resolve to the shared dev Keycloak on
+        // localhost:8080. This assertion documents that invariant and fails
+        // loudly if a future refactor ever points the fixture at a stable host
+        // (e.g. swaps Testcontainers for a docker-compose-managed Keycloak).
+        var baseUrl = keycloak.BaseUrl;
+        if (baseUrl.Contains(":8080", StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"LiveKeycloakWebApplicationFactory refusing to target a non-ephemeral " +
+                $"Keycloak host: BaseUrl='{baseUrl}'. The hardcoded admin secret below " +
+                $"is only safe against an ephemeral Testcontainer with a random mapped port.");
     }
 
     async Task IAsyncLifetime.InitializeAsync()
@@ -83,6 +99,14 @@ public sealed class LiveKeycloakWebApplicationFactory : WebApplicationFactory<Pr
                 ["Keycloak:Realm"]               = _keycloak.Realm,
                 ["Keycloak:ClientId"]            = "dineos-frontend",
                 ["Keycloak:RequireHttpsMetadata"] = "false",
+
+                // KeycloakAdminClient needs the service-account client + base URL
+                // to provision users for tests that exercise the owner first-login
+                // flow against real Keycloak. The realm export already seeds the
+                // dineos-admin confidential client with the realm-management roles.
+                ["Keycloak:AdminBaseUrl"]        = _keycloak.BaseUrl,
+                ["Keycloak:AdminClientId"]       = "dineos-admin",
+                ["Keycloak:AdminClientSecret"]   = "dev-admin-secret-change-me",
 
                 // Signup:FirstLoginUrl is bound with ValidateOnStart in
                 // Infrastructure/DependencyInjection.cs — required for the

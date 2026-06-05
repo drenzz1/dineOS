@@ -23,6 +23,15 @@ namespace DineOS.Api.Controllers;
 [EnableRateLimiting("authenticated")]
 public class AdminController(IAdminService adminService) : ControllerBase
 {
+    /// <summary>Returns platform-wide dashboard analytics for SuperAdmins.</summary>
+    [HttpGet("analytics")]
+    [ProducesResponseType(typeof(ApiResponse<AdminAnalyticsDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> GetAnalytics(CancellationToken ct) =>
+        (await adminService.GetAnalyticsAsync(ct)).ToActionResult();
+
     /// <summary>Lists platform staff users across all tenants. Note: this is the
     /// internal staff/PIN account list. Keycloak login-account management is a
     /// separate, future integration.</summary>

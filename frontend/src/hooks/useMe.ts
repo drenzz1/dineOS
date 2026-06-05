@@ -17,7 +17,7 @@ export function useMe(): UseMeResult {
     queryKey: queryKeys.me.current(),
     queryFn: getMe,
     staleTime: 5 * 60 * 1000,
-    enabled: accessToken !== null && accessToken !== "dev",
+    enabled: accessToken !== null,
   });
 
   return { user, isLoading, isError };

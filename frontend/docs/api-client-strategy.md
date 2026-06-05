@@ -19,10 +19,11 @@ readable and avoids a build-time dependency on the backend being available.
 3. `apiClient.ts` interceptor reads the cookie and attaches `Authorization: Bearer <token>`
 4. Backend validates the JWT and the `X-Tenant-ID` header
 
-**Current dev bypass:** `login/page.tsx` sets `access_token=dev` for local development.
-The interceptor skips attaching the header when the value is `"dev"`.
-When Keycloak integration is complete, replace `setDevAuthCookies` in `login/page.tsx`
-with the real Keycloak token (see `middleware.ts` TODO comment).
+The previous `access_token=dev` interceptor bypass has been removed. The
+client now attaches `Authorization: Bearer <token>` for any non-empty
+`access_token` cookie value — no string is treated as an auth-skip sentinel.
+Mock-data switches in `ordersApi.ts` / `kitchenApi.ts` still inspect the
+cookie for the `"dev"` value but do not affect the authorization header.
 
 ## Query key conventions
 

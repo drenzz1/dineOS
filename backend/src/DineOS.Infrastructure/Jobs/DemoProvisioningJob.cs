@@ -1,6 +1,7 @@
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Options;
 using DineOS.Domain.Enums;
+using DineOS.Infrastructure.Auth;
 using DineOS.Infrastructure.Persistence;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,16 @@ public sealed class DemoProvisioningJob(
     IOptions<DemoOptions> demoOptions,
     ILogger<DemoProvisioningJob> logger)
 {
+    // Display-name fields for demo users. Demo accounts have no per-user
+    // identity collected at request time, so we use fixed literals — but we
+    // intentionally route them through KeycloakProfileDefaults rather than
+    // hard-coding string constants in the CreateUserAsync call so this job
+    // cannot drift from OwnerProvisioningJob's "always non-empty" invariant.
+    // If KeycloakProfileDefaults.MissingFieldPlaceholder changes (or the
+    // realm tightens its user-profile validators), both jobs evolve together.
+    private const string DemoFirstName = "Demo";
+    private const string DemoLastName = "User";
+
     [AutomaticRetry(
         Attempts = 5,
         DelaysInSeconds = new[] { 10, 30, 90, 300, 900 },
@@ -59,10 +70,21 @@ public sealed class DemoProvisioningJob(
         string keycloakUserId;
         if (demoUser.KeycloakUserId is null)
         {
+            // Guard: both fields must be non-empty per
+            // KeycloakProfileDefaults.SplitDisplayName's contract — assert it
+            // here too so a future "edit the constants" pass cannot silently
+            // re-introduce the empty-lastName "Account is not fully set up"
+            // bug that broke OwnerProvisioningJob for single-word owners.
+            System.Diagnostics.Debug.Assert(
+                !string.IsNullOrWhiteSpace(DemoFirstName) &&
+                !string.IsNullOrWhiteSpace(DemoLastName),
+                "Demo first/last names must be non-empty — Keycloak's declarative " +
+                "user-profile rejects empty values with 'Account is not fully set up'.");
+
             keycloakUserId = await keycloakAdmin.CreateUserAsync(
                 email:              demoUser.Email,
-                firstName:          "Demo",
-                lastName:           "User",
+                firstName:          DemoFirstName,
+                lastName:           DemoLastName,
                 tempPassword:       tempPassword,
                 requiredActions:    Array.Empty<string>(),
                 // Demo: emailed creds ARE the credential — UPDATE_PASSWORD
