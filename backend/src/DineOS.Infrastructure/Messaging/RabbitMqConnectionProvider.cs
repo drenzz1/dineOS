@@ -11,10 +11,26 @@ public sealed class RabbitMqConnectionProvider(
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
     private IConnection? _connection;
 
-    public async Task<IChannel> CreateChannelAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Opens a channel. When <paramref name="publisherConfirms"/> is true the
+    /// channel is created with publisher confirmations + tracking enabled, so
+    /// <c>BasicPublishAsync</c> awaits the broker ack and faults the publish task
+    /// if the message is nacked or returned unroutable (mandatory) — turning
+    /// "fire and hope" into a detectable failure the caller can fall back on.
+    /// </summary>
+    public async Task<IChannel> CreateChannelAsync(
+        bool publisherConfirms = false,
+        CancellationToken ct = default)
     {
         var connection = await GetConnectionAsync(ct);
-        return await connection.CreateChannelAsync(cancellationToken: ct);
+
+        var options = publisherConfirms
+            ? new CreateChannelOptions(
+                publisherConfirmationsEnabled: true,
+                publisherConfirmationTrackingEnabled: true)
+            : null;
+
+        return await connection.CreateChannelAsync(options, cancellationToken: ct);
     }
 
     private async Task<IConnection> GetConnectionAsync(CancellationToken ct)

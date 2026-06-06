@@ -15,6 +15,7 @@ using Hangfire;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
@@ -40,6 +41,37 @@ Log.Logger = new LoggerConfiguration()
 try
 {
     var builder = WebApplication.CreateBuilder(args);
+
+    // ── Production secret guard ─────────────────────────────────────────────────────
+    // Fail fast if a non-Development environment is still running with the committed
+    // dev placeholder secrets. They are fine for localhost dev but a critical exposure
+    // in prod: the StaffSession key signs (forges) staff role/tenant tokens, and the
+    // Keycloak admin secret is a realm-admin credential. Supply real values via env /
+    // secret store before deploying anywhere non-local.
+    if (!builder.Environment.IsDevelopment())
+    {
+        var offenders = new List<string>();
+
+        void RequireNonPlaceholder(string key, string devPlaceholder)
+        {
+            var value = builder.Configuration[key];
+            if (string.IsNullOrWhiteSpace(value) || value == devPlaceholder)
+                offenders.Add(key);
+        }
+
+        RequireNonPlaceholder("StaffSession:SigningKey", "dev-staff-session-signing-key-change-me-0123456789");
+        RequireNonPlaceholder("Keycloak:AdminClientSecret", "dev-admin-secret-change-me");
+
+        var dbConnection = builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+        if (dbConnection.Contains("Password=dineos_dev", StringComparison.OrdinalIgnoreCase))
+            offenders.Add("ConnectionStrings:DefaultConnection (uses the dev password)");
+        if (string.Equals(builder.Configuration["RabbitMq:Password"], "dineos_dev", StringComparison.Ordinal))
+            offenders.Add("RabbitMq:Password");
+
+        if (offenders.Count > 0)
+            throw new InvalidOperationException(
+                $"Refusing to start in environment '{builder.Environment.EnvironmentName}': the following secrets are empty or still use the committed dev placeholder — set real values via environment variables / a secret store: {string.Join(", ", offenders)}.");
+    }
 
     // ── Serilog ───────────────────────────────────────────────────────────────────
     builder.Host.UseSerilog((ctx, services, config) =>
@@ -80,6 +112,10 @@ try
         {
             options.Configuration = StackExchange.Redis.ConfigurationOptions.Parse(redisConnStr);
             options.Configuration.AbortOnConnectFail = false;
+            // Namespace the backplane pub/sub channels so two SignalR apps sharing
+            // one Redis instance/DB (common with managed Redis) can't cross-deliver
+            // hub messages.
+            options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("dineos:signalr");
         });
 
     // ── Authentication ────────────────────────────────────────────────────────────
@@ -499,8 +535,35 @@ try
     await app.Services.GetRequiredService<IDemoTenantSeeder>().SeedAsync();
 
     // ── Middleware pipeline ───────────────────────────────────────────────────────
+    // Honor X-Forwarded-* from a TLS-terminating proxy / ingress so the request
+    // scheme and client IP (the per-IP rate-limit partition keys) are correct in
+    // prod. Default trust is loopback-only, so this does NOT let arbitrary clients
+    // spoof their IP — a prod ingress network must be added to KnownNetworks there.
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    });
+
+    // HSTS only outside Development — dev is plain HTTP on localhost.
+    if (!app.Environment.IsDevelopment())
+        app.UseHsts();
+
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseMiddleware<ExceptionMiddleware>();
+
+    // Baseline security response headers on every response. CSP is applied only
+    // outside Development because the Dev-only Swagger UI needs inline script/style.
+    var cspEnabled = !app.Environment.IsDevelopment();
+    app.Use(async (ctx, nextMw) =>
+    {
+        var headers = ctx.Response.Headers;
+        headers["X-Content-Type-Options"] = "nosniff";
+        headers["X-Frame-Options"] = "DENY";
+        headers["Referrer-Policy"] = "no-referrer";
+        if (cspEnabled)
+            headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
+        await nextMw();
+    });
 
     // Structured request logging — enriched with CorrelationId, TenantId, UserId
     app.UseSerilogRequestLogging(options =>

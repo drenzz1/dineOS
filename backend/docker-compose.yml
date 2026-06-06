@@ -5,10 +5,12 @@ services:
       dockerfile: src/DineOS.Api/Dockerfile
     container_name: dineos-api
     ports:
-      - "${API_HTTP_PORT:-5001}:8080"
+      # Bound to loopback so the dev stack is not reachable from the LAN. The
+      # frontend (host) reaches it via localhost; containers use the dineos-net bridge.
+      - "127.0.0.1:${API_HTTP_PORT:-5001}:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dineos;Username=dineos;Password=dineos_dev
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dineos;Username=dineos;Password=${POSTGRES_PASSWORD:-dineos_dev}
       - AllowedOrigins__0=http://localhost:3000
       - Keycloak__Realm=dineos
       - Keycloak__Authority=http://localhost:8080/realms/dineos
@@ -20,13 +22,13 @@ services:
       - Keycloak__GrantType=password
       - Keycloak__RequireHttpsMetadata=false
       - Keycloak__AdminClientId=dineos-admin
-      - Keycloak__AdminClientSecret=dev-admin-secret-change-me
+      - Keycloak__AdminClientSecret=${KEYCLOAK_ADMIN_CLIENT_SECRET:-dev-admin-secret-change-me}
       - Redis__ConnectionString=redis:6379
       - RabbitMq__Enabled=true
       - RabbitMq__HostName=rabbitmq
       - RabbitMq__Port=5672
       - RabbitMq__UserName=dineos
-      - RabbitMq__Password=dineos_dev
+      - RabbitMq__Password=${RABBITMQ_PASSWORD:-dineos_dev}
       - Loki__Uri=http://loki:3100
       - Smtp__Host=mailhog
       - Smtp__Port=1025
@@ -58,10 +60,10 @@ services:
     image: quay.io/keycloak/keycloak:24.0
     container_name: dineos-keycloak
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME_URL: "http://localhost:8080"
@@ -75,11 +77,11 @@ services:
     image: postgres:16-alpine
     container_name: dineos-postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: dineos
       POSTGRES_USER: dineos
-      POSTGRES_PASSWORD: dineos_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dineos_dev}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -95,7 +97,7 @@ services:
     image: redis:7-alpine
     container_name: dineos-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -111,11 +113,11 @@ services:
     image: rabbitmq:4-management
     container_name: dineos-rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: dineos
-      RABBITMQ_DEFAULT_PASS: dineos_dev
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-dineos_dev}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -131,7 +133,7 @@ services:
     image: grafana/loki:3.0.0
     container_name: dineos-loki
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
     command: -config.file=/etc/loki/loki-config.yml
     volumes:
       - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
@@ -149,8 +151,8 @@ services:
     image: mailhog/mailhog:latest
     container_name: dineos-mailhog
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI — open http://localhost:8025 to inspect delivered mail
+      - "127.0.0.1:1025:1025"   # SMTP
+      - "127.0.0.1:8025:8025"   # Web UI — open http://localhost:8025 to inspect delivered mail
     networks:
       - dineos-net
     restart: unless-stopped
@@ -159,13 +161,16 @@ services:
     image: grafana/grafana:11.0.0
     container_name: dineos-grafana
     ports:
-      - "4000:3000"
+      - "127.0.0.1:4000:3000"
     environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      # Anonymous access defaults to Viewer (read-only) — enough to view the
+      # provisioned dashboards in dev without handing out Admin. Set
+      # GRAFANA_ANONYMOUS_ENABLED=false (and a real admin password) for prod.
+      - GF_AUTH_ANONYMOUS_ENABLED=${GRAFANA_ANONYMOUS_ENABLED:-true}
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=${GRAFANA_ANONYMOUS_ROLE:-Viewer}
       - GF_AUTH_DISABLE_LOGIN_FORM=false
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -181,10 +186,10 @@ services:
     image: dpage/pgadmin4:latest
     container_name: dineos-pgadmin
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@dineos.dev
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
     depends_on:
       - postgres
     networks:

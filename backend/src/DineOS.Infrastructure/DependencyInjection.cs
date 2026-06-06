@@ -101,21 +101,18 @@ public static class DependencyInjection
             services.AddHostedService<RabbitMqOrderCreatedConsumer>();
         }
 
-        services.AddSingleton<IConnectionMultiplexer>(sp =>
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
         {
             var connString = configuration["Redis:ConnectionString"] ?? "localhost:6379";
-            try
-            {
-                var options = ConfigurationOptions.Parse(connString);
-                options.AbortOnConnectFail = false;
-                return ConnectionMultiplexer.Connect(options);
-            }
-            catch (Exception ex)
-            {
-                var logger = sp.GetRequiredService<ILogger<ConnectionMultiplexer>>();
-                logger.LogWarning(ex, "Redis unavailable at {ConnectionString}. Token blacklisting will not function.", connString);
-                return ConnectionMultiplexer.Connect("localhost:6379,abortConnect=false");
-            }
+            var options = ConfigurationOptions.Parse(connString);
+            // AbortOnConnectFail=false returns a multiplexer that connects lazily
+            // and retries the *configured* endpoint in the background, so a
+            // transient/startup Redis outage does not throw here. We deliberately
+            // do NOT fall back to a hardcoded localhost:6379 — inside Docker (or any
+            // non-local deploy) that points at a non-existent server and would
+            // silently drop a real password/SSL, masking the real misconfiguration.
+            options.AbortOnConnectFail = false;
+            return ConnectionMultiplexer.Connect(options);
         });
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
         services.AddSingleton<ICacheService, RedisCacheService>();

@@ -32,7 +32,7 @@ public sealed class RabbitMqOrderCreatedConsumer(
         {
             try
             {
-                await using var channel = await connectionProvider.CreateChannelAsync(stoppingToken);
+                await using var channel = await connectionProvider.CreateChannelAsync(ct: stoppingToken);
                 await channel.BasicQosAsync(
                     prefetchSize: 0,
                     prefetchCount: rabbitOptions.PrefetchCount,

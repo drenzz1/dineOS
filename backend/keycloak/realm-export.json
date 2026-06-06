@@ -1,13 +1,16 @@
 {
   "realm": "dineos",
   "enabled": true,
-  "sslRequired": "none",
+  "sslRequired": "external",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
-  "bruteForceProtected": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 30,
+  "passwordPolicy": "length(8) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername",
   "accessTokenLifespan": 300,
   "roles": {
     "realm": [
@@ -33,7 +36,7 @@
       },
       {
         "name": "Owner",
-        "description": "Account-level role for the business Keycloak account (#staff-pin-auth Phase 2): gates staff management + billing. Composite over Manager BY DESIGN (permanent, decided 2026-05-31) so the owner login keeps full operational access and the FE resolves to Manager; PIN-issued staff sessions provide role-scoped switching on shared terminals. Do not remove this composite without revisiting that decision (see docs/backend/staff-pin-auth.md).",
+        "description": "Account-level role for the business Keycloak account (#staff-pin-auth Phase 2): gates staff management + billing. Composite over Manager BY DESIGN (permanent, decided 2026-05-31) — see docs/backend/staff-pin-auth.md.",
         "composite": true,
         "composites": {
           "realm": [

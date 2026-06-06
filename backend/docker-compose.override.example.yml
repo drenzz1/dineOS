@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Example local override. Copy to `docker-compose.override.yml` (which is
+# git-ignored) and fill in your own secrets. Docker Compose auto-merges
+# docker-compose.override.yml on `docker compose up` — do NOT commit real secrets.
+#
+#   cp docker-compose.override.example.yml docker-compose.override.yml
+#
+# Two kinds of secret live in two places:
+#
+# 1) APP-LEVEL secrets read by the API at runtime go in the `api.environment`
+#    block below (Stripe keys, the StaffSession signing key, …).
+#       - Stripe SecretKey:        https://dashboard.stripe.com/test/apikeys
+#       - Stripe ProMonthlyPriceId: https://dashboard.stripe.com/test/products
+#       - Stripe WebhookSecret:     printed by `stripe listen --forward-to ...`
+#
+# 2) COMPOSE-INTERPOLATION vars (the `${VAR:-default}` placeholders in
+#    docker-compose.yml — POSTGRES_PASSWORD, RABBITMQ_PASSWORD,
+#    KEYCLOAK_ADMIN_PASSWORD, KEYCLOAK_ADMIN_CLIENT_SECRET, GRAFANA_ADMIN_PASSWORD,
+#    GRAFANA_ANONYMOUS_ENABLED, GRAFANA_ANONYMOUS_ROLE, PGADMIN_PASSWORD) are NOT
+#    set here — Compose reads them from a `backend/.env` file or the shell env.
+#    For local dev you can leave them unset (the dev defaults apply). For any
+#    shared/staging/prod deployment, set strong unique values, e.g. a `.env`:
+#
+#       POSTGRES_PASSWORD=<strong-random>
+#       RABBITMQ_PASSWORD=<strong-random>
+#       KEYCLOAK_ADMIN_PASSWORD=<strong-random>
+#       KEYCLOAK_ADMIN_CLIENT_SECRET=<rotate-in-keycloak>
+#       GRAFANA_ADMIN_PASSWORD=<strong-random>
+#       GRAFANA_ANONYMOUS_ENABLED=false
+#       PGADMIN_PASSWORD=<strong-random>
+#
+#    NOTE: the API also enforces a startup guard — outside Development it refuses
+#    to boot while StaffSession:SigningKey / Keycloak:AdminClientSecret / the DB &
+#    RabbitMQ passwords still equal their committed dev placeholders.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  api:
+    environment:
+      # Stripe (test mode) — required for the billing/signup flow.
+      - Stripe__SecretKey=sk_test_replace_me
+      - Stripe__WebhookSecret=whsec_replace_me
+      - Stripe__ProMonthlyPriceId=price_replace_me
+
+      # StaffSession HMAC signing key — MUST be a unique, high-entropy (>=32 byte)
+      # value per environment. Leave unset locally to use the dev placeholder.
+      # - StaffSession__SigningKey=replace-with-32+byte-random-secret
