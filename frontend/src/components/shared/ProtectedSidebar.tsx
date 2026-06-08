@@ -27,12 +27,17 @@ const navItems: NavItem[] = [
   { label: "Billing", href: "/settings/billing" },
 ];
 
+// Keep these in sync with the route allow-lists in src/middleware.ts so the nav
+// shows exactly what each role can actually open (no hidden-but-allowed routes,
+// no visible-but-forbidden ones).
 const ROLE_NAV_ITEMS: Record<Exclude<Role, "SuperAdmin">, NavItem[]> = {
   Manager: navItems,
   Cashier: navItems.filter(({ href }) =>
-    ["/orders", "/payments", "/kitchen"].includes(href)
+    ["/orders", "/payments", "/kitchen", "/shifts"].includes(href)
   ),
-  KitchenStaff: navItems.filter(({ href }) => href === "/kitchen"),
+  KitchenStaff: navItems.filter(({ href }) =>
+    ["/kitchen", "/shifts"].includes(href)
+  ),
 };
 
 // Billing is Manager-only; the filter above already excludes it from Cashier/KitchenStaff.

@@ -19,6 +19,9 @@ const PUBLIC_PATHS = [
   "/signup/cancelled",
   "/demo",
   "/first-login",
+  // Always reachable so the "you don't have access" page can render without the
+  // role check below redirecting it back onto itself.
+  "/forbidden",
 ];
 
 // Prefix-matched public routes (the path itself or anything nested under it).
@@ -37,6 +40,15 @@ function isAdminPath(pathname: string): boolean {
 
 function redirectTo(destination: string, request: NextRequest): NextResponse {
   return NextResponse.redirect(new URL(destination, request.url));
+}
+
+// Send an authenticated-but-unauthorized user to a friendly "no access" page
+// rather than silently bouncing them to their home (which looked like a bug).
+// The attempted path rides along so the page can name what was blocked.
+function redirectToForbidden(pathname: string, request: NextRequest): NextResponse {
+  const url = new URL("/forbidden", request.url);
+  url.searchParams.set("from", pathname);
+  return NextResponse.redirect(url);
 }
 
 export function middleware(request: NextRequest): NextResponse {
@@ -69,14 +81,14 @@ export function middleware(request: NextRequest): NextResponse {
   // SuperAdmin is confined to /admin/* and must not enter tenant routes.
   if (role === "SuperAdmin") {
     if (!isAdminPath(pathname)) {
-      return redirectTo("/admin/dashboard", request);
+      return redirectToForbidden(pathname, request);
     }
     return NextResponse.next();
   }
 
   // Non-SuperAdmin roles must not enter /admin/* routes.
   if (isAdminPath(pathname)) {
-    return redirectTo("/dashboard", request);
+    return redirectToForbidden(pathname, request);
   }
 
   // Manager can access all tenant routes.
@@ -84,20 +96,20 @@ export function middleware(request: NextRequest): NextResponse {
     return NextResponse.next();
   }
 
-  // Cashier: allowed on /orders and /kitchen only.
+  // Cashier: allowed on /orders, /payments, /kitchen, /shifts only.
   if (role === "Cashier") {
     if (isAllowed(pathname, CASHIER_ALLOWED)) {
       return NextResponse.next();
     }
-    return redirectTo("/orders", request);
+    return redirectToForbidden(pathname, request);
   }
 
-  // KitchenStaff: allowed on /kitchen only.
+  // KitchenStaff: allowed on /kitchen, /shifts only.
   if (role === "KitchenStaff") {
     if (isAllowed(pathname, KITCHEN_STAFF_ALLOWED)) {
       return NextResponse.next();
     }
-    return redirectTo("/kitchen", request);
+    return redirectToForbidden(pathname, request);
   }
 
   // Exhaustive fallback — should never be reached with the type guard above.

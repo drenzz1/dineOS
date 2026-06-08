@@ -56,26 +56,28 @@ describe("ProtectedSidebar", () => {
     });
   });
 
-  it("shows only Orders, Payments, and Kitchen to cashiers", () => {
+  it("shows only Orders, Payments, Kitchen, and Shifts to cashiers", () => {
     renderForRole("Cashier");
 
-    expect(screen.getByRole("link", { name: "Orders" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Payments" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Kitchen" })).toBeInTheDocument();
+    const allowed = ["Orders", "Payments", "Kitchen", "Shifts"];
+    allowed.forEach((label) => {
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+    });
 
-    ALL_LINKS.filter(
-      (label) => !["Orders", "Payments", "Kitchen"].includes(label)
-    ).forEach((label) => {
+    ALL_LINKS.filter((label) => !allowed.includes(label)).forEach((label) => {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     });
   });
 
-  it("shows only Kitchen to kitchen staff", () => {
+  it("shows only Kitchen and Shifts to kitchen staff", () => {
     renderForRole("KitchenStaff");
 
-    expect(screen.getByRole("link", { name: "Kitchen" })).toBeInTheDocument();
+    const allowed = ["Kitchen", "Shifts"];
+    allowed.forEach((label) => {
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+    });
 
-    ALL_LINKS.filter((label) => label !== "Kitchen").forEach((label) => {
+    ALL_LINKS.filter((label) => !allowed.includes(label)).forEach((label) => {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     });
   });
