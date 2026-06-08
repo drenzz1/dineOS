@@ -7,6 +7,7 @@ import {
   getStaffRefreshToken,
   clearAuthCookies,
 } from "@/lib/auth/keycloak";
+import { isStaffSessionToken } from "@/lib/auth/routeRole";
 import type { AppRole } from "@/types";
 
 const apiClient = axios.create({
@@ -93,7 +94,12 @@ apiClient.interceptors.response.use(
     // and the request retried; on failure (expired/revoked) we restore owner
     // mode and bounce to /select-staff to re-PIN — never retrying with an owner
     // token.
-    if (useAuthStore.getState().isStaffSession) {
+    const activeToken = getCookie("access_token");
+    if (
+      getCookie("session_mode") === "staff" ||
+      useAuthStore.getState().isStaffSession ||
+      isStaffSessionToken(activeToken)
+    ) {
       staffRefreshPromise ??= (async () => {
         const refreshToken = getStaffRefreshToken();
         if (!refreshToken) {
@@ -114,7 +120,11 @@ apiClient.interceptors.response.use(
           getCookie("tenant_id"),
           refreshExpiresIn
         );
-        useAuthStore.setState({ accessToken, role });
+        useAuthStore.setState({
+          accessToken,
+          role,
+          isStaffSession: true,
+        });
       })();
 
       try {

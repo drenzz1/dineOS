@@ -258,9 +258,60 @@ describe("apiClient — 401 response interceptor", () => {
     expect(useAuthStore.setState).toHaveBeenCalledWith({
       accessToken: "new-staff-access",
       role: "Cashier",
+      isStaffSession: true,
     });
     // Owner cookie path must not run.
     expect(jest.mocked(persistAuthCookies)).not.toHaveBeenCalled();
+  });
+
+  it("staff mode 401: uses staff refresh even when the store flag and token parsing are stale", async () => {
+    (useAuthStore.getState as jest.Mock).mockReturnValue({
+      role: "Manager",
+      tenantId: "tenant-1",
+      isStaffSession: false,
+      clearAuth: jest.fn(),
+      endStaffSession: jest.fn(),
+    });
+    Object.defineProperty(document, "cookie", {
+      configurable: true,
+      get: () =>
+        "access_token=stale-or-duplicate-token; " +
+        "session_mode=staff; " +
+        "staff_refresh_token=staff-refresh-token; " +
+        `refresh_token=${encodeURIComponent(REFRESH_TOKEN)}`,
+    });
+
+    adapter.onGet("/resource").replyOnce(401).onGet("/resource").replyOnce(200, { ok: true });
+    refreshPostMock.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          accessToken: "renewed-staff-access",
+          role: "Cashier",
+          expiresIn: 3600,
+          refreshExpiresIn: 43200,
+        },
+        message: "ok",
+        errors: null,
+      },
+    });
+
+    const response = await client.get("/resource");
+
+    expect(response.status).toBe(200);
+    expect(refreshPostMock).toHaveBeenCalledWith(
+      "/v1/auth/staff-session/refresh",
+      { refreshToken: "staff-refresh-token" }
+    );
+    expect(refreshPostMock).not.toHaveBeenCalledWith(
+      "/v1/auth/refresh",
+      expect.anything()
+    );
+    expect(useAuthStore.setState).toHaveBeenCalledWith({
+      accessToken: "renewed-staff-access",
+      role: "Cashier",
+      isStaffSession: true,
+    });
   });
 
   it("staff session 401: when refresh fails, ends the session + redirects to roster", async () => {

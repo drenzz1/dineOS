@@ -21,9 +21,11 @@ public class NoMagicStringsTests
     private static readonly HashSet<string> KnownPolicies = new(StringComparer.Ordinal)
     {
         Policies.SuperAdminOnly,
+        Policies.BusinessAccountOnly,
         Policies.OwnerOnly,
         Policies.ManagerAndAbove,
         Policies.CashierAndAbove,
+        Policies.KitchenAccess,
         Policies.KitchenStaffOnly,
     };
 

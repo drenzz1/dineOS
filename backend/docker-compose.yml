@@ -69,6 +69,7 @@ services:
       KC_HOSTNAME_URL: "http://localhost:8080"
     command: start-dev --import-realm
     volumes:
+      - keycloak_data:/opt/keycloak/data
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     networks:
       - dineos-net
@@ -200,6 +201,7 @@ services:
 
 volumes:
   postgres_data:
+  keycloak_data:
   redis_data:
   rabbitmq_data:
   loki_data:

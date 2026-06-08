@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
@@ -55,6 +56,21 @@ export default function ProtectedSidebar() {
   const isStaffSession = useAuthStore((state) => state.isStaffSession);
   const signOutOfShift = useAuthStore((state) => state.signOutOfShift);
   const isClient = useIsClient();
+  const [logoutArmed, setLogoutArmed] = useState(false);
+  const hasStaffSessionCookie =
+    isClient &&
+    document.cookie
+      .split("; ")
+      .some((cookie) => cookie === "session_mode=staff");
+  const effectiveStaffSession = isStaffSession || hasStaffSessionCookie;
+
+  useEffect(() => {
+    if (!logoutArmed) return;
+
+    const timeout = window.setTimeout(() => setLogoutArmed(false), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [logoutArmed]);
+
   // In a staff session the active token is the staff-session token, whose role
   // lives in a `role` claim (not realm_access.roles) — so prefer the stored
   // role and never let getPrimaryRole throw the sidebar down.
@@ -66,19 +82,28 @@ export default function ProtectedSidebar() {
       return null;
     }
   })();
-  const role = !isClient ? null : isStaffSession ? storedRole : meRole ?? storedRole;
+  const role = !isClient
+    ? null
+    : effectiveStaffSession
+      ? storedRole
+      : meRole ?? storedRole;
 
   const baseNavItems =
     role && role !== "SuperAdmin" ? ROLE_NAV_ITEMS[role] : [];
   // Account-level screens (Staff, Billing) are Owner-only — hide them in an
   // operational staff session so a PIN-selected Manager doesn't hit a raw 403.
-  const visibleNavItems = isStaffSession
+  const visibleNavItems = effectiveStaffSession
     ? baseNavItems.filter(
         ({ href }) => href !== "/staff" && href !== "/settings/billing"
       )
     : baseNavItems;
 
   const handleLogout = async () => {
+    if (!logoutArmed) {
+      setLogoutArmed(true);
+      return;
+    }
+
     await logout();
     router.push("/login");
   };
@@ -131,12 +156,18 @@ export default function ProtectedSidebar() {
             Switch user
           </button>
         )}
-        <button
-          onClick={handleLogout}
-          className="flex items-center h-8 rounded-sm px-3 text-[13px] font-medium text-fg-muted hover:bg-surface-2 hover:text-fg transition-colors duration-150 w-full text-left"
-        >
-          Log out
-        </button>
+        {!effectiveStaffSession && (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={mergeClasses(
+              "flex items-center h-8 rounded-sm px-3 text-[13px] font-medium hover:bg-surface-2 transition-colors duration-150 w-full text-left",
+              logoutArmed ? "text-danger" : "text-fg-muted hover:text-fg"
+            )}
+          >
+            {logoutArmed ? "Confirm log out" : "Log out"}
+          </button>
+        )}
       </div>
     </aside>
   );

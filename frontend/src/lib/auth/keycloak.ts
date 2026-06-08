@@ -80,6 +80,7 @@ export function persistAuthCookies(
   const sessionLifetime = refreshExpiresIn ?? expiresIn;
   setCookie("access_token", accessToken, sessionLifetime);
   setCookie("role", role, sessionLifetime);
+  setCookie("session_mode", "owner", sessionLifetime);
   setCookie("refresh_token", refreshToken, refreshExpiresIn ?? undefined);
   if (tenantId) {
     setCookie("tenant_id", tenantId, sessionLifetime);
@@ -115,6 +116,7 @@ export function persistStaffSessionCookies(
 ): void {
   setCookie("access_token", accessToken, sessionExpiresIn);
   setCookie("role", role, sessionExpiresIn);
+  setCookie("session_mode", "staff", sessionExpiresIn);
   if (tenantId) {
     setCookie("tenant_id", tenantId, sessionExpiresIn);
   }
@@ -141,10 +143,11 @@ export function getStaffRefreshToken(): string | null {
 
 export function clearStaffRefreshToken(): void {
   document.cookie = `staff_refresh_token=; path=/; max-age=0; samesite=lax`;
+  document.cookie = `session_mode=owner; path=/; samesite=lax`;
 }
 
 export function clearAuthCookies(): void {
-  ["access_token", "refresh_token", "role", "tenant_id", "business_token", "staff_refresh_token"].forEach(
+  ["access_token", "refresh_token", "role", "tenant_id", "business_token", "staff_refresh_token", "session_mode"].forEach(
     (name) => {
       document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
     }

@@ -80,6 +80,7 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const tokens = await apiLogin(username, password);
+          clearStaffRefreshToken();
 
           // Persist the access token BEFORE the /me + profile calls below.
           // The apiClient request interceptor authorizes requests from the

@@ -46,7 +46,10 @@ function SelectStaffInner() {
     setError(null);
     try {
       const { role: staffRole } = await startStaffSession(selected.id, pin);
-      router.push(getDestination(staffRole, from));
+      // Starting a staff session replaces the active access-token and role
+      // cookies. Use a fresh document request so Next's client-router cache
+      // cannot reuse a redirect fetched before those cookies were replaced.
+      window.location.assign(getDestination(staffRole, from));
     } catch (err) {
       setError(
         err instanceof ApiError ? err.error : "Could not start session. Check the PIN and try again."

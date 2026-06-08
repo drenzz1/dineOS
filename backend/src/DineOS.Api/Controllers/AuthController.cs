@@ -152,7 +152,7 @@ public class AuthController(
 
     /// <summary>Blacklists the provided refresh token, effectively invalidating the session. Idempotent — returns 204 even if the token is already blacklisted or jti is missing.</summary>
     [HttpPost("auth/logout")]
-    [Authorize]
+    [Authorize(Policy = Policies.BusinessAccountOnly)]
     [EnableRateLimiting("authenticated")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]

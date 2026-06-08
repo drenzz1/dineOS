@@ -96,12 +96,45 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    // ── 4b. KitchenStaff rejected from all other role-scoped endpoints ────
+    [Theory]
+    [InlineData(Roles.Manager)]
+    [InlineData(Roles.Cashier)]
+    public async Task OperationalRole_KitchenOrders_Returns200(string role)
+    {
+        var client = ClientWith(GenerateTestJwt(role, "1"));
+
+        var response = await client.GetAsync("/api/v1/kitchen/orders");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task KitchenStaff_ShiftsRead_Returns200()
+    {
+        var client = ClientWith(GenerateTestJwt(Roles.KitchenStaff, "1"));
+
+        var response = await client.GetAsync("/api/v1/shifts");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task KitchenStaff_ShiftsWrite_Returns403()
+    {
+        var client = ClientWith(GenerateTestJwt(Roles.KitchenStaff, "1"));
+
+        var response = await client.PostAsync(
+            "/api/v1/shifts",
+            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    // ── 4b. KitchenStaff rejected from other role-scoped endpoints ────────
     [Theory]
     [InlineData("GET",  "/api/v1/admin/users")]     // SuperAdminOnly
     [InlineData("GET",  "/api/v1/staff")]            // ManagerAndAbove
     [InlineData("GET",  "/api/v1/menu")]             // ManagerAndAbove
-    [InlineData("GET",  "/api/v1/shifts")]           // ManagerAndAbove
     [InlineData("GET",  "/api/v1/reports/sales")]    // ManagerAndAbove
     [InlineData("GET",  "/api/v1/orders")]           // CashierAndAbove
     public async Task KitchenStaff_OtherRoleEndpoints_Returns403(string method, string path)

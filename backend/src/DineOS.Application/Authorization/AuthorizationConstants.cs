@@ -29,6 +29,7 @@ public static class Roles
 public static class Policies
 {
     public const string SuperAdminOnly   = "SuperAdminOnly";
+    public const string BusinessAccountOnly = "BusinessAccountOnly";
 
     /// <summary>
     /// Account-level capabilities (staff management, billing). Requires the
@@ -40,6 +41,7 @@ public static class Policies
 
     public const string ManagerAndAbove  = "ManagerAndAbove";
     public const string CashierAndAbove  = "CashierAndAbove";
+    public const string KitchenAccess    = "KitchenAccess";
     public const string KitchenStaffOnly = "KitchenStaffOnly";
 }
 

@@ -84,7 +84,7 @@ const SUPERADMIN_JWT = makeJwt(SUPERADMIN_CLAIMS);
 // ─── Setup / teardown ─────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  ["access_token", "refresh_token", "role", "tenant_id", "business_token", "staff_refresh_token"].forEach((name) => {
+  ["access_token", "refresh_token", "role", "tenant_id", "business_token", "staff_refresh_token", "session_mode"].forEach((name) => {
     document.cookie = `${name}=; max-age=0; path=/`;
   });
 
@@ -407,6 +407,7 @@ describe("useAuthStore — staff session", () => {
     // Active token cookie is now the staff token; business token is retained.
     expect(getCookie("access_token")).toBe("staff.session.token");
     expect(getCookie("role")).toBe("Cashier");
+    expect(getCookie("session_mode")).toBe("staff");
     expect(getCookie("business_token")).toBe(MANAGER_JWT);
   });
 
@@ -432,5 +433,6 @@ describe("useAuthStore — staff session", () => {
     expect(state.accessToken).toBe(MANAGER_JWT);
     expect(getCookie("access_token")).toBe(MANAGER_JWT);
     expect(getCookie("role")).toBe("Manager");
+    expect(getCookie("session_mode")).toBe("owner");
   });
 });

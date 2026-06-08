@@ -237,6 +237,9 @@ try
             .RequireAuthenticatedUser()
             .Build();
 
+        options.AddPolicy(Policies.BusinessAccountOnly, p => p
+            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser());
         options.AddPolicy(Policies.SuperAdminOnly,   p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin));
         // Account-level (#staff-pin-auth Phase 2): only the business Owner
         // account (or SuperAdmin) manages staff + billing. Operational
@@ -244,6 +247,7 @@ try
         options.AddPolicy(Policies.OwnerOnly,        p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Owner));
         options.AddPolicy(Policies.ManagerAndAbove,  p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Manager));
         options.AddPolicy(Policies.CashierAndAbove,  p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Manager, Roles.Cashier));
+        options.AddPolicy(Policies.KitchenAccess,    p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Manager, Roles.Cashier, Roles.KitchenStaff));
         options.AddPolicy(Policies.KitchenStaffOnly, p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.KitchenStaff));
     });
 

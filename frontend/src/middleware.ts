@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-type Role = "Manager" | "Cashier" | "KitchenStaff" | "SuperAdmin";
-
-const ROLE_VALUES: Role[] = ["Manager", "Cashier", "KitchenStaff", "SuperAdmin"];
-
-function isValidRole(value: string): value is Role {
-  return (ROLE_VALUES as string[]).includes(value);
-}
+import { resolveRequestRole } from "@/lib/auth/routeRole";
 
 const CASHIER_ALLOWED = ["/orders", "/payments", "/kitchen", "/shifts"];
 const KITCHEN_STAFF_ALLOWED = ["/kitchen", "/shifts"];
@@ -59,24 +52,33 @@ export function middleware(request: NextRequest): NextResponse {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get("access_token")?.value;
-  const rawRole = request.cookies.get("role")?.value;
+  const token = request.cookies.get("access_token")?.value ?? null;
+  const sessionMode = request.cookies.get("session_mode")?.value;
+  const hasStaffRecovery =
+    sessionMode === "staff" &&
+    Boolean(request.cookies.get("staff_refresh_token")?.value);
 
-  // No token → send to login with a `from` param for post-login redirect.
-  if (!token) {
+  // A staff refresh token is enough to enter the protected shell: its first
+  // API request will renew a missing/stale access token. Reject only when
+  // neither an access token nor a recoverable staff session exists.
+  if (!token && !hasStaffRecovery) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Token exists but role is absent or unrecognised → treat as unauthenticated.
-  if (!rawRole || !isValidRole(rawRole)) {
+  const role = resolveRequestRole(
+    token,
+    request.cookies.get("role")?.value,
+    sessionMode
+  );
+
+  // Token exists but neither it nor the fallback cookie carries a known role.
+  if (!role) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
   }
-
-  const role: Role = rawRole;
 
   // SuperAdmin is confined to /admin/* and must not enter tenant routes.
   if (role === "SuperAdmin") {
