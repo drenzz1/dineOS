@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dineos-mailhog
+  namespace: project-06
+  labels:
+    app: dineos-mailhog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dineos-mailhog
+  template:
+    metadata:
+      labels:
+        app: dineos-mailhog
+    spec:
+      containers:
+        - name: mailhog
+          image: mailhog/mailhog:v1.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: smtp
+              containerPort: 1025
+            - name: http
+              containerPort: 8025
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dineos-mailhog
+  namespace: project-06
+  labels:
+    app: dineos-mailhog
+spec:
+  selector:
+    app: dineos-mailhog
+  ports:
+    - name: smtp
+      port: 1025
+      targetPort: smtp
+    - name: http
+      port: 8025
+      targetPort: http
