@@ -1,0 +1,51 @@
+# Version control
+.git
+.gitignore
+.github
+
+# IDE / editors
+.vs/
+.vscode/
+.idea/
+
+# .NET artefacts (not applicable to Node context but present for checklist completeness)
+**/bin/
+**/obj/
+
+# Node / Next.js artefacts — rebuilt inside the container
+**/node_modules/
+**/.next/
+**/.turbo/
+
+# Test / coverage artefacts
+**/coverage/
+**/test-results/
+**/playwright-report/
+__tests__/
+e2e/
+
+# Environment secrets — keep only the example
+.env*
+!.env.example
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Docker metadata
+Dockerfile
+.dockerignore
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build analysis output
+.bundle-analyzer/
+
+# OS metadata
+.DS_Store
+Thumbs.db

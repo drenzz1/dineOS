@@ -1,0 +1,103 @@
+{{- if .Values.observability.alertmanager.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dineos.fullname" . }}-alertmanager
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alertmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dineos.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: alertmanager
+  template:
+    metadata:
+      labels:
+        {{- include "dineos.labels" . | nindent 8 }}
+        app.kubernetes.io/component: alertmanager
+    spec:
+      serviceAccountName: {{ include "dineos.serviceAccountName" . }}
+      initContainers:
+        # Alertmanager has no built-in env-var expansion (--config.expand-env is
+        # not a real flag and crash-loops v0.28.0 with "unknown long flag").
+        # Render ${SLACK_WEBHOOK_URL} and ${ALERT_WEBHOOK_SECRET} into a writable
+        # copy of the config that the main container then loads.
+        - name: render-config
+          image: {{ .Values.observability.alertmanager.image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              sed \
+                -e "s|\${SLACK_WEBHOOK_URL}|${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/placeholder}|g" \
+                -e "s|\${ALERT_WEBHOOK_SECRET}|${ALERT_WEBHOOK_SECRET:-}|g" \
+                /etc/alertmanager/alertmanager.yml > /etc/alertmanager-rendered/alertmanager.yml
+          {{- if or .Values.observability.alertmanager.slackWebhookSecretName .Values.observability.alertmanager.alertWebhookSecretName }}
+          env:
+            {{- if .Values.observability.alertmanager.slackWebhookSecretName }}
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.observability.alertmanager.slackWebhookSecretName }}
+                  key: url
+            {{- end }}
+            {{- if .Values.observability.alertmanager.alertWebhookSecretName }}
+            - name: ALERT_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.observability.alertmanager.alertWebhookSecretName }}
+                  key: secret
+            {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: alertmanager-config
+              mountPath: /etc/alertmanager
+              readOnly: true
+            - name: alertmanager-rendered
+              mountPath: /etc/alertmanager-rendered
+      containers:
+        - name: alertmanager
+          image: {{ .Values.observability.alertmanager.image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config.file=/etc/alertmanager-rendered/alertmanager.yml
+            - --storage.path=/alertmanager
+          ports:
+            - name: http
+              containerPort: 9093
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: alertmanager-rendered
+              mountPath: /etc/alertmanager-rendered
+              readOnly: true
+            - name: alertmanager-data
+              mountPath: /alertmanager
+      volumes:
+        - name: alertmanager-config
+          configMap:
+            name: {{ include "dineos.fullname" . }}-alertmanager-config
+        - name: alertmanager-rendered
+          emptyDir: {}
+        - name: alertmanager-data
+          emptyDir: {}
+{{- end }}

@@ -4,12 +4,12 @@ on:
   push:
     branches:
       - main
-      - feat/be-13-testing-foundation
   pull_request:
-    branches:
-      - main
-      - feat/be-13-testing-foundation
   workflow_dispatch:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend-test:
@@ -25,6 +25,13 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/**/packages.lock.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Restore
         working-directory: backend
         run: dotnet restore
@@ -32,6 +39,21 @@ jobs:
       - name: Build
         working-directory: backend
         run: dotnet build --no-restore --configuration Release
+
+      - name: Publish
+        working-directory: backend
+        run: |
+          dotnet publish src/DineOS.Api/DineOS.Api.csproj \
+            --configuration Release \
+            --no-build \
+            --output ./publish
+
+      - name: Upload publish artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: backend-publish
+          path: backend/publish
+          retention-days: 7
 
       - name: Run tests with coverage
         working-directory: backend
@@ -46,7 +68,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: coverage-report
           path: backend/TestResults/**/coverage.cobertura.xml
@@ -54,7 +76,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: test-results
           path: backend/TestResults/**/*.trx
@@ -76,6 +98,70 @@ jobs:
           print('Coverage check passed ✓')
           EOF
 
+      - name: Write job summary
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, glob, os
+
+          passed, failed, total = 0, 0, 0
+          ns = {'t': 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010'}
+          trx_files = glob.glob('backend/TestResults/**/*.trx', recursive=True)
+          if trx_files:
+              counters = ET.parse(trx_files[0]).getroot().find('.//t:Counters', ns)
+              if counters is not None:
+                  total  = int(counters.get('total',  0))
+                  passed = int(counters.get('passed', 0))
+                  failed = int(counters.get('failed', 0))
+
+          coverage = 'N/A'
+          cov_files = glob.glob('backend/TestResults/**/coverage.cobertura.xml', recursive=True)
+          if cov_files:
+              rate = float(ET.parse(cov_files[0]).getroot().get('line-rate', '0')) * 100
+              coverage = f'{rate:.1f}%'
+
+          status = '✅ passed' if failed == 0 and total > 0 else '❌ failed'
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write('## Backend CI Results\n\n')
+              f.write('| Metric | Value |\n')
+              f.write('| --- | --- |\n')
+              f.write(f'| Tests | {total} total / {passed} passed / {failed} failed |\n')
+              f.write(f'| Coverage | {coverage} |\n')
+              f.write(f'| Status | {status} |\n')
+          EOF
+
+  scan:
+    name: Trivy Dependency Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Scan backend dependencies
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: backend
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+          trivyignores: .trivyignore
+      - name: Write scan summary
+        if: always()
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then BADGE="✅ passed"; else BADGE="❌ vulnerabilities found"; fi
+          echo "## Trivy Scan — ${BADGE}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan target | \`backend/\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity filter | \`CRITICAL, HIGH\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Ignore unfixed | \`true\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+
   live-auth-tests:
     name: Live Keycloak Integration Tests
     runs-on: ubuntu-latest
@@ -90,6 +176,13 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/**/packages.lock.json') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Restore
         working-directory: backend
@@ -111,8 +204,52 @@ jobs:
 
       - name: Upload live test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: live-auth-test-results
           path: backend/TestResults/**/*.trx
           retention-days: 14
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [backend-test, live-auth-tests, scan]
+    if: always()
+
+    steps:
+      - name: Write job summary
+        env:
+          ACTOR: ${{ github.actor }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          STATUS="success"
+          for result in \
+            "${{ needs.backend-test.result }}" \
+            "${{ needs.live-auth-tests.result }}" \
+            "${{ needs.scan.result }}"; do
+            if   [[ "$result" == "failure"                              ]]; then STATUS="failure";   break
+            elif [[ "$result" == "cancelled" && "$STATUS" != "failure" ]]; then STATUS="cancelled"
+            fi
+          done
+          case "$STATUS" in
+            success)   BADGE="✅ success"   ;;
+            failure)   BADGE="❌ failure"   ;;
+            cancelled) BADGE="⚠️ cancelled" ;;
+            *)         BADGE="❓ unknown"   ;;
+          esac
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "## Backend CI — ${BADGE}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | [\`${GITHUB_SHA::8}\`](${RUN_URL}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Author | \`${ACTOR}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${REF_NAME}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Test (.NET 10) | ${{ needs.backend-test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Live Keycloak Tests | ${{ needs.live-auth-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy Scan | ${{ needs.scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[🔗 View full run](${RUN_URL})" >> $GITHUB_STEP_SUMMARY

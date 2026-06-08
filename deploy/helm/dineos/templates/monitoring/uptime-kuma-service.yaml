@@ -1,0 +1,20 @@
+{{- if .Values.observability.uptimeKuma.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dineos.fullname" . }}-uptime-kuma
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: uptime-kuma
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "dineos.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: uptime-kuma
+{{- end }}

@@ -79,6 +79,141 @@ public sealed class OpenAiClient(
                 payload.Model ?? _opts.Model));
     }
 
+    public async Task<IncidentTriageAiResult> TriageIncidentAsync(
+        IncidentTriageAiRequest request,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
+            throw new AiUnavailableException("OpenAI API key is not configured (OpenAI:ApiKey).");
+
+        var body = new ChatCompletionRequest(
+            Model: _opts.Model,
+            MaxTokens: _opts.MaxTokens,
+            ResponseFormat: new ResponseFormat("json_object"),
+            Messages:
+            [
+                new Message("system", TriageSystemPrompt),
+                new Message("user", BuildTriageUserMessage(request)),
+            ]);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.PostAsJsonAsync("/v1/chat/completions", body, JsonOpts, ct);
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "OpenAI triage call timed out after {Timeout}s. Alert={AlertName}", _opts.TimeoutSeconds, request.AlertName);
+            throw new AiUnavailableException("OpenAI request timed out.", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogWarning(ex, "OpenAI triage network error. Alert={AlertName}", request.AlertName);
+            throw new AiUnavailableException("OpenAI network error.", ex);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var snippet = await response.Content.ReadAsStringAsync(ct);
+            logger.LogWarning("OpenAI returned {StatusCode}. Snippet={Snippet}", (int)response.StatusCode, Truncate(snippet, 400));
+            throw new AiUnavailableException($"OpenAI returned HTTP {(int)response.StatusCode}.");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<ChatCompletionResponse>(JsonOpts, ct)
+                      ?? throw new AiUnavailableException("OpenAI response was empty.");
+        var content = payload.Choices?.FirstOrDefault()?.Message?.Content
+                      ?? throw new AiUnavailableException("OpenAI response did not include content.");
+
+        var parsed = ParseTriage(content, "OpenAI");
+        return new IncidentTriageAiResult(
+            parsed.Severity,
+            parsed.LikelyCauses,
+            parsed.SuggestedNextActions,
+            parsed.ShortSummary,
+            new AiUsage(
+                payload.Usage?.PromptTokens ?? 0,
+                payload.Usage?.CompletionTokens ?? 0,
+                payload.Model ?? _opts.Model));
+    }
+
+    internal static (string Severity, IReadOnlyList<string> LikelyCauses, IReadOnlyList<string> SuggestedNextActions, string ShortSummary) ParseTriage(string content, string providerName)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(content);
+            var root = document.RootElement;
+
+            var severity = root.TryGetProperty("severity", out var sev)
+                ? sev.GetString() ?? string.Empty
+                : string.Empty;
+
+            var likelyCauses        = ParseStringArray(root, "likely_causes");
+            var suggestedNextActions = ParseStringArray(root, "suggested_next_actions");
+
+            var shortSummary = root.TryGetProperty("short_summary", out var ss)
+                ? ss.GetString() ?? string.Empty
+                : string.Empty;
+
+            if (string.IsNullOrWhiteSpace(shortSummary))
+                throw new AiUnavailableException($"{providerName} returned an empty short_summary.");
+
+            return (severity.Trim(), likelyCauses, suggestedNextActions, shortSummary.Trim());
+        }
+        catch (JsonException ex)
+        {
+            throw new AiUnavailableException($"{providerName} returned invalid JSON.", ex);
+        }
+    }
+
+    private static IReadOnlyList<string> ParseStringArray(JsonElement element, string propertyName)
+    {
+        var result = new List<string>();
+        if (element.TryGetProperty(propertyName, out var arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in arr.EnumerateArray())
+            {
+                var s = el.GetString();
+                if (!string.IsNullOrWhiteSpace(s))
+                    result.Add(s);
+            }
+        }
+        return result;
+    }
+
+    private const string TriageSystemPrompt = """
+        You are an SRE incident-triage assistant. Analyse the incoming alert and return
+        ONLY JSON with this shape:
+        {"severity":"...","likely_causes":["..."],"suggested_next_actions":["..."],"short_summary":"..."}
+
+        Rules:
+        - severity: re-assess as critical|high|medium|low based on context.
+        - likely_causes: 1–5 concise probable root causes, no duplication.
+        - suggested_next_actions: 2–5 immediate, actionable remediation steps.
+        - short_summary: one sentence, ≤ 120 characters, describing what is failing and why.
+        - NEVER include in any output field: secrets, passwords, API keys, tokens, or
+          connection strings, even if present in the incident labels or description.
+        - Return ONLY the JSON object — no additional text.
+        """;
+
+    private static string BuildTriageUserMessage(IncidentTriageAiRequest r)
+    {
+        var labels = r.Labels.Count > 0
+            ? Truncate(string.Join(", ", r.Labels.Select(kv => $"{kv.Key}={kv.Value}")), 300)
+            : "(none)";
+
+        return $"""
+                Incident alert:
+                - Alert: {r.AlertName}
+                - Severity: {r.Severity}
+                - Component: {r.Component}
+                - Status: {r.Status}
+                - Summary: {Truncate(r.Summary, 300)}
+                - Description: {Truncate(r.Description, 500)}
+                - Labels: {labels}
+                - Firing since: {r.FiringSince:O}
+                """;
+    }
+
     internal static (string Description, IReadOnlyList<string> Allergens) ParseSuggestion(string content, string providerName)
     {
         try

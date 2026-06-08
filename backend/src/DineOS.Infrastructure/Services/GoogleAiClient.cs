@@ -76,6 +76,61 @@ public sealed class GoogleAiClient(
                 _opts.Model));
     }
 
+    public async Task<IncidentTriageAiResult> TriageIncidentAsync(
+        IncidentTriageAiRequest request,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
+            throw new AiUnavailableException("Google AI API key is not configured (GoogleAI:ApiKey).");
+
+        var body = new GenerateContentRequest(
+            Contents:
+            [
+                new Content("user", [new Part(BuildTriageUserMessage(request))]),
+            ],
+            SystemInstruction: new SystemInstruction([new Part(TriageSystemPrompt)]),
+            GenerationConfig: new GenerationConfig(_opts.MaxTokens, "application/json"));
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.PostAsJsonAsync(BuildGenerateContentPath(), body, JsonOpts, ct);
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Google AI triage call timed out after {Timeout}s. Alert={AlertName}", _opts.TimeoutSeconds, request.AlertName);
+            throw new AiUnavailableException("Google AI request timed out.", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogWarning(ex, "Google AI triage network error. Alert={AlertName}", request.AlertName);
+            throw new AiUnavailableException("Google AI network error.", ex);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var snippet = await response.Content.ReadAsStringAsync(ct);
+            logger.LogWarning("Google AI returned {StatusCode}. Snippet={Snippet}", (int)response.StatusCode, Truncate(snippet, 400));
+            throw new AiUnavailableException($"Google AI returned HTTP {(int)response.StatusCode}.");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<GenerateContentResponse>(JsonOpts, ct)
+                      ?? throw new AiUnavailableException("Google AI response was empty.");
+        var content = payload.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text
+                      ?? throw new AiUnavailableException("Google AI response did not include content.");
+
+        var parsed = OpenAiClient.ParseTriage(content, "Google AI");
+        return new IncidentTriageAiResult(
+            parsed.Severity,
+            parsed.LikelyCauses,
+            parsed.SuggestedNextActions,
+            parsed.ShortSummary,
+            new AiUsage(
+                payload.UsageMetadata?.PromptTokenCount ?? 0,
+                payload.UsageMetadata?.CandidatesTokenCount ?? 0,
+                _opts.Model));
+    }
+
     private string BuildGenerateContentPath()
     {
         var version = _opts.ApiVersion.Trim('/');
@@ -84,6 +139,40 @@ public sealed class GoogleAiClient(
             : $"models/{_opts.Model}";
 
         return $"/{version}/{model}:generateContent";
+    }
+
+    private const string TriageSystemPrompt = """
+        You are an SRE incident-triage assistant. Analyse the incoming alert and return
+        ONLY JSON with this shape:
+        {"severity":"...","likely_causes":["..."],"suggested_next_actions":["..."],"short_summary":"..."}
+
+        Rules:
+        - severity: re-assess as critical|high|medium|low based on context.
+        - likely_causes: 1–5 concise probable root causes, no duplication.
+        - suggested_next_actions: 2–5 immediate, actionable remediation steps.
+        - short_summary: one sentence, ≤ 120 characters, describing what is failing and why.
+        - NEVER include in any output field: secrets, passwords, API keys, tokens, or
+          connection strings, even if present in the incident labels or description.
+        - Return ONLY the JSON object — no additional text.
+        """;
+
+    private static string BuildTriageUserMessage(IncidentTriageAiRequest r)
+    {
+        var labels = r.Labels.Count > 0
+            ? Truncate(string.Join(", ", r.Labels.Select(kv => $"{kv.Key}={kv.Value}")), 300)
+            : "(none)";
+
+        return $"""
+                Incident alert:
+                - Alert: {r.AlertName}
+                - Severity: {r.Severity}
+                - Component: {r.Component}
+                - Status: {r.Status}
+                - Summary: {Truncate(r.Summary, 300)}
+                - Description: {Truncate(r.Description, 500)}
+                - Labels: {labels}
+                - Firing since: {r.FiringSince:O}
+                """;
     }
 
     private const string SystemPrompt = """

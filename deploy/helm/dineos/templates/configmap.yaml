@@ -1,0 +1,107 @@
+{{/* ------------------------------------------------------------------ */}}
+{{/* API ConfigMap — non-sensitive runtime config for DineOS.Api        */}}
+{{/* ------------------------------------------------------------------ */}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dineos.fullname" . }}-api-env
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+data:
+  # ── Runtime ──────────────────────────────────────────────────────────
+  ASPNETCORE_ENVIRONMENT: {{ .Values.api.env.ASPNETCORE_ENVIRONMENT | quote }}
+  # Tells Kestrel to bind on the container port declared in the Deployment.
+  ASPNETCORE_URLS: "http://+:8080"
+
+  # ── Keycloak / OIDC ──────────────────────────────────────────────────
+  Keycloak__Realm: {{ .Values.api.env.Keycloak__Realm | quote }}
+  # Authority / MetadataAddress must use the public-facing URL so the JWT
+  # issuer claim matches what the browser-obtained token carries.
+  Keycloak__Authority: {{ .Values.api.env.Keycloak__Authority | quote }}
+  Keycloak__MetadataAddress: {{ .Values.api.env.Keycloak__MetadataAddress | quote }}
+  Keycloak__Audience: {{ .Values.api.env.Keycloak__Audience | quote }}
+  Keycloak__ClientId: {{ .Values.api.env.Keycloak__ClientId | quote }}
+  Keycloak__GrantType: {{ .Values.api.env.Keycloak__GrantType | quote }}
+  Keycloak__RequireHttpsMetadata: {{ .Values.api.env.Keycloak__RequireHttpsMetadata | quote }}
+  Keycloak__AdminClientId: {{ .Values.api.env.Keycloak__AdminClientId | quote }}
+  # PublicAuthServerUrl → browser-facing; AuthServerUrl → in-cluster pod↔Keycloak.
+  Keycloak__PublicAuthServerUrl: {{ .Values.api.env.Keycloak__PublicAuthServerUrl | quote }}
+  Keycloak__AuthServerUrl: {{ .Values.api.env.Keycloak__AuthServerUrl | quote }}
+
+  # ── Postgres — non-secret parts (password is in the Secret) ──────────
+  Postgres__Host: {{ .Values.dependencies.postgres.host | quote }}
+  Postgres__Port: {{ .Values.dependencies.postgres.port | toString | quote }}
+  Postgres__Database: {{ .Values.dependencies.postgres.database | quote }}
+  Postgres__Username: {{ .Values.dependencies.postgres.username | quote }}
+
+  # ── Redis ─────────────────────────────────────────────────────────────
+  Redis__Host: {{ .Values.dependencies.redis.host | quote }}
+  Redis__Port: {{ .Values.dependencies.redis.port | toString | quote }}
+  # ConnectionString is the format the .NET Redis client reads directly.
+  # If Redis auth is required in prod, override via secrets.existingSecret
+  # and provide the password-bearing string there instead.
+  Redis__ConnectionString: {{ printf "%s:%v" .Values.dependencies.redis.host .Values.dependencies.redis.port | quote }}
+
+  # ── RabbitMQ ──────────────────────────────────────────────────────────
+  RabbitMq__Enabled: {{ .Values.api.env.RabbitMq__Enabled | quote }}
+  RabbitMq__HostName: {{ .Values.dependencies.rabbitmq.host | quote }}
+  RabbitMq__Port: {{ .Values.dependencies.rabbitmq.port | toString | quote }}
+  RabbitMq__VirtualHost: {{ .Values.dependencies.rabbitmq.vhost | quote }}
+  RabbitMq__UserName: {{ .Values.dependencies.rabbitmq.username | quote }}
+
+  # ── Serilog / Loki ────────────────────────────────────────────────────
+  Loki__Uri: {{ .Values.api.env.Loki__Uri | quote }}
+  # Logstash TCP input — auto-wired when observability.elk.enabled=true.
+  # Falls back to the explicit env value (default "") when ELK is not deployed.
+  Logstash__Uri: {{ if .Values.observability.elk.enabled }}{{ printf "http://%s-logstash:5001" (include "dineos.fullname" .) | quote }}{{ else }}{{ .Values.api.env.Logstash__Uri | default "" | quote }}{{ end }}
+
+  # ── SMTP ──────────────────────────────────────────────────────────────
+  Smtp__Host: {{ .Values.api.env.Smtp__Host | quote }}
+  Smtp__Port: {{ .Values.api.env.Smtp__Port | quote }}
+  Smtp__UseStartTls: {{ .Values.api.env.Smtp__UseStartTls | quote }}
+
+  # ── Email behaviour ───────────────────────────────────────────────────
+  Email__Enabled: {{ .Values.api.env.Email__Enabled | quote }}
+  Email__FromAddress: {{ .Values.api.env.Email__FromAddress | quote }}
+  Email__FromName: {{ .Values.api.env.Email__FromName | quote }}
+  Email__SimulateFailure: {{ .Values.api.env.Email__SimulateFailure | quote }}
+
+  # ── Stripe — non-secret (price IDs and redirect URLs only) ───────────
+  Stripe__ProMonthlyPriceId: {{ .Values.api.env.Stripe__ProMonthlyPriceId | quote }}
+  Stripe__ProAnnualPriceId: {{ .Values.api.env.Stripe__ProAnnualPriceId | quote }}
+  Stripe__CheckoutSuccessUrl: {{ .Values.api.env.Stripe__CheckoutSuccessUrl | quote }}
+  Stripe__CheckoutCancelUrl: {{ .Values.api.env.Stripe__CheckoutCancelUrl | quote }}
+  Stripe__PortalReturnUrl: {{ .Values.api.env.Stripe__PortalReturnUrl | quote }}
+
+  # ── AI providers — model selection only (API keys are in the Secret) ──
+  Anthropic__Model: {{ .Values.api.env.Anthropic__Model | quote }}
+
+  # ── CORS ──────────────────────────────────────────────────────────────
+  AllowedOrigins__0: {{ .Values.api.env.AllowedOrigins__0 | quote }}
+  {{- if .Values.api.env.AllowedOrigins__1 }}
+  AllowedOrigins__1: {{ .Values.api.env.AllowedOrigins__1 | quote }}
+  {{- end }}
+
+---
+{{/* ------------------------------------------------------------------ */}}
+{{/* Frontend ConfigMap — non-sensitive runtime config for Next.js       */}}
+{{/* ------------------------------------------------------------------ */}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dineos.fullname" . }}-frontend-env
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+data:
+  NODE_ENV: {{ .Values.frontend.env.NODE_ENV | quote }}
+  # NEXT_PUBLIC_* values are baked into the JS bundle at build time.
+  # They must also be set as Docker build ARGs in frontend/Dockerfile.
+  # Changing them at runtime has no effect on the browser bundle.
+  NEXT_PUBLIC_API_URL: {{ .Values.frontend.env.NEXT_PUBLIC_API_URL | quote }}
+  NEXT_PUBLIC_KEYCLOAK_URL: {{ .Values.frontend.env.NEXT_PUBLIC_KEYCLOAK_URL | quote }}
+  NEXT_PUBLIC_KEYCLOAK_REALM: {{ .Values.frontend.env.NEXT_PUBLIC_KEYCLOAK_REALM | quote }}
+  # API_INTERNAL_URL is used by Next.js server-side (SSR/RSC) to reach
+  # the API without going through the Ingress.
+  API_INTERNAL_URL: {{ .Values.frontend.env.API_INTERNAL_URL | quote }}

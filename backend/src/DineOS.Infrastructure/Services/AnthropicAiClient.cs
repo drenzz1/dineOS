@@ -108,6 +108,84 @@ public sealed class AnthropicAiClient(
         return new MenuDescriptionAiResult(description.Trim(), allergens, usage);
     }
 
+    public async Task<IncidentTriageAiResult> TriageIncidentAsync(
+        IncidentTriageAiRequest request,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
+            throw new AiUnavailableException("Anthropic API key is not configured (Anthropic:ApiKey).");
+
+        var body = new MessagesRequest(
+            Model:      _opts.Model,
+            MaxTokens:  _opts.MaxTokens,
+            System:     TriageSystemPrompt,
+            Tools:      [TriageTool],
+            ToolChoice: new ToolChoice("tool", TriageTool.Name),
+            Messages:   [new Message("user", BuildTriageUserMessage(request))]);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.PostAsJsonAsync("/v1/messages", body, JsonOpts, ct);
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex,
+                "Anthropic triage call timed out after {Timeout}s. Alert={AlertName}",
+                _opts.TimeoutSeconds, request.AlertName);
+            throw new AiUnavailableException("Anthropic request timed out.", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogWarning(ex,
+                "Anthropic triage network error. Alert={AlertName}",
+                request.AlertName);
+            throw new AiUnavailableException("Anthropic network error.", ex);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var snippet = await response.Content.ReadAsStringAsync(ct);
+            logger.LogWarning(
+                "Anthropic returned {StatusCode}. Snippet={Snippet}",
+                (int)response.StatusCode, Truncate(snippet, 400));
+            throw new AiUnavailableException(
+                $"Anthropic returned HTTP {(int)response.StatusCode}.");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<MessagesResponse>(JsonOpts, ct)
+                      ?? throw new AiUnavailableException("Anthropic response was empty.");
+
+        var toolUse = payload.Content?.FirstOrDefault(c => c.Type == "tool_use")
+            ?? throw new AiUnavailableException("Anthropic response did not include a tool_use block.");
+
+        var severity = toolUse.Input?.TryGetProperty("severity", out var sev) == true
+            ? sev.GetString() ?? string.Empty
+            : string.Empty;
+
+        var likelyCauses        = ParseStringArray(toolUse.Input, "likely_causes");
+        var suggestedNextActions = ParseStringArray(toolUse.Input, "suggested_next_actions");
+
+        var shortSummary = toolUse.Input?.TryGetProperty("short_summary", out var ss) == true
+            ? ss.GetString() ?? string.Empty
+            : string.Empty;
+
+        if (string.IsNullOrWhiteSpace(shortSummary))
+            throw new AiUnavailableException("Anthropic returned an empty short_summary.");
+
+        var usage = new AiUsage(
+            payload.Usage?.InputTokens  ?? 0,
+            payload.Usage?.OutputTokens ?? 0,
+            _opts.Model);
+
+        return new IncidentTriageAiResult(
+            severity.Trim(),
+            likelyCauses,
+            suggestedNextActions,
+            shortSummary.Trim(),
+            usage);
+    }
+
     // ── Prompt + tool definition ──────────────────────────────────────────
     private const string SystemPrompt = """
         You are a helpful assistant for a restaurant POS. Generate concise,
@@ -121,6 +199,36 @@ public sealed class AnthropicAiClient(
           if nothing is clearly implied. Do not invent allergens.
         - Always return your answer through the `report_menu_description` tool.
         """;
+
+    private const string TriageSystemPrompt = """
+        You are an SRE incident-triage assistant. Analyse the incoming alert and
+        return ONLY structured triage data through the `report_incident_triage` tool.
+
+        Rules:
+        - severity: re-assess as critical|high|medium|low based on context.
+        - likely_causes: 1–5 concise probable root causes, no duplication.
+        - suggested_next_actions: 2–5 immediate, actionable remediation steps.
+        - short_summary: one sentence, ≤ 120 characters, describing what is failing and why.
+        - NEVER include in any output field: secrets, passwords, API keys, tokens, or
+          connection strings, even if present in the incident labels or description.
+        - Return ONLY through the tool — no additional text.
+        """;
+
+    private static readonly Tool TriageTool = new(
+        Name: "report_incident_triage",
+        Description: "Reports the triage assessment for an infrastructure or application incident.",
+        InputSchema: new ToolSchema(
+            Type: "object",
+            Properties: new Dictionary<string, ToolProp>
+            {
+                ["severity"]               = new("string", "Assessed severity: critical|high|medium|low."),
+                ["likely_causes"]          = new("array",  "1–5 probable root causes of the incident.")
+                                             { Items = new ToolProp("string", null) },
+                ["suggested_next_actions"] = new("array",  "2–5 immediate actionable remediation steps.")
+                                             { Items = new ToolProp("string", null) },
+                ["short_summary"]          = new("string", "One sentence (≤ 120 chars) describing what is failing and why."),
+            },
+            Required: ["severity", "likely_causes", "suggested_next_actions", "short_summary"]));
 
     private static readonly Tool DescriptionTool = new(
         Name: "report_menu_description",
@@ -150,6 +258,42 @@ public sealed class AnthropicAiClient(
 
                 Generate a new description and allergen list via the tool.
                 """;
+    }
+
+    private static string BuildTriageUserMessage(IncidentTriageAiRequest r)
+    {
+        var labels = r.Labels.Count > 0
+            ? Truncate(string.Join(", ", r.Labels.Select(kv => $"{kv.Key}={kv.Value}")), 300)
+            : "(none)";
+
+        return $"""
+                Incident alert:
+                - Alert: {r.AlertName}
+                - Severity: {r.Severity}
+                - Component: {r.Component}
+                - Status: {r.Status}
+                - Summary: {Truncate(r.Summary, 300)}
+                - Description: {Truncate(r.Description, 500)}
+                - Labels: {labels}
+                - Firing since: {r.FiringSince:O}
+
+                Triage this incident via the tool.
+                """;
+    }
+
+    private static IReadOnlyList<string> ParseStringArray(JsonElement? element, string propertyName)
+    {
+        var result = new List<string>();
+        if (element?.TryGetProperty(propertyName, out var arr) == true && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in arr.EnumerateArray())
+            {
+                var s = el.GetString();
+                if (!string.IsNullOrWhiteSpace(s))
+                    result.Add(s);
+            }
+        }
+        return result;
     }
 
     private static string Truncate(string s, int max) =>

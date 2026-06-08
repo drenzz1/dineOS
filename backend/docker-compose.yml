@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: src/DineOS.Api/Dockerfile
+    image: dineos/api:do2
     container_name: dineos-api
     ports:
       # Bound to loopback so the dev stack is not reachable from the LAN. The

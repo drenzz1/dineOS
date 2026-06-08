@@ -1,0 +1,29 @@
+{
+  "index_patterns": ["dineos-nginx-access-*"],
+  "priority": 100,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.lifecycle.name": "dineos-logs-ilm-7d"
+    },
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@timestamp":              { "type": "date" },
+        "service":                 { "type": "keyword" },
+        "remote_addr":             { "type": "ip" },
+        "request_method":          { "type": "keyword" },
+        "request_uri":             { "type": "keyword" },
+        "status":                  { "type": "keyword" },
+        "body_bytes_sent":         { "type": "long" },
+        "request_time":            { "type": "float" },
+        "request_time_ms":         { "type": "long" },
+        "upstream_response_time":  { "type": "keyword" },
+        "http_user_agent":         { "type": "keyword" },
+        "http_referer":            { "type": "keyword" },
+        "http_x_request_id":       { "type": "keyword" }
+      }
+    }
+  }
+}

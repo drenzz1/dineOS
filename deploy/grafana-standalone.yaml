@@ -1,0 +1,193 @@
+# ============================================================
+# grafana-standalone.yaml — optional Grafana for DO-5 (project-06)
+#
+# WHY THIS FILE EXISTS:
+#   The dineOS Helm chart provisions a Grafana *datasource* configmap but does
+#   NOT deploy Grafana itself. This self-contained manifest runs Grafana and
+#   auto-provisions the in-cluster Prometheus (http://dineos-prometheus:9090)
+#   as its default datasource, so dashboards work immediately.
+#
+# APPLY (private — reach via port-forward, no public ingress):
+#   export KUBECONFIG=/c/Users/erion/Downloads/project-06.kubeconfig
+#   kubectl apply -f deploy/grafana-standalone.yaml -n project-06
+#   kubectl -n project-06 rollout status deploy/grafana
+#   kubectl -n project-06 port-forward deploy/grafana 3000:3000
+#   # → http://localhost:3000   (login: admin / the password in the Secret below)
+#
+# DASHBOARDS:
+#   Import the dineOS dashboards from backend/grafana/dashboards/ via the UI
+#   (Dashboards → New → Import → upload JSON). The Prometheus datasource is
+#   already wired, so they render against live metrics.
+#
+# REMOVE:
+#   kubectl delete -f deploy/grafana-standalone.yaml -n project-06
+# ============================================================
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-admin
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: observability
+type: Opaque
+stringData:
+  # CHANGE THIS before any non-demo use. Grafana is reached via port-forward
+  # only (no public ingress), so it is not internet-exposed in this setup.
+  admin-user: admin
+  admin-password: "dineos_dev_grafana"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: observability
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://dineos-prometheus:9090
+        isDefault: true
+        editable: true
+---
+# Dashboard provider — tells Grafana to auto-load every JSON under
+# /var/lib/grafana/dashboards (mounted from the dineos-grafana-dashboards CM).
+# Provisioned on every start, so dashboards survive pod restarts (emptyDir).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: observability
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: dineos
+        orgId: 1
+        folder: dineOS
+        type: file
+        disableDeletion: false
+        allowUiUpdates: true
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: observability
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/component: observability
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472          # official grafana image uid
+        fsGroup: 472            # make the emptyDir writable by grafana
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.2.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin
+                  key: admin-user
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin
+                  key: admin-password
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+              readOnly: true
+            - name: dashboards-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+              readOnly: true
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+            - name: storage
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboards-provider
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboards
+          configMap:
+            name: dineos-grafana-dashboards
+        - name: storage
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: observability
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: grafana
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

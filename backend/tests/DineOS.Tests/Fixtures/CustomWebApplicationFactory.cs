@@ -121,8 +121,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
         if (Directory.Exists(_uploadsRoot))
             Directory.Delete(_uploadsRoot, recursive: true);
 
+        // Dispose the web host (and any WithWebHostBuilder-derived hosts) ASYNCHRONOUSLY
+        // and BEFORE the Postgres container. The app registers IAsyncDisposable-only
+        // services (e.g. NpgsqlDataSource, Hangfire); a synchronous Dispose() throws
+        // InvalidOperationException, which xUnit reports as a collection-cleanup failure
+        // (non-zero exit even though every test passed). Tearing Postgres down first would
+        // also break those services' shutdown.
+        await ((IAsyncDisposable)this).DisposeAsync();
         await _db.DisposeAsync();
-        Dispose();
     }
 
     private sealed class NoOpOrderNotificationService : IOrderNotificationService

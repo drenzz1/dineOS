@@ -39,6 +39,7 @@ public class RabbitMqOrderEventFlowTests
             new UpdateOrderStatusRequestValidator(),
             publisher,
             notifications,
+            Substitute.For<IOrderMetrics>(),
             NullLogger<OrderService>.Instance);
 
         var result = await service.CreateOrderAsync(new CreateOrderRequest
@@ -122,6 +123,7 @@ public class RabbitMqOrderEventFlowTests
             new UpdateOrderStatusRequestValidator(),
             publisher,
             notifications,
+            Substitute.For<IOrderMetrics>(),
             NullLogger<OrderService>.Instance);
 
         var result = await service.CreateOrderAsync(new CreateOrderRequest

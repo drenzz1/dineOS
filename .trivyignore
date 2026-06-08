@@ -1,0 +1,34 @@
+# .trivyignore — Trivy vulnerability exceptions for dineOS
+#
+# POLICY (DO-9)
+# ─────────────
+# This file exists solely for justified false positives — CVEs that have been
+# reviewed and confirmed to pose no real risk in the dineOS runtime context.
+# It is NOT a place to defer remediation of real vulnerabilities.
+#
+# Every entry MUST have:
+#   1. A comment block with Reason, Scope, Added, and Review fields (see template below).
+#   2. The native Trivy expiry suffix  exp:YYYY-MM-DD  on the CVE line itself.
+#      Trivy treats an expired entry as if it were not present, so the vulnerability
+#      will re-appear in scan results when the review date passes.
+#   3. A maximum review window of 90 days from the Added date.
+#
+# TEMPLATE (copy this block for each new entry)
+# ─────────────────────────────────────────────
+# # CVE-YYYY-NNNNN — <one-line description of the vulnerability>
+# # Reason:   <why this does not apply to dineOS in production>
+# #           <cite the upstream advisory or vendor statement if available>
+# # Scope:    <which image(s) and/or path(s) this applies to>
+# # Added:    YYYY-MM-DD by <GitHub username>
+# # Review:   YYYY-MM-DD  (must be ≤ 90 days from Added)
+# CVE-YYYY-NNNNN exp:YYYY-MM-DD
+#
+# REVIEW PROCESS
+# ──────────────
+# See docs/devops/security.md §"Vulnerability Exceptions (.trivyignore)" for
+# the full add / review / expiry workflow.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# NO ACTIVE EXCEPTIONS
+# All scans are currently passing without suppressions.
+# ─────────────────────────────────────────────────────────────────────────────

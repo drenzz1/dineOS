@@ -1,0 +1,457 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: src/DineOS.Api/Dockerfile
+    image: dineos/api:do2
+    container_name: dineos-api
+    ports:
+      - "${API_HTTP_PORT:-5001}:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ConnectionStrings__DefaultConnection=${ConnectionStrings__DefaultConnection:-Host=postgres;Port=5432;Database=dineos;Username=dineos;Password=dineos_dev}
+      - AllowedOrigins__0=${AllowedOrigins__0:-http://localhost}
+      - AllowedOrigins__1=${AllowedOrigins__1:-http://localhost:3000}
+      - Keycloak__Realm=${Keycloak__Realm:-dineos}
+      - Keycloak__Authority=${Keycloak__Authority:-http://localhost:8080/realms/dineos}
+      - Keycloak__AuthServerUrl=${Keycloak__AuthServerUrl:-http://keycloak:8080}
+      - Keycloak__PublicAuthServerUrl=${Keycloak__PublicAuthServerUrl:-http://localhost:8080}
+      - Keycloak__MetadataAddress=${Keycloak__MetadataAddress:-http://keycloak:8080/realms/dineos/.well-known/openid-configuration}
+      - Keycloak__Audience=${Keycloak__Audience:-dineos-api}
+      - Keycloak__ClientId=${Keycloak__ClientId:-dineos-frontend}
+      - Keycloak__GrantType=${Keycloak__GrantType:-password}
+      - Keycloak__RequireHttpsMetadata=${Keycloak__RequireHttpsMetadata:-false}
+      - Keycloak__AdminClientId=${Keycloak__AdminClientId:-dineos-admin}
+      - Keycloak__AdminClientSecret=${Keycloak__AdminClientSecret:-dev-admin-secret-change-me}
+      - Redis__ConnectionString=${Redis__ConnectionString:-redis:6379}
+      - RabbitMq__Enabled=${RabbitMq__Enabled:-true}
+      - RabbitMq__HostName=${RabbitMq__HostName:-rabbitmq}
+      - RabbitMq__Port=${RabbitMq__Port:-5672}
+      - RabbitMq__UserName=${RabbitMq__UserName:-dineos}
+      - RabbitMq__Password=${RabbitMq__Password:-dineos_dev}
+      - Loki__Uri=${Loki__Uri:-http://loki:3100}
+      - Logstash__Uri=${Logstash__Uri:-}
+      - Smtp__Host=${Smtp__Host:-mailhog}
+      - Smtp__Port=${Smtp__Port:-1025}
+      - Smtp__UseStartTls=${Smtp__UseStartTls:-false}
+      - Email__Enabled=${Email__Enabled:-true}
+      - Email__FromAddress=${Email__FromAddress:-no-reply@dineos.local}
+      - Email__FromName=${Email__FromName:-DineOS}
+      - Email__SimulateFailure=${Email__SimulateFailure:-false}
+      - Stripe__SecretKey=${Stripe__SecretKey:-}
+      - Stripe__WebhookSecret=${Stripe__WebhookSecret:-}
+      - Stripe__ProMonthlyPriceId=${Stripe__ProMonthlyPriceId:-}
+      - Stripe__ProAnnualPriceId=${Stripe__ProAnnualPriceId:-}
+      - Stripe__CheckoutSuccessUrl=${Stripe__CheckoutSuccessUrl:-http://localhost:3000/settings/billing?status=success}
+      - Stripe__CheckoutCancelUrl=${Stripe__CheckoutCancelUrl:-http://localhost:3000/settings/billing?status=cancelled}
+      - Stripe__PortalReturnUrl=${Stripe__PortalReturnUrl:-http://localhost:3000/settings/billing}
+      - Anthropic__ApiKey=${Anthropic__ApiKey:-}
+      - Anthropic__Model=${Anthropic__Model:-claude-sonnet-4-5}
+      - OpenAI__ApiKey=${OpenAI__ApiKey:-}
+      - GoogleAI__ApiKey=${GoogleAI__ApiKey:-}
+      - Slack__WebhookUrl=${SLACK_WEBHOOK_URL:-}
+      - AlertWebhook__SharedSecret=${ALERT_WEBHOOK_SECRET:-}
+    volumes:
+      - dineos_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/v1/health >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+        NEXT_PUBLIC_KEYCLOAK_URL: ${NEXT_PUBLIC_KEYCLOAK_URL:-http://localhost:8080}
+        NEXT_PUBLIC_KEYCLOAK_REALM: ${NEXT_PUBLIC_KEYCLOAK_REALM:-dineos}
+    image: dineos/web:do2
+    container_name: dineos-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost/api}
+      - API_INTERNAL_URL=${API_INTERNAL_URL:-http://api:8080}
+      - NEXT_PUBLIC_KEYCLOAK_URL=${NEXT_PUBLIC_KEYCLOAK_URL:-http://localhost:8080}
+      - NEXT_PUBLIC_KEYCLOAK_REALM=${NEXT_PUBLIC_KEYCLOAK_REALM:-dineos}
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: dineos-nginx
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: dineos-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dineos}
+      POSTGRES_USER: ${POSTGRES_USER:-dineos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dineos_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dineos} -d ${POSTGRES_DB:-dineos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: dineos-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: dineos-keycloak
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME_STRICT: "${KC_HOSTNAME_STRICT:-false}"
+      KC_HTTP_ENABLED: "${KC_HTTP_ENABLED:-true}"
+      KC_HOSTNAME_URL: "${Keycloak__PublicAuthServerUrl:-http://localhost:8080}"
+    command: start-dev --import-realm
+    volumes:
+      - ./backend/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    networks:
+      - dineos-net
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: dineos-rabbitmq
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_UI_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-dineos}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-dineos_dev}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: dineos-loki
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./backend/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: dineos-grafana
+    ports:
+      - "${GRAFANA_PORT:-4000}:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=${GF_AUTH_ANONYMOUS_ENABLED:-true}
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=${GF_AUTH_ANONYMOUS_ORG_ROLE:-Admin}
+      - GF_AUTH_DISABLE_LOGIN_FORM=${GF_AUTH_DISABLE_LOGIN_FORM:-false}
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./backend/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./backend/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      loki:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: dineos-prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./backend/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./backend/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    container_name: dineos-alertmanager
+    # Alertmanager has no built-in env-var expansion: --config.expand-env is not
+    # a real flag and crash-loops v0.28.0 ("unknown long flag"). Substitute the
+    # ${SLACK_WEBHOOK_URL} and ${ALERT_WEBHOOK_SECRET} placeholders into a runtime
+    # copy of the config with sed, then exec alertmanager against it.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        sed \
+          -e "s|\$${SLACK_WEBHOOK_URL}|$${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/placeholder}|g" \
+          -e "s|\$${ALERT_WEBHOOK_SECRET}|$${ALERT_WEBHOOK_SECRET:-}|g" \
+          /etc/alertmanager/alertmanager.yml > /tmp/alertmanager-runtime.yml
+        exec /bin/alertmanager \
+          --config.file=/tmp/alertmanager-runtime.yml \
+          --storage.path=/alertmanager
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/placeholder}
+      - ALERT_WEBHOOK_SECRET=${ALERT_WEBHOOK_SECRET:-}
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ./backend/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9093/-/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: dineos-mailhog
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_UI_PORT:-8025}:8025"
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dineos-pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@dineos.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+    depends_on:
+      - postgres
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - tools
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: dineos-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "${ES_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - elk
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.15.0
+    container_name: dineos-logstash
+    ports:
+      - "5044:5044"
+      - "${LOGSTASH_TCP_PORT:-5002}:5001"
+      - "9600:9600"
+    volumes:
+      - ./backend/elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./backend/elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9600/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - elk
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    container_name: dineos-kibana
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:5601/api/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - elk
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.15.0
+    container_name: dineos-filebeat
+    command: ["filebeat", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
+    user: root
+    volumes:
+      - nginx_logs:/var/log/nginx:ro
+      - ./backend/elk/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5066/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      logstash:
+        condition: service_healthy
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - elk
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1.23.17
+    container_name: dineos-uptime-kuma
+    ports:
+      - "${UPTIME_KUMA_PORT:-3001}:3001"
+    volumes:
+      - uptime_kuma_data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/api/entry-page >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - dineos-net
+    restart: unless-stopped
+    profiles:
+      - uptime
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  loki_data:
+  grafana_data:
+  prometheus_data:
+  alertmanager_data:
+  dineos_uploads:
+  elasticsearch_data:
+  nginx_logs:
+  uptime_kuma_data:
+
+networks:
+  dineos-net:
+    driver: bridge

@@ -22,9 +22,11 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Prometheus;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.Grafana.Loki;
+using Serilog.Sinks.Network;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text;
@@ -98,6 +100,17 @@ try
                 ],
                 propertiesAsLabels: ["app", "environment"]);
         }
+
+        var logstashUri = ctx.Configuration["Logstash:Uri"];
+        if (!string.IsNullOrEmpty(logstashUri))
+        {
+            // Config stores http://host:port (consistent with Loki pattern);
+            // Serilog.Sinks.Network requires tcp://host:port.
+            var tcpUri = logstashUri
+                .Replace("http://",  "tcp://", StringComparison.OrdinalIgnoreCase)
+                .Replace("https://", "tcp://", StringComparison.OrdinalIgnoreCase);
+            config.WriteTo.TCPSink(tcpUri, new Serilog.Formatting.Json.JsonFormatter());
+        }
     });
 
     builder.Services.AddHttpClient();
@@ -105,6 +118,9 @@ try
     builder.Services.AddInfrastructure(builder.Configuration);
 
     builder.Services.AddSingleton<IOrderNotificationService, OrderNotificationService>();
+    // ── Prometheus — business and EF Core metrics ────────────────────────────────
+    builder.Services.AddSingleton<IOrderMetrics, PrometheusOrderMetrics>();
+    builder.Services.AddSingleton<IHostedService, EfCoreMetricsListener>();
 
     var redisConnStr = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";
     builder.Services.AddSignalR()
@@ -574,6 +590,15 @@ try
     {
         options.MessageTemplate =
             "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+
+        // Prometheus scrapes /metrics every 15 s — suppress those log lines so they
+        // don't flood Loki. Verbose is below the configured minimum (Information)
+        // and is dropped before reaching any sink; no Serilog/Loki config changes needed.
+        options.GetLevel = (ctx, _, _) =>
+            ctx.Request.Path == "/metrics"
+                ? LogEventLevel.Verbose
+                : LogEventLevel.Information;
+
         options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
         {
             diagnosticContext.Set("CorrelationId", httpContext.Items[CorrelationIdMiddleware.ItemKey]);
@@ -582,6 +607,13 @@ try
             diagnosticContext.Set("UserAgent",     httpContext.Request.Headers.UserAgent.ToString());
         };
     });
+
+    // ── Prometheus HTTP metrics ───────────────────────────────────────────────────
+    // Placed early so every request — including 401/429/500 — is counted.
+    // Captures: http_requests_received_total, http_request_duration_seconds,
+    // http_requests_in_progress. Route template labels are populated after
+    // routing resolves, which ASP.NET Core guarantees before the response is sent.
+    app.UseHttpMetrics();
 
     if (app.Environment.IsDevelopment())
     {
@@ -659,6 +691,17 @@ try
     app.UseMiddleware<TenantIsolationMiddleware>();
     app.MapControllers();
     app.MapHub<OrderUpdatesHub>("/hubs/orders");
+    // Also expose the hub under /api: the single-origin frontend builds its hub URL as
+    // `${NEXT_PUBLIC_API_URL ?? "/api"}/hubs/orders` = "/api/hubs/orders", and the ingress
+    // routes "/api" → this service. Without this second mapping, SignalR negotiate 404/405s
+    // through the proxy/ingress and real-time order updates never connect.
+    app.MapHub<OrderUpdatesHub>("/api/hubs/orders");
+
+    // ── Prometheus scrape endpoint ────────────────────────────────────────────────
+    // AllowAnonymous overrides the RequireAuthenticatedUser fallback policy so the
+    // Prometheus server can scrape without a JWT. Restrict to in-cluster traffic via
+    // network policy or an ingress rule in production.
+    app.MapMetrics("/metrics").AllowAnonymous().DisableRateLimiting();
 
     // ── Hangfire dashboard ────────────────────────────────────────────────────
     // Anonymous access is allowed by default in Development for ergonomics;

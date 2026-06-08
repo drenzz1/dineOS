@@ -1,0 +1,28 @@
+{{- if and .Values.observability.elk.enabled .Values.observability.elk.kibana.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "dineos.fullname" . }}-kibana
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kibana
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.observability.elk.kibana.ingress.clusterIssuer | default "letsencrypt-prod" | quote }}
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: {{ .Values.observability.elk.kibana.ingress.className }}
+  tls:
+    {{- toYaml .Values.observability.elk.kibana.ingress.tls | nindent 4 }}
+  rules:
+    - host: {{ .Values.observability.elk.kibana.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dineos.fullname" . }}-kibana
+                port:
+                  number: 5601
+{{- end }}

@@ -92,7 +92,7 @@ public class AiMenuServiceTests
         var item = await SeedItemAsync(db);
 
         ai.GenerateMenuDescriptionAsync(Arg.Any<MenuDescriptionAiRequest>(), Arg.Any<CancellationToken>())
-          .Throws(new AiUnavailableException("upstream down"));
+          .Returns(Task.FromException<MenuDescriptionAiResult>(new AiUnavailableException("upstream down")));
 
         var result = await svc.SuggestDescriptionAsync(item.Id);
 

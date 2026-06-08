@@ -1,0 +1,20 @@
+{{- if .Values.observability.elk.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dineos.fullname" . }}-kibana
+  labels:
+    {{- include "dineos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kibana
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 5601
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "dineos.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: kibana
+{{- end }}

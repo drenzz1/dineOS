@@ -1,0 +1,119 @@
+# =============================================================================
+# Alertmanager configuration — DineOS  (local Docker Compose)
+# =============================================================================
+#
+# ENVIRONMENT VARIABLE EXPANSION
+#   Alertmanager has NO built-in env-var expansion (--config.expand-env is not a
+#   real flag and crash-loops v0.28.0). The docker-compose entrypoint substitutes
+#   every ${VAR} placeholder below into a runtime copy with sed before starting
+#   alertmanager.  See .env.example for the full variable list.
+#   Never commit real secrets — set them only in your local .env file.
+#
+# RECEIVERS
+#   dineos-webhook (default)
+#     Posts to the dineOS API webhook endpoint.  The backend runs AI triage
+#     and then posts to Slack via SlackNotifier (Slack__WebhookUrl env var).
+#     This is the recommended path: one receiver, structured triage, AI summary.
+#
+#   slack-direct (TOGGLE — currently disabled)
+#     Posts raw Alertmanager payloads straight to Slack, bypassing the backend.
+#     To activate: change route.receiver below to "slack-direct".
+#     Useful as a fallback if the API is unreachable.
+#
+# SHARED SECRET
+#   Alertmanager 0.28 does NOT support http_config.headers for arbitrary custom
+#   headers, so the dineos-webhook receiver sends the secret as an Authorization:
+#   Bearer credential (http_config.authorization). The API accepts it via either
+#   Authorization: Bearer or X-Webhook-Secret.  Set ALERT_WEBHOOK_SECRET in .env
+#   to the same value as AlertWebhook:SharedSecret in appsettings (or the
+#   corresponding k8s secret).  Leave both empty on a closed Docker network — the
+#   endpoint is unauthenticated but only reachable within the dineos-net bridge.
+# =============================================================================
+
+global:
+  resolve_timeout: 5m
+  # Used by the slack-direct receiver below (no-op when that receiver is inactive).
+  slack_api_url: "${SLACK_WEBHOOK_URL}"
+
+# ---------------------------------------------------------------------------
+# Routing tree
+# ---------------------------------------------------------------------------
+route:
+  # Default: route through the backend for AI triage + structured Slack posts.
+  # Toggle: change to "slack-direct" to bypass the backend and post raw alerts.
+  receiver: dineos-webhook
+  group_by:
+    - alertname
+    - cluster
+  group_wait:      30s
+  group_interval:  5m
+  repeat_interval: 4h
+
+  routes:
+    # Watchdog fires continuously by design (used to verify the pipeline is
+    # alive). Route it to the null receiver so it never pages on-call.
+    - matchers:
+        - alertname="Watchdog"
+      receiver: "null"
+
+# ---------------------------------------------------------------------------
+# Receivers
+# ---------------------------------------------------------------------------
+receivers:
+  # Primary receiver — backend-owned AI triage + Slack notification.
+  - name: dineos-webhook
+    webhook_configs:
+      - url: "http://api:8080/api/v1/alerts/webhook"
+        send_resolved: true
+        http_config:
+          # Alertmanager 0.28 does not support http_config.headers for arbitrary custom
+          # headers. Use authorization instead — Alertmanager sets "Authorization: Bearer
+          # <credentials>" and the backend accepts it alongside X-Webhook-Secret.
+          # Set ALERT_WEBHOOK_SECRET in .env to the same value as AlertWebhook:SharedSecret.
+          # Leave empty to disable the check on a closed Docker network.
+          authorization:
+            credentials: "${ALERT_WEBHOOK_SECRET}"
+
+  # Toggle receiver — direct Slack without backend triage.
+  # Activate by setting route.receiver to "slack-direct".
+  - name: slack-direct
+    slack_configs:
+      - send_resolved: true
+        channel: "#dineos-alerts"
+        username: "DineOS Alertmanager"
+        icon_emoji: ":rotating_light:"
+        title: >-
+          [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}]
+          {{ .GroupLabels.alertname }}
+          ({{ .GroupLabels.cluster }})
+        text: |-
+          {{ range .Alerts }}
+          *Summary:*     {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:*    `{{ .Labels.severity }}`
+          *Component:*   `{{ .Labels.component }}`
+          *Team:*        `{{ .Labels.team }}`
+          *Runbook:*     {{ .Annotations.runbook_url }}
+          {{ end }}
+
+  # Sink receiver — absorbs Watchdog and any other suppressed alerts silently.
+  - name: "null"
+
+# ---------------------------------------------------------------------------
+# Inhibition rules
+# ---------------------------------------------------------------------------
+inhibit_rules:
+  # When the API is completely down (ApiDown critical), latency and
+  # throughput alerts for that same component become meaningless noise —
+  # every request is failing, so p95 will be infinite and error rate 100 %.
+  # Suppress all api-component warnings and criticals while ApiDown fires.
+  - source_matchers:
+      - alertname="ApiDown"
+      - severity="critical"
+    target_matchers:
+      - component="api"
+      - severity=~"warning|critical"
+    # Only suppress alerts on the same cluster + env as the source.
+    equal:
+      - cluster
+      - env

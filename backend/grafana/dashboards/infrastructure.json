@@ -1,0 +1,107 @@
+{
+  "title": "DineOS Infrastructure",
+  "uid": "dineos-infrastructure",
+  "tags": ["dineos", "do-5"],
+  "version": 1,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "label": "Data source",
+        "pluginId": "prometheus",
+        "current": { "text": "Prometheus", "value": "prometheus" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "PostgreSQL Up",
+      "description": "Requires prometheuscommunity/postgres-exporter. Enable the postgres scrape job in prometheus.yml to populate this panel.",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": { "noValue": "No data — postgres-exporter not running" },
+      "targets": [
+        {
+          "expr": "pg_up",
+          "legendFormat": "pg_up",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "RabbitMQ Queue Depth",
+      "description": "Ready messages in the order-notifications queue. Requires the rabbitmq_prometheus plugin (port 15692). Enable the rabbitmq scrape job in prometheus.yml to populate this panel.",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": { "noValue": "No data — rabbitmq_prometheus plugin not enabled" },
+      "targets": [
+        {
+          "expr": "rabbitmq_queue_messages_ready{queue=\"dineos.orders.created.notifications\"}",
+          "legendFormat": "Ready messages",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Redis Hit / Miss Rate",
+      "description": "Requires a Redis exporter (oliver006/redis_exporter). Not yet added to docker-compose.yml.",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": { "noValue": "No data — redis-exporter not running" },
+      "targets": [
+        {
+          "expr": "rate(redis_keyspace_hits_total[5m])",
+          "legendFormat": "hits/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(redis_keyspace_misses_total[5m])",
+          "legendFormat": "misses/s",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Root Filesystem Free %",
+      "description": "Requires prom/node-exporter. Enable the node-exporter scrape job in prometheus.yml to populate this panel.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": { "noValue": "No data — node-exporter not running" },
+      "targets": [
+        {
+          "expr": "100 * node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}",
+          "legendFormat": "Free %",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Host Memory Utilization %",
+      "description": "Requires prom/node-exporter. Enable the node-exporter scrape job in prometheus.yml to populate this panel.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "options": { "noValue": "No data — node-exporter not running" },
+      "targets": [
+        {
+          "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+          "legendFormat": "Memory used %",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

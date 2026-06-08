@@ -1,0 +1,52 @@
+# ── deps (layer-cached until package-lock.json changes) ──────────────────────
+FROM node:22-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci --prefer-offline
+
+# ── builder ───────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# NEXT_PUBLIC_* vars are inlined into the browser bundle at build time
+ARG NEXT_PUBLIC_API_URL=http://localhost/api
+ARG NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8080
+ARG NEXT_PUBLIC_KEYCLOAK_REALM=dineos
+# API_INTERNAL_URL is consumed by next.config.ts rewrites() to proxy /api → backend.
+# Next.js evaluates rewrites() at BUILD time, so this must be set here (not just at
+# runtime). Default to the in-cluster API Service so the proxy works on Kubernetes.
+ARG API_INTERNAL_URL=http://dineos-api:80
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_KEYCLOAK_URL=$NEXT_PUBLIC_KEYCLOAK_URL \
+    NEXT_PUBLIC_KEYCLOAK_REALM=$NEXT_PUBLIC_KEYCLOAK_REALM \
+    API_INTERNAL_URL=$API_INTERNAL_URL
+
+RUN npm run build
+
+# ── runner ────────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup -S -g 1001 nodejs \
+ && adduser  -S -u 1001 -G nodejs nextjs \
+ && rm -rf /usr/local/lib/node_modules/npm \
+    /usr/local/bin/npm \
+    /usr/local/bin/npx
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static     ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public           ./public
+
+USER 1001
+EXPOSE 3000
+ENV PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+CMD ["node", "server.js"]
