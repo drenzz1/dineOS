@@ -74,11 +74,15 @@ export function persistAuthCookies(
   role: AppRole,
   tenantId: string | null
 ): void {
-  setCookie("access_token", accessToken, expiresIn);
-  setCookie("role", role, expiresIn);
+  // Route guards must keep seeing the session while it can still be refreshed.
+  // Otherwise middleware redirects to /login at the short access-token expiry
+  // before apiClient can exchange the still-valid refresh token.
+  const sessionLifetime = refreshExpiresIn ?? expiresIn;
+  setCookie("access_token", accessToken, sessionLifetime);
+  setCookie("role", role, sessionLifetime);
   setCookie("refresh_token", refreshToken, refreshExpiresIn ?? undefined);
   if (tenantId) {
-    setCookie("tenant_id", tenantId, expiresIn);
+    setCookie("tenant_id", tenantId, sessionLifetime);
   }
 }
 
@@ -106,12 +110,13 @@ export function persistStaffSessionCookies(
   accessToken: string,
   role: AppRole,
   expiresIn: number,
-  tenantId: string | null
+  tenantId: string | null,
+  sessionExpiresIn: number = expiresIn
 ): void {
-  setCookie("access_token", accessToken, expiresIn);
-  setCookie("role", role, expiresIn);
+  setCookie("access_token", accessToken, sessionExpiresIn);
+  setCookie("role", role, sessionExpiresIn);
   if (tenantId) {
-    setCookie("tenant_id", tenantId, expiresIn);
+    setCookie("tenant_id", tenantId, sessionExpiresIn);
   }
 }
 

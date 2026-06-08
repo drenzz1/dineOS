@@ -119,7 +119,10 @@ export const useAuthStore = create<AuthState>()(
 
           // Retain the business (Keycloak/Owner) token so the staff roster can
           // start a PIN session and "switch user" can restore owner mode.
-          persistBusinessToken(tokens.accessToken, tokens.expiresIn);
+          persistBusinessToken(
+            tokens.accessToken,
+            tokens.refreshExpiresIn ?? tokens.expiresIn
+          );
 
           set({
             userId: me.id,
@@ -159,7 +162,8 @@ export const useAuthStore = create<AuthState>()(
           session.accessToken,
           session.role,
           session.expiresIn,
-          tenantId
+          tenantId,
+          session.refreshExpiresIn
         );
         // Retain the refresh token so the apiClient can renew the access token
         // mid-shift without a re-PIN.

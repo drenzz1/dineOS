@@ -12,7 +12,12 @@
 
 import type MockAdapterType from "axios-mock-adapter";
 import type { AxiosInstance, AxiosStatic } from "axios";
-import { persistAuthCookies, persistStaffSessionCookies, clearAuthCookies } from "@/lib/auth/keycloak";
+import {
+  persistAuthCookies,
+  persistBusinessToken,
+  persistStaffSessionCookies,
+  clearAuthCookies,
+} from "@/lib/auth/keycloak";
 import { useAuthStore } from "@/stores/authStore";
 
 // ─── refresh stub ─────────────────────────────────────────────────────────────
@@ -41,6 +46,7 @@ jest.mock("axios", () => {
 
 jest.mock("@/lib/auth/keycloak", () => ({
   persistAuthCookies: jest.fn(),
+  persistBusinessToken: jest.fn(),
   persistStaffSessionCookies: jest.fn(),
   getStaffRefreshToken: jest.fn(() => "staff-refresh-token"),
   clearAuthCookies: jest.fn(),
@@ -51,6 +57,7 @@ jest.mock("@/stores/authStore", () => {
   const endStaffSession = jest.fn();
   return {
     useAuthStore: {
+      setState: jest.fn(),
       getState: jest.fn(() => ({
         role: "Manager",
         tenantId: "tenant-1",
@@ -133,6 +140,13 @@ describe("apiClient — 401 response interceptor", () => {
       "Manager",
       "tenant-1"
     );
+    expect(jest.mocked(persistBusinessToken)).toHaveBeenCalledWith(
+      NEW_ACCESS_TOKEN,
+      1800
+    );
+    expect(useAuthStore.setState).toHaveBeenCalledWith({
+      accessToken: NEW_ACCESS_TOKEN,
+    });
   });
 
   // ── 2. concurrent 401 coalescing ─────────────────────────────────────────────
@@ -216,7 +230,12 @@ describe("apiClient — 401 response interceptor", () => {
     refreshPostMock.mockResolvedValue({
       data: {
         success: true,
-        data: { accessToken: "new-staff-access", role: "Cashier", expiresIn: 3600 },
+        data: {
+          accessToken: "new-staff-access",
+          role: "Cashier",
+          expiresIn: 3600,
+          refreshExpiresIn: 43200,
+        },
         message: "ok",
         errors: null,
       },
@@ -233,8 +252,13 @@ describe("apiClient — 401 response interceptor", () => {
       "new-staff-access",
       "Cashier",
       3600,
-      null // no tenant_id cookie in this harness
+      null, // no tenant_id cookie in this harness
+      43200
     );
+    expect(useAuthStore.setState).toHaveBeenCalledWith({
+      accessToken: "new-staff-access",
+      role: "Cashier",
+    });
     // Owner cookie path must not run.
     expect(jest.mocked(persistAuthCookies)).not.toHaveBeenCalled();
   });

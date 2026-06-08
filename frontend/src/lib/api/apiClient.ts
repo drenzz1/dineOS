@@ -2,6 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/stores/authStore";
 import {
   persistAuthCookies,
+  persistBusinessToken,
   persistStaffSessionCookies,
   getStaffRefreshToken,
   clearAuthCookies,
@@ -32,7 +33,12 @@ interface RefreshApiResponse {
 
 interface StaffRefreshApiResponse {
   success: boolean;
-  data: { accessToken: string; role: AppRole; expiresIn: number } | null;
+  data: {
+    accessToken: string;
+    role: AppRole;
+    expiresIn: number;
+    refreshExpiresIn: number;
+  } | null;
   message: string;
   errors: string[] | null;
 }
@@ -100,8 +106,15 @@ apiClient.interceptors.response.use(
         if (!envelope.success || !envelope.data) {
           throw new Error(envelope.message ?? "Staff session refresh failed");
         }
-        const { accessToken, role, expiresIn } = envelope.data;
-        persistStaffSessionCookies(accessToken, role, expiresIn, getCookie("tenant_id"));
+        const { accessToken, role, expiresIn, refreshExpiresIn } = envelope.data;
+        persistStaffSessionCookies(
+          accessToken,
+          role,
+          expiresIn,
+          getCookie("tenant_id"),
+          refreshExpiresIn
+        );
+        useAuthStore.setState({ accessToken, role });
       })();
 
       try {
@@ -139,6 +152,8 @@ apiClient.interceptors.response.use(
         const { role, tenantId } = useAuthStore.getState();
 
         persistAuthCookies(accessToken, newRefreshToken, expiresIn, refreshExpiresIn, role ?? "Manager", tenantId);
+        persistBusinessToken(accessToken, refreshExpiresIn ?? expiresIn);
+        useAuthStore.setState({ accessToken });
       } catch {
         clearAuthCookies();
         useAuthStore.getState().clearAuth();
