@@ -49,8 +49,10 @@ try
     // dev placeholder secrets. They are fine for localhost dev but a critical exposure
     // in prod: the StaffSession key signs (forges) staff role/tenant tokens, and the
     // Keycloak admin secret is a realm-admin credential. Supply real values via env /
-    // secret store before deploying anywhere non-local.
-    if (!builder.Environment.IsDevelopment())
+    // secret store before deploying anywhere non-local. The integration-test host
+    // boots under the "Testing" environment with these dev placeholders by design,
+    // so it is exempt alongside Development.
+    if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
     {
         var offenders = new List<string>();
 
