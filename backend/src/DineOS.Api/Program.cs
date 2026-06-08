@@ -8,15 +8,19 @@ using DineOS.Application.Authentication;
 using DineOS.Application.Authorization;
 using DineOS.Application.Common;
 using DineOS.Application.Interfaces.Services;
+using DineOS.Infrastructure.Services;
 using DineOS.Application.Options;
 using DineOS.Infrastructure;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Prometheus;
 using Serilog;
@@ -25,6 +29,7 @@ using Serilog.Sinks.Grafana.Loki;
 using Serilog.Sinks.Network;
 using System.Reflection;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 
@@ -38,6 +43,39 @@ Log.Logger = new LoggerConfiguration()
 try
 {
     var builder = WebApplication.CreateBuilder(args);
+
+    // ── Production secret guard ─────────────────────────────────────────────────────
+    // Fail fast if a non-Development environment is still running with the committed
+    // dev placeholder secrets. They are fine for localhost dev but a critical exposure
+    // in prod: the StaffSession key signs (forges) staff role/tenant tokens, and the
+    // Keycloak admin secret is a realm-admin credential. Supply real values via env /
+    // secret store before deploying anywhere non-local. The integration-test host
+    // boots under the "Testing" environment with these dev placeholders by design,
+    // so it is exempt alongside Development.
+    if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
+    {
+        var offenders = new List<string>();
+
+        void RequireNonPlaceholder(string key, string devPlaceholder)
+        {
+            var value = builder.Configuration[key];
+            if (string.IsNullOrWhiteSpace(value) || value == devPlaceholder)
+                offenders.Add(key);
+        }
+
+        RequireNonPlaceholder("StaffSession:SigningKey", "dev-staff-session-signing-key-change-me-0123456789");
+        RequireNonPlaceholder("Keycloak:AdminClientSecret", "dev-admin-secret-change-me");
+
+        var dbConnection = builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+        if (dbConnection.Contains("Password=dineos_dev", StringComparison.OrdinalIgnoreCase))
+            offenders.Add("ConnectionStrings:DefaultConnection (uses the dev password)");
+        if (string.Equals(builder.Configuration["RabbitMq:Password"], "dineos_dev", StringComparison.Ordinal))
+            offenders.Add("RabbitMq:Password");
+
+        if (offenders.Count > 0)
+            throw new InvalidOperationException(
+                $"Refusing to start in environment '{builder.Environment.EnvironmentName}': the following secrets are empty or still use the committed dev placeholder — set real values via environment variables / a secret store: {string.Join(", ", offenders)}.");
+    }
 
     // ── Serilog ───────────────────────────────────────────────────────────────────
     builder.Host.UseSerilog((ctx, services, config) =>
@@ -92,6 +130,10 @@ try
         {
             options.Configuration = StackExchange.Redis.ConfigurationOptions.Parse(redisConnStr);
             options.Configuration.AbortOnConnectFail = false;
+            // Namespace the backplane pub/sub channels so two SignalR apps sharing
+            // one Redis instance/DB (common with managed Redis) can't cross-deliver
+            // hub messages.
+            options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("dineos:signalr");
         });
 
     // ── Authentication ────────────────────────────────────────────────────────────
@@ -127,20 +169,104 @@ try
                     return Task.CompletedTask;
                 }
             };
+        })
+        // Backend-issued, PIN-gated staff-session tokens (#staff-pin-auth). A
+        // single business authenticates via Keycloak, then a staff member's
+        // PIN mints an HS256 token carrying their operational role + tenant_id.
+        // Validated here with the shared symmetric key; role claim is "role".
+        .AddJwtBearer(AuthSchemes.StaffSession, options =>
+        {
+            var staffSession = builder.Configuration
+                .GetSection(StaffSessionOptions.SectionName)
+                .Get<StaffSessionOptions>() ?? new StaffSessionOptions();
+
+            // Keep custom claims (tenant_id, role, token_use) verbatim instead
+            // of remapping to the long Microsoft claim URIs.
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = staffSession.Issuer,
+                ValidateAudience = true,
+                ValidAudience = staffSession.Audience,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(staffSession.SigningKey.Length >= 32
+                        ? staffSession.SigningKey
+                        : staffSession.SigningKey.PadRight(32, '0'))),
+                NameClaimType = "name",
+                RoleClaimType = "role",
+            };
+
+            // Server-side revocation: reject a staff token whose jti has been
+            // blacklisted (ended shift). The signature/exp are already valid
+            // here; this is the only thing that can revoke before expiry.
+            options.Events = new JwtBearerEvents
+            {
+                // SignalR: browsers can't set Authorization headers on the
+                // WebSocket/SSE transports, so the staff token arrives as
+                // ?access_token=<token> on /hubs URLs. Mirror the Keycloak
+                // scheme so a staff-session connection authenticates on the
+                // transport (negotiate uses the header; the transport uses this).
+                OnMessageReceived = context =>
+                {
+                    var token = context.Request.Query["access_token"];
+                    if (!string.IsNullOrEmpty(token) &&
+                        context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                        context.Token = token;
+                    return Task.CompletedTask;
+                },
+                OnTokenValidated = async context =>
+                {
+                    var jti = context.Principal?.FindFirst("jti")?.Value;
+                    if (string.IsNullOrEmpty(jti))
+                        return;
+
+                    var blacklist = context.HttpContext.RequestServices
+                        .GetRequiredService<ITokenBlacklistService>();
+                    if (await blacklist.IsBlacklistedAsync(StaffSessionService.BlacklistKeyPrefix + jti))
+                        context.Fail("Staff session has been revoked.");
+                }
+            };
         });
     builder.Services.AddTransient<IClaimsTransformation, KeycloakRolesTransformation>();
 
     // ── Authorization ─────────────────────────────────────────────────────────────
     builder.Services.AddAuthorization(options =>
     {
-        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        // Both bearer schemes are accepted everywhere: a request authenticates
+        // with the Keycloak token (business / Owner) OR a PIN-issued
+        // staff-session token (operational role). The role claim from whichever
+        // token authenticated drives RequireRole below.
+        var bothSchemes = new[] { JwtBearerDefaults.AuthenticationScheme, AuthSchemes.StaffSession };
+
+        options.FallbackPolicy = new AuthorizationPolicyBuilder(bothSchemes)
             .RequireAuthenticatedUser()
             .Build();
 
-        options.AddPolicy(Policies.SuperAdminOnly,   p => p.RequireRole(Roles.SuperAdmin));
-        options.AddPolicy(Policies.ManagerAndAbove,  p => p.RequireRole(Roles.SuperAdmin, Roles.Manager));
-        options.AddPolicy(Policies.CashierAndAbove,  p => p.RequireRole(Roles.SuperAdmin, Roles.Manager, Roles.Cashier));
-        options.AddPolicy(Policies.KitchenStaffOnly, p => p.RequireRole(Roles.KitchenStaff));
+        // A bare [Authorize] (no policy) — e.g. OrderUpdatesHub, /me, /menu/items,
+        // shift notes — resolves to DefaultPolicy, NOT FallbackPolicy. The framework
+        // default only authenticates the default (Keycloak) scheme, so a PIN-issued
+        // staff-session token would 401 on those endpoints (incl. the SignalR hub
+        // negotiate). Mirror FallbackPolicy here so both schemes are truly accepted
+        // everywhere.
+        options.DefaultPolicy = new AuthorizationPolicyBuilder(bothSchemes)
+            .RequireAuthenticatedUser()
+            .Build();
+
+        options.AddPolicy(Policies.BusinessAccountOnly, p => p
+            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser());
+        options.AddPolicy(Policies.SuperAdminOnly,   p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin));
+        // Account-level (#staff-pin-auth Phase 2): only the business Owner
+        // account (or SuperAdmin) manages staff + billing. Operational
+        // staff-session roles deliberately do NOT satisfy this.
+        options.AddPolicy(Policies.OwnerOnly,        p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Owner));
+        options.AddPolicy(Policies.ManagerAndAbove,  p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Manager));
+        options.AddPolicy(Policies.CashierAndAbove,  p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Manager, Roles.Cashier));
+        options.AddPolicy(Policies.KitchenAccess,    p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.SuperAdmin, Roles.Manager, Roles.Cashier, Roles.KitchenStaff));
+        options.AddPolicy(Policies.KitchenStaffOnly, p => p.AddAuthenticationSchemes(bothSchemes).RequireRole(Roles.KitchenStaff));
     });
 
     // ── API Versioning ────────────────────────────────────────────────────────────
@@ -187,6 +313,23 @@ try
             policy.QueueLimit = 0;
         });
 
+        // Staff-session PIN verification (#staff-pin-auth). Partitioned by the
+        // authenticating business (tenant_id claim) + remote IP so PIN
+        // brute-force is bounded per business/host. Tight cap, no queue. A
+        // per-staff lockout after N failures is a planned hardening follow-up.
+        options.AddPolicy("staff-pin", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey:
+                    (httpContext.User.FindFirstValue("tenant_id") ?? "no-tenant")
+                    + "|" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0,
+                }));
+
         // Anonymous owner-facing email-verification confirm — partitioned by
         // remote IP so one noisy client cannot lock everyone out. The cap is
         // tight because a legitimate owner needs at most a handful of tries
@@ -201,6 +344,71 @@ try
                     QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                     QueueLimit = 0,
                 }));
+
+        // Demo access (#216). Partitioned on a composite (email + IP) key when
+        // the body carries an email; otherwise by IP alone. 3 requests/hour
+        // per email keeps re-submits cheap while blocking enumeration; the
+        // IP-only bucket (set to a higher 10/hour ceiling) catches bots that
+        // sweep many emails from one host.
+        options.AddPolicy("demo-request", httpContext =>
+        {
+            string emailKey = string.Empty;
+            if (httpContext.Request.HasJsonContentType()
+                && httpContext.Request.ContentLength is > 0 and < 4096)
+            {
+                httpContext.Request.EnableBuffering();
+                using var reader = new StreamReader(
+                    httpContext.Request.Body, leaveOpen: true);
+                // AddPolicy is a sync callback, but Microsoft.AspNetCore.TestHost
+                // (and Kestrel with AllowSynchronousIO=false) forbids Stream.Read
+                // on the request body. Await the async read and unwrap.
+                var bodyText = reader.ReadToEndAsync().GetAwaiter().GetResult();
+                httpContext.Request.Body.Position = 0;
+                try
+                {
+                    using var doc = JsonDocument.Parse(bodyText);
+                    if (doc.RootElement.TryGetProperty("email", out var emailEl) &&
+                        emailEl.ValueKind == JsonValueKind.String)
+                    {
+                        var email = emailEl.GetString();
+                        if (!string.IsNullOrWhiteSpace(email))
+                            emailKey = email.Trim().ToLowerInvariant();
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Malformed JSON falls through; the controller returns 400.
+                }
+            }
+
+            var ipKey = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            // When email is present, bucket on email (tighter limit). Otherwise
+            // bucket on IP. Both partitions share the same policy options
+            // exposed to the user; the per-IP path gets the looser ceiling.
+            if (!string.IsNullOrEmpty(emailKey))
+            {
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: $"demo-email:{emailKey}",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 3,
+                        Window = TimeSpan.FromHours(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                    });
+            }
+
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: $"demo-ip:{ipKey}",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromHours(1),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0,
+                });
+        });
 
         options.OnRejected = async (context, cancellationToken) =>
         {
@@ -345,9 +553,39 @@ try
     // Auto-apply pending migrations on startup
     await app.Services.GetRequiredService<IDatabaseMigrator>().MigrateAsync();
 
+    // Demo tenant seed (#216) — idempotent; gated by Demo:Enabled.
+    await app.Services.GetRequiredService<IDemoTenantSeeder>().SeedAsync();
+
     // ── Middleware pipeline ───────────────────────────────────────────────────────
+    // Honor X-Forwarded-* from a TLS-terminating proxy / ingress so the request
+    // scheme and client IP (the per-IP rate-limit partition keys) are correct in
+    // prod. Default trust is loopback-only, so this does NOT let arbitrary clients
+    // spoof their IP — a prod ingress network must be added to KnownNetworks there.
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    });
+
+    // HSTS only outside Development — dev is plain HTTP on localhost.
+    if (!app.Environment.IsDevelopment())
+        app.UseHsts();
+
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseMiddleware<ExceptionMiddleware>();
+
+    // Baseline security response headers on every response. CSP is applied only
+    // outside Development because the Dev-only Swagger UI needs inline script/style.
+    var cspEnabled = !app.Environment.IsDevelopment();
+    app.Use(async (ctx, nextMw) =>
+    {
+        var headers = ctx.Response.Headers;
+        headers["X-Content-Type-Options"] = "nosniff";
+        headers["X-Frame-Options"] = "DENY";
+        headers["Referrer-Policy"] = "no-referrer";
+        if (cspEnabled)
+            headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
+        await nextMw();
+    });
 
     // Structured request logging — enriched with CorrelationId, TenantId, UserId
     app.UseSerilogRequestLogging(options =>

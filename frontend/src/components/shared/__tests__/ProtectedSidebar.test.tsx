@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProtectedSidebar from "../ProtectedSidebar";
 import { useAuthStore } from "@/stores/authStore";
 import type { Role } from "@/types";
@@ -56,27 +56,73 @@ describe("ProtectedSidebar", () => {
     });
   });
 
-  it("shows only Orders, Payments, and Kitchen to cashiers", () => {
+  it("shows only Orders, Payments, Kitchen, and Shifts to cashiers", () => {
     renderForRole("Cashier");
 
-    expect(screen.getByRole("link", { name: "Orders" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Payments" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Kitchen" })).toBeInTheDocument();
+    const allowed = ["Orders", "Payments", "Kitchen", "Shifts"];
+    allowed.forEach((label) => {
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+    });
 
-    ALL_LINKS.filter(
-      (label) => !["Orders", "Payments", "Kitchen"].includes(label)
-    ).forEach((label) => {
+    ALL_LINKS.filter((label) => !allowed.includes(label)).forEach((label) => {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     });
   });
 
-  it("shows only Kitchen to kitchen staff", () => {
+  it("shows only Kitchen and Shifts to kitchen staff", () => {
     renderForRole("KitchenStaff");
 
-    expect(screen.getByRole("link", { name: "Kitchen" })).toBeInTheDocument();
+    const allowed = ["Kitchen", "Shifts"];
+    allowed.forEach((label) => {
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+    });
 
-    ALL_LINKS.filter((label) => label !== "Kitchen").forEach((label) => {
+    ALL_LINKS.filter((label) => !allowed.includes(label)).forEach((label) => {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     });
+  });
+
+  it("requires a second deliberate click before logging out", async () => {
+    const logout = jest.fn().mockResolvedValue(undefined);
+    act(() => {
+      useAuthStore.setState({
+        userId: "test-user",
+        role: "Manager",
+        tenantId: "demo-tenant",
+        restaurantName: "Olio & Sale",
+        logout,
+      });
+    });
+
+    render(<ProtectedSidebar />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+
+    expect(logout).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Confirm log out" })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm log out" }));
+
+    await waitFor(() => expect(logout).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not expose account logout during a staff session", () => {
+    act(() => {
+      useAuthStore.setState({
+        userId: "test-user",
+        role: "KitchenStaff",
+        tenantId: "demo-tenant",
+        restaurantName: "Olio & Sale",
+        isStaffSession: true,
+        activeStaffName: "Kitchen User",
+      });
+    });
+
+    render(<ProtectedSidebar />);
+
+    expect(screen.queryByRole("button", { name: /log out/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch user" })).toBeInTheDocument();
   });
 });

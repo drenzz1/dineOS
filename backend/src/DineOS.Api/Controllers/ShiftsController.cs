@@ -10,12 +10,12 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace DineOS.Api.Controllers;
 
-/// <summary>Shift scheduling endpoints — Manager and above.</summary>
+/// <summary>Shift scheduling endpoints — read: authenticated staff; write: Manager and above.</summary>
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/shifts")]
 [Produces("application/json")]
-[Authorize(Policy = Policies.ManagerAndAbove)]
+[Authorize]
 [EnableRateLimiting("authenticated")]
 public class ShiftsController(IShiftService shiftService) : ControllerBase
 {
@@ -32,6 +32,7 @@ public class ShiftsController(IShiftService shiftService) : ControllerBase
 
     /// <summary>Creates a new shift.</summary>
     [HttpPost]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<ShiftDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -44,6 +45,7 @@ public class ShiftsController(IShiftService shiftService) : ControllerBase
 
     /// <summary>Updates a shift.</summary>
     [HttpPut("{id:long}")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<ShiftDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -58,6 +60,7 @@ public class ShiftsController(IShiftService shiftService) : ControllerBase
 
     /// <summary>Soft-deletes a shift.</summary>
     [HttpDelete("{id:long}")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<ShiftDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

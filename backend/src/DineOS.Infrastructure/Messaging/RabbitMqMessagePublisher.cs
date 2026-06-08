@@ -29,7 +29,7 @@ public sealed class RabbitMqMessagePublisher(
             return false;
         }
 
-        await using var channel = await connectionProvider.CreateChannelAsync(ct);
+        await using var channel = await connectionProvider.CreateChannelAsync(publisherConfirms: true, ct: ct);
 
         var body = JsonSerializer.SerializeToUtf8Bytes(message, JsonOptions);
         var properties = new BasicProperties
@@ -48,13 +48,34 @@ public sealed class RabbitMqMessagePublisher(
             }
         };
 
-        await channel.BasicPublishAsync(
-            rabbitOptions.ExchangeName,
-            routingKey,
-            mandatory: true,
-            basicProperties: properties,
-            body: body,
-            cancellationToken: ct);
+        try
+        {
+            // With publisher confirmations enabled, this awaits the broker ack and
+            // throws if the message is nacked or returned unroutable (mandatory).
+            await channel.BasicPublishAsync(
+                rabbitOptions.ExchangeName,
+                routingKey,
+                mandatory: true,
+                basicProperties: properties,
+                body: body,
+                cancellationToken: ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Unconfirmed / unroutable / broker-down publish. Report failure
+            // (return false) instead of a phantom success so the caller's
+            // in-process fallback (e.g. OrderService -> SignalR broadcast) engages
+            // rather than the event silently vanishing.
+            logger.LogWarning(
+                ex,
+                "RabbitMQ publish not confirmed; treating as failed: MessageId={MessageId} EventType={EventType} RoutingKey={RoutingKey}",
+                message.MessageId, typeof(TMessage).Name, routingKey);
+            return false;
+        }
 
         logger.LogInformation(
             "RabbitMQ event published: MessageId={MessageId} EventType={EventType} RoutingKey={RoutingKey}",

@@ -15,7 +15,9 @@ namespace DineOS.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/staff")]
 [Produces("application/json")]
-[Authorize(Policy = Policies.ManagerAndAbove)]
+// Account-level: only the business Owner manages staff + PINs (#staff-pin-auth
+// Phase 2). A PIN-selected operational staff member cannot create other staff.
+[Authorize(Policy = Policies.OwnerOnly)]
 [EnableRateLimiting("authenticated")]
 public class StaffController(IStaffService staffService) : ControllerBase
 {

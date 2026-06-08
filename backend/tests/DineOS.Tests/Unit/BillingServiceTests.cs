@@ -225,6 +225,63 @@ public class BillingServiceTests
             Arg.Any<IState>());
     }
 
+    // ── (a2) Webhook ordering race → owner still provisioned ─────────────────
+    // Why this test is needed: Stripe does not guarantee delivery order, so a
+    // customer.subscription.* event can arrive before checkout.session.completed.
+    // The subscription handler flips BillingStatus off Incomplete, and the old
+    // code gated owner provisioning on "status == Incomplete" inside the checkout
+    // handler only — so when the subscription event won the race the owner's
+    // Keycloak account and credentials email were never created (observed for the
+    // viva@gmail.com / dreni@gmail.com signups). This guards that the subscription
+    // handler now enqueues OwnerProvisioningJob whenever the owner is still absent.
+
+    [Fact]
+    public async Task HandleWebhookAsync_SubscriptionArrivesBeforeCheckout_EnqueuesOwnerProvisioning()
+    {
+        const string secret = TestWebhookSecret;
+
+        var tenantSvc = Substitute.For<ITenantService>();
+        tenantSvc.TenantId.Returns((long?)null);
+        await using var db = MakeDb(tenantSvc);
+
+        // Pending public-signup tenant: checkout.session.completed has NOT been
+        // processed yet, so it is still Incomplete with no Keycloak user.
+        db.Tenants.Add(new Tenant
+        {
+            Name             = "Viva Fresh",
+            Slug             = "viva-fresh",
+            OwnerName        = "Viva Fresh",
+            OwnerEmail       = "viva@gmail.com",
+            Plan             = SubscriptionPlan.Free,
+            BillingStatus    = BillingStatus.Incomplete,
+            StripeCustomerId = "cus_test001",
+            KeycloakUserId   = null,
+        });
+        await db.SaveChangesAsync();
+
+        var backgroundJobs = Substitute.For<IBackgroundJobClient>();
+        var service = MakeService(db, tenantSvc, backgroundJobs,
+            new StripeOptions
+            {
+                SecretKey         = "sk_test_local",
+                ProMonthlyPriceId = "price_monthly",
+                WebhookSecret     = secret,
+            });
+
+        var (json, header) = MakeStripeEvent(
+            "evt_sub_before_checkout_001",
+            "customer.subscription.created",
+            ActiveSubscriptionJson,
+            secret);
+
+        var result = await service.HandleWebhookAsync(json, header);
+
+        Assert.True(result.IsSuccess);
+        backgroundJobs.Received(1).Create(
+            Arg.Is<Job>(j => j.Type == typeof(OwnerProvisioningJob)),
+            Arg.Any<IState>());
+    }
+
     // ── (c) GetInvoicesAsync tenant scoping ──────────────────────────────────
     // Why this test is needed: TenantInvoice has no global EF tenant-scope query
     // filter — only a soft-delete filter. The explicit WHERE in GetInvoicesAsync

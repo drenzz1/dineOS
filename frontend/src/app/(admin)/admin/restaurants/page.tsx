@@ -14,11 +14,6 @@ const INPUT =
   "block rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
 
 export default function AdminRestaurantsPage() {
-  const { data: restaurants = [], isLoading } = useQuery({
-    queryKey: queryKeys.adminRestaurants.list(null),
-    queryFn: getRestaurants,
-  });
-
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
@@ -28,17 +23,21 @@ export default function AdminRestaurantsPage() {
     return () => clearTimeout(id);
   }, [search]);
 
+  // Name/email search runs server-side (the backend's `search` param); status is
+  // a two-value enum, so we keep that filter on the client to avoid an extra
+  // round-trip. placeholderData keeps the current rows visible while a new search
+  // is in flight rather than flashing the skeleton on every keystroke.
+  const { data: restaurants = [], isLoading } = useQuery({
+    queryKey: queryKeys.adminRestaurants.list(debouncedSearch || null),
+    queryFn: () =>
+      getRestaurants({ search: debouncedSearch || undefined, pageSize: 100 }),
+    placeholderData: (prev) => prev,
+  });
+
   const filtered = useMemo(() => {
-    return restaurants.filter((r) => {
-      if (statusFilter !== "All" && r.status !== statusFilter) return false;
-      if (!debouncedSearch) return true;
-      const q = debouncedSearch.toLowerCase();
-      return (
-        r.name.toLowerCase().includes(q) ||
-        r.ownerEmail.toLowerCase().includes(q)
-      );
-    });
-  }, [restaurants, statusFilter, debouncedSearch]);
+    if (statusFilter === "All") return restaurants;
+    return restaurants.filter((r) => r.status === statusFilter);
+  }, [restaurants, statusFilter]);
 
   const isFiltering = debouncedSearch !== "" || statusFilter !== "All";
 

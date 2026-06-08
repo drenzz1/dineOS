@@ -8,6 +8,7 @@ import {
 } from "@microsoft/signalr";
 import { queryClient } from "@/lib/queryClient";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { resolveOrderHubUrl } from "@/lib/realtime/hubUrl";
 
 export interface OrderCreatedEvent {
   orderId: number;
@@ -47,8 +48,24 @@ function readAccessTokenCookie(): string {
   return cookie ? decodeURIComponent(cookie.split("=")[1] ?? "") : "";
 }
 
+// React StrictMode (dev) mounts→unmounts→mounts effects, and navigating away
+// can stop a connection mid-handshake. SignalR then rejects the in-flight
+// start()/stop() with one of these benign messages. They are expected and
+// self-healing (we fall back to TanStack Query polling + automatic reconnect),
+// so we don't surface them as warnings.
+function isBenignHubError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  return (
+    message.includes("stopped during negotiation") ||
+    message.includes("stopped before the hub handshake") ||
+    message.includes("connection was stopped") ||
+    message.includes("connection being closed") ||
+    message.includes("connection is stopping")
+  );
+}
+
 function buildConnection(): HubConnection {
-  const hubUrl = `${process.env.NEXT_PUBLIC_API_URL ?? "/api"}/hubs/orders`;
+  const hubUrl = resolveOrderHubUrl();
   return new HubConnectionBuilder()
     .withUrl(hubUrl, { accessTokenFactory: () => readAccessTokenCookie() })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
@@ -62,10 +79,18 @@ async function acquireConnection(): Promise<HubConnection> {
     connection = buildConnection();
   }
   if (startPromise === null && connection.state === HubConnectionState.Disconnected) {
-    startPromise = connection.start().catch((err) => {
-      console.warn("[orderHub] connection failed", err);
-    }).finally(() => {
-      startPromise = null;
+    const pending = connection.start().catch((err) => {
+      if (!isBenignHubError(err)) {
+        console.warn("[orderHub] connection failed", err);
+      }
+    });
+    startPromise = pending;
+    // Only clear if it's still ours — a StrictMode remount may have started a
+    // fresh connection and reassigned startPromise in the meantime.
+    pending.finally(() => {
+      if (startPromise === pending) {
+        startPromise = null;
+      }
     });
   }
   if (startPromise !== null) {
@@ -76,12 +101,23 @@ async function acquireConnection(): Promise<HubConnection> {
 
 function releaseConnection(): void {
   refCount -= 1;
-  if (refCount <= 0 && connection !== null) {
-    connection.stop().catch((err) => console.warn("[orderHub] stop failed", err));
-    connection = null;
-    startPromise = null;
-    refCount = 0;
+  if (refCount > 0 || connection === null) {
+    return;
   }
+  const conn = connection;
+  const pendingStart = startPromise;
+  connection = null;
+  startPromise = null;
+  refCount = 0;
+  // Wait for any in-flight start() to settle before stopping, so we don't abort
+  // the negotiation handshake (the benign "stopped during negotiation" error).
+  Promise.resolve(pendingStart)
+    .then(() => conn.stop())
+    .catch((err) => {
+      if (!isBenignHubError(err)) {
+        console.warn("[orderHub] stop failed", err);
+      }
+    });
 }
 
 export function useOrderHub(options?: UseOrderHubOptions): void {
@@ -89,11 +125,6 @@ export function useOrderHub(options?: UseOrderHubOptions): void {
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") {
-      return;
-    }
-
-    if (readAccessTokenCookie() === "dev") {
-      console.warn("[orderHub] skipping SignalR connection in dev token mode");
       return;
     }
 
@@ -114,21 +145,31 @@ export function useOrderHub(options?: UseOrderHubOptions): void {
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       if (conn && conn.state === HubConnectionState.Disconnected) {
-        conn.start().catch((err) => console.warn("[orderHub] reconnect failed", err));
+        conn.start().catch((err) => {
+          if (!isBenignHubError(err)) {
+            console.warn("[orderHub] reconnect failed", err);
+          }
+        });
       }
     };
 
     acquireConnection()
       .then((c) => {
+        // The effect's cleanup is the single owner of this acquire's release —
+        // don't release here too, or a StrictMode mount→unmount→mount would
+        // double-release and tear down the connection the remount just built.
         if (cancelled) {
-          releaseConnection();
           return;
         }
         conn = c;
         c.on("OrderCreated", onCreated);
         c.on("OrderStatusChanged", onStatusChanged);
       })
-      .catch((err) => console.warn("[orderHub] start failed", err));
+      .catch((err) => {
+        if (!isBenignHubError(err)) {
+          console.warn("[orderHub] start failed", err);
+        }
+      });
 
     document.addEventListener("visibilitychange", onVisibilityChange);
 

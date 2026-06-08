@@ -22,7 +22,7 @@ public sealed class RabbitMqTopologyHostedService(
         {
             try
             {
-                await using var channel = await connectionProvider.CreateChannelAsync(stoppingToken);
+                await using var channel = await connectionProvider.CreateChannelAsync(ct: stoppingToken);
                 await RabbitMqTopology.DeclareAsync(channel, rabbitOptions, stoppingToken);
 
                 logger.LogInformation(

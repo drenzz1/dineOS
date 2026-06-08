@@ -21,8 +21,10 @@ public class NoMagicStringRoslynTests
     [InlineData("Cashier")]
     [InlineData("KitchenStaff")]
     [InlineData("SuperAdminOnly")]
+    [InlineData("BusinessAccountOnly")]
     [InlineData("ManagerAndAbove")]
     [InlineData("CashierAndAbove")]
+    [InlineData("KitchenAccess")]
     [InlineData("KitchenStaffOnly")]
     public void NoAuthorizeAttribute_ArgumentIsStringLiteral(string forbidden)
     {

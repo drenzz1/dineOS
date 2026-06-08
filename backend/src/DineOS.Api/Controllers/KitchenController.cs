@@ -10,12 +10,12 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace DineOS.Api.Controllers;
 
-/// <summary>Kitchen order workflow endpoints — KitchenStaff only.</summary>
+/// <summary>Kitchen order workflow endpoints — Manager, Cashier, and KitchenStaff.</summary>
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/kitchen")]
 [Produces("application/json")]
-[Authorize(Policy = Policies.KitchenStaffOnly)]
+[Authorize(Policy = Policies.KitchenAccess)]
 [EnableRateLimiting("authenticated")]
 public class KitchenController(IKitchenService kitchenService) : ControllerBase
 {

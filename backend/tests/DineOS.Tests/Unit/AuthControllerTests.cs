@@ -10,11 +10,12 @@ namespace DineOS.Tests.Unit;
 public class AuthControllerTests
 {
     private readonly IKeycloakAuthService _authService = Substitute.For<IKeycloakAuthService>();
+    private readonly IStaffSessionService _staffSessionService = Substitute.For<IStaffSessionService>();
     private readonly AuthController _controller;
 
     public AuthControllerTests()
     {
-        _controller = new AuthController(_authService);
+        _controller = new AuthController(_authService, _staffSessionService);
     }
 
     [Fact]

@@ -20,4 +20,13 @@ public interface IEmailVerificationService
         long tenantId,
         ConfirmEmailVerificationRequest request,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Marks the tenant owner's email verified WITHOUT a code, for cases where
+    /// email ownership is proven by another means — e.g. completing the
+    /// first-login password change, which is only possible if the owner
+    /// received the emailed temporary credentials. Idempotent: no-op when the
+    /// owner is already verified or no matching tenant exists.
+    /// </summary>
+    Task MarkOwnerEmailVerifiedAsync(string ownerEmail, CancellationToken ct = default);
 }

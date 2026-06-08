@@ -1,5 +1,5 @@
 import apiClient from "@/lib/api/apiClient";
-import { getStaff, saveStaffMember, toggleStaffActive } from "@/lib/api/staffApi";
+import { getStaff, saveStaffMember, setStaffActive } from "@/lib/api/staffApi";
 import {
   getRestaurants,
   updateRestaurantStatus,
@@ -33,33 +33,66 @@ describe("staffApi — real API calls", () => {
     expect(apiClient.get).toHaveBeenCalledWith("/v1/staff");
   });
 
-  it("saveStaffMember calls POST for a new staff member", async () => {
+  it("saveStaffMember POSTs a new staff member with the required PIN", async () => {
     const created = { id: 2, fullName: "Luan K", email: "luan@dineos.com", role: "Cashier", isActive: true, tenantId: 1 };
     jest.spyOn(apiClient, "post").mockResolvedValue({ data: { success: true, data: created } });
 
-    const result = await saveStaffMember({ fullName: "Luan K", email: "luan@dineos.com", role: "Cashier" });
+    const result = await saveStaffMember({ fullName: "Luan K", email: "luan@dineos.com", role: "Cashier", pin: "1234" });
 
-    expect(apiClient.post).toHaveBeenCalledWith("/v1/staff", expect.any(Object));
+    expect(apiClient.post).toHaveBeenCalledWith("/v1/staff", {
+      fullName: "Luan K",
+      email: "luan@dineos.com",
+      role: "Cashier",
+      pin: "1234",
+    });
     expect(result).toEqual(created);
   });
 
-  it("saveStaffMember calls PUT when an id is provided", async () => {
+  it("saveStaffMember PUTs when an id is provided and omits a blank PIN", async () => {
     const updated = { id: 1, fullName: "Updated", email: "a@b.com", role: "Manager", isActive: true, tenantId: 1 };
     jest.spyOn(apiClient, "put").mockResolvedValue({ data: { success: true, data: updated } });
 
-    const result = await saveStaffMember({ fullName: "Updated", email: "a@b.com", role: "Manager" }, 1);
+    const result = await saveStaffMember({ fullName: "Updated", email: "a@b.com", role: "Manager", pin: "" }, 1);
 
-    expect(apiClient.put).toHaveBeenCalledWith("/v1/staff/1", expect.any(Object));
+    expect(apiClient.put).toHaveBeenCalledWith("/v1/staff/1", {
+      fullName: "Updated",
+      email: "a@b.com",
+      role: "Manager",
+    });
     expect(result).toEqual(updated);
   });
 
-  it("toggleStaffActive calls PATCH to /v1/staff/:id/active", async () => {
-    const toggled = { id: 1, fullName: "Ana", email: "ana@dineos.com", role: "Manager", isActive: false, tenantId: 1 };
-    jest.spyOn(apiClient, "patch").mockResolvedValue({ data: { success: true, data: toggled } });
+  it("saveStaffMember PUTs an updated PIN when one is supplied", async () => {
+    const updated = { id: 1, fullName: "Updated", email: "a@b.com", role: "Manager", isActive: true, tenantId: 1 };
+    jest.spyOn(apiClient, "put").mockResolvedValue({ data: { success: true, data: updated } });
 
-    const result = await toggleStaffActive(1);
+    await saveStaffMember({ fullName: "Updated", email: "a@b.com", role: "Manager", pin: "5678" }, 1);
 
-    expect(apiClient.patch).toHaveBeenCalledWith("/v1/staff/1/active");
+    expect(apiClient.put).toHaveBeenCalledWith("/v1/staff/1", {
+      fullName: "Updated",
+      email: "a@b.com",
+      role: "Manager",
+      pin: "5678",
+    });
+  });
+
+  it("setStaffActive PATCHes /v1/staff/:id/active with the desired state body", async () => {
+    const reactivated = { id: 1, fullName: "Ana", email: "ana@dineos.com", role: "Manager", isActive: true, tenantId: 1 };
+    jest.spyOn(apiClient, "patch").mockResolvedValue({ data: { success: true, data: reactivated } });
+
+    const result = await setStaffActive(1, true);
+
+    expect(apiClient.patch).toHaveBeenCalledWith("/v1/staff/1/active", { isActive: true });
+    expect(result.isActive).toBe(true);
+  });
+
+  it("setStaffActive can deactivate by sending { isActive: false }", async () => {
+    const deactivated = { id: 1, fullName: "Ana", email: "ana@dineos.com", role: "Manager", isActive: false, tenantId: 1 };
+    jest.spyOn(apiClient, "patch").mockResolvedValue({ data: { success: true, data: deactivated } });
+
+    const result = await setStaffActive(1, false);
+
+    expect(apiClient.patch).toHaveBeenCalledWith("/v1/staff/1/active", { isActive: false });
     expect(result.isActive).toBe(false);
   });
 
@@ -138,15 +171,6 @@ describe("restaurantApi — paged response and mutations", () => {
 
 // ─── apiClient: Authorization interceptor ─────────────────────────────────────
 describe("apiClient — Authorization interceptor", () => {
-  it("does NOT attach Authorization header when token is the dev bypass", async () => {
-    setCookie("access_token=dev");
-    const spy = jest.spyOn(apiClient, "get").mockResolvedValue({ data: { data: [] } });
-    await apiClient.get("/test");
-    expect(spy).toHaveBeenCalled();
-    const callHeaders = spy.mock.calls[0]?.[1]?.headers ?? {};
-    expect(callHeaders["Authorization"]).toBeUndefined();
-  });
-
   it("does NOT attach Authorization header when cookie is absent", async () => {
     setCookie("");
     const spy = jest.spyOn(apiClient, "get").mockResolvedValue({ data: {} });

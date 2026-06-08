@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,8 +8,11 @@ import { Button } from "@/components/ui/Button";
 import { StaffTable, StaffTableSkeleton } from "@/components/staff/StaffTable";
 import StaffMemberForm from "@/components/staff/StaffMemberForm";
 import { useStaff } from "@/hooks/useStaff";
-import { useTenant } from "@/hooks/useTenant";
-import { toggleStaffActive } from "@/lib/api/staffApi";
+import { useMe } from "@/hooks/useMe";
+import { useIsClient } from "@/hooks/useIsClient";
+import { useAuthStore } from "@/stores/authStore";
+import { getPrimaryRole } from "@/lib/auth/keycloak";
+import { setStaffActive } from "@/lib/api/staffApi";
 import { queryKeys } from "@/lib/api/queryKeys";
 import type { StaffMember, Role } from "@/types/staff";
 
@@ -17,13 +20,6 @@ const Modal = dynamic(
   () => import("@/components/ui/Modal").then((m) => m.Modal),
   { ssr: false }
 );
-
-// TODO: replace with Zustand auth store / Keycloak session when backend is ready
-const MOCK_ROLE = "Manager";
-
-function isManager(role: string): role is "Manager" {
-  return role === "Manager";
-}
 
 type RoleFilter = "All" | "Manager" | "Cashier" | "KitchenStaff";
 
@@ -71,7 +67,6 @@ function FilterStrip({ active, onChange, counts }: FilterStripProps) {
 export default function StaffPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { tenantId } = useTenant();
 
   const [filter, setFilter] = useState<RoleFilter>("All");
   const [addOpen, setAddOpen] = useState(false);
@@ -82,16 +77,50 @@ export default function StaffPage() {
 
   const { staff, isLoading, isError } = useStaff();
 
+  // Resolve the active role exactly as ProtectedSidebar does: during a PIN staff
+  // session the staff-session token carries its role in a `role` claim (not
+  // realm_access.roles), so prefer the stored role; otherwise derive from /me.
+  // The isClient gate keeps role null on the server and the first hydration
+  // render (the persisted authStore rehydrates synchronously on the client), so
+  // SSR and the first client render match and the redirect can't fire too early.
+  const isClient = useIsClient();
+  const { user: me } = useMe();
+  const storedRole = useAuthStore((s) => s.role);
+  const isStaffSession = useAuthStore((s) => s.isStaffSession);
+  const meRole = (() => {
+    if (!me) return null;
+    try {
+      return getPrimaryRole(me.roles);
+    } catch {
+      return null;
+    }
+  })();
+  const role = !isClient ? null : isStaffSession ? storedRole : meRole ?? storedRole;
+
+  // Staff management calls the OwnerOnly /v1/staff endpoint, so it is restricted
+  // to the business owner (Manager role in owner mode). A PIN-selected staff
+  // session — even a Manager's — uses a token that can't call OwnerOnly, which
+  // is why ProtectedSidebar also hides the Staff link during a staff session.
+  const canManageStaff = role === "Manager" && !isStaffSession;
+
   const { mutate: doToggle, isPending: isToggling } = useMutation({
-    mutationFn: (id: number) => toggleStaffActive(id),
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      setStaffActive(id, isActive),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.staff.all });
       setDeactivateTarget(null);
     },
   });
 
-  if (!isManager(MOCK_ROLE)) {
-    router.replace("/dashboard");
+  // Redirect non-owners away once the role has resolved. `role === null` means
+  // the session is still hydrating — render nothing rather than bounce a manager.
+  useEffect(() => {
+    if (role !== null && !canManageStaff) {
+      router.replace("/dashboard");
+    }
+  }, [role, canManageStaff, router]);
+
+  if (!canManageStaff) {
     return null;
   }
 
@@ -111,7 +140,7 @@ export default function StaffPage() {
     if (member.isActive) {
       setDeactivateTarget(member);
     } else {
-      doToggle(member.id);
+      doToggle({ id: member.id, isActive: true });
     }
   }
 
@@ -207,7 +236,8 @@ export default function StaffPage() {
               variant="danger"
               isLoading={isToggling}
               onClick={() =>
-                deactivateTarget && doToggle(deactivateTarget.id)
+                deactivateTarget &&
+                doToggle({ id: deactivateTarget.id, isActive: false })
               }
             >
               Deactivate

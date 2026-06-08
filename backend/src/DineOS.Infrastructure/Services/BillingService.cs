@@ -219,7 +219,11 @@ public class BillingService(
         Event stripeEvent;
         try
         {
-            stripeEvent = EventUtility.ConstructEvent(eventJson, signature, _opts.WebhookSecret);
+            stripeEvent = EventUtility.ConstructEvent(
+                eventJson,
+                signature,
+                _opts.WebhookSecret,
+                throwOnApiVersionMismatch: false);
         }
         catch (StripeException ex)
         {
@@ -332,14 +336,45 @@ public class BillingService(
         // Owner provisioning runs in Hangfire so transient Keycloak/SMTP
         // outages retry without blocking — or losing — the webhook delivery
         // (which the dedupe row above has already marked processed).
-        if (tenant.KeycloakUserId is null)
-        {
-            var tempPassword = TempPasswordGenerator.Generate(12);
-            backgroundJobs.Enqueue<OwnerProvisioningJob>(
-                j => j.RunAsync(tenant.Id, tempPassword, CancellationToken.None));
-            logger.LogInformation(
-                "Owner provisioning job enqueued: TenantId={TenantId}", tenant.Id);
-        }
+        EnsureOwnerProvisioned(tenant);
+    }
+
+    /// <summary>
+    /// Enqueues owner provisioning (Keycloak account + emailed credentials) for
+    /// a public-signup tenant, gated on the owner user not existing yet rather
+    /// than on billing status.
+    /// </summary>
+    /// <remarks>
+    /// Stripe does not guarantee delivery order: <c>customer.subscription.*</c>
+    /// can arrive before <c>checkout.session.completed</c>. Whichever lands
+    /// first flips <c>BillingStatus</c> off <c>Incomplete</c>, so gating
+    /// provisioning on "status == Incomplete" silently skipped it whenever the
+    /// subscription event won the race — the tenant ended up Active with a
+    /// Stripe subscription but no login account and no credentials email
+    /// (observed for TenantId=13 and TenantId=16). Both handlers now call this,
+    /// and the gate is <c>KeycloakUserId is null</c>, so provisioning fires
+    /// exactly once regardless of ordering. <see cref="OwnerProvisioningJob"/>
+    /// is itself idempotent (short-circuits if the user already exists), so a
+    /// double-enqueue from both handlers is harmless.
+    /// </remarks>
+    private void EnsureOwnerProvisioned(Tenant tenant)
+    {
+        if (tenant.KeycloakUserId is not null)
+            return;
+
+        // Only a paid/trialing public-signup tenant carries the owner identity
+        // needed to provision; skip free/past-due/incomplete states.
+        if (tenant.BillingStatus is not (BillingStatus.Active or BillingStatus.Trialing))
+            return;
+
+        if (string.IsNullOrWhiteSpace(tenant.OwnerEmail))
+            return;
+
+        var tempPassword = TempPasswordGenerator.Generate(12);
+        backgroundJobs.Enqueue<OwnerProvisioningJob>(
+            j => j.RunAsync(tenant.Id, tempPassword, CancellationToken.None));
+        logger.LogInformation(
+            "Owner provisioning job enqueued: TenantId={TenantId}", tenant.Id);
     }
 
     private async Task ApplySubscriptionAsync(Subscription sub, CancellationToken ct)
@@ -376,6 +411,11 @@ public class BillingService(
             logger.LogInformation(
                 "Subscription activated email enqueued: TenantId={TenantId}", tenant.Id);
         }
+
+        // Covers the webhook race where this subscription event arrives before
+        // checkout.session.completed: provision the owner here too so it is
+        // never skipped. No-op once the owner exists. See EnsureOwnerProvisioned.
+        EnsureOwnerProvisioned(tenant);
     }
 
     private async Task ApplySubscriptionDeletedAsync(Subscription sub, CancellationToken ct)

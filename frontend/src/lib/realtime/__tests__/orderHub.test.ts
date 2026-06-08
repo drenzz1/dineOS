@@ -137,6 +137,11 @@ describe("useOrderHub", () => {
     expect(fakeConn.stop).not.toHaveBeenCalled();
 
     unmount2();
+    // stop() is deferred until any in-flight start() settles (so we never abort
+    // negotiation), so flush microtasks before asserting it ran.
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(fakeConn.stop).toHaveBeenCalledTimes(1);
   });
 });

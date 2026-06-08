@@ -8,6 +8,7 @@ using DineOS.Infrastructure.Jobs;
 using DineOS.Infrastructure.Messaging;
 using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Persistence.Interceptors;
+using DineOS.Infrastructure.Persistence.Seed;
 using DineOS.Infrastructure.Repositories;
 using DineOS.Infrastructure.Services;
 using Hangfire;
@@ -54,6 +55,8 @@ public static class DependencyInjection
         services.AddScoped<IHealthService, HealthService>();
 
         services.AddScoped<IStaffService, StaffService>();
+        services.Configure<StaffSessionOptions>(configuration.GetSection(StaffSessionOptions.SectionName));
+        services.AddScoped<IStaffSessionService, StaffSessionService>();
         services.AddScoped<IAdminRestaurantService, AdminRestaurantService>();
         services.AddScoped<IMenuService, MenuService>();
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
@@ -69,6 +72,16 @@ public static class DependencyInjection
         services.AddSingleton<IDatabaseMigrator, EfDatabaseMigrator>();
 
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
+        // Signup:FirstLoginUrl is required — a hardcoded localhost fallback
+        // would silently ship to non-dev environments and send freshly
+        // provisioned owners to a dead link. Fail fast on startup instead.
+        services.AddOptions<SignupOptions>()
+            .Bind(configuration.GetSection(SignupOptions.SectionName))
+            .Validate(
+                o => !string.IsNullOrWhiteSpace(o.FirstLoginUrl)
+                     && Uri.TryCreate(o.FirstLoginUrl, UriKind.Absolute, out _),
+                "Signup:FirstLoginUrl must be configured as an absolute URL (e.g. https://app.example.com/first-login).")
+            .ValidateOnStart();
         // BillingService is registered by both its interface and its concrete
         // type. SignupService (#204) depends on the concrete to reuse the
         // internal BuildCheckoutSessionAsync helper without leaking it onto
@@ -88,21 +101,18 @@ public static class DependencyInjection
             services.AddHostedService<RabbitMqOrderCreatedConsumer>();
         }
 
-        services.AddSingleton<IConnectionMultiplexer>(sp =>
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
         {
             var connString = configuration["Redis:ConnectionString"] ?? "localhost:6379";
-            try
-            {
-                var options = ConfigurationOptions.Parse(connString);
-                options.AbortOnConnectFail = false;
-                return ConnectionMultiplexer.Connect(options);
-            }
-            catch (Exception ex)
-            {
-                var logger = sp.GetRequiredService<ILogger<ConnectionMultiplexer>>();
-                logger.LogWarning(ex, "Redis unavailable at {ConnectionString}. Token blacklisting will not function.", connString);
-                return ConnectionMultiplexer.Connect("localhost:6379,abortConnect=false");
-            }
+            var options = ConfigurationOptions.Parse(connString);
+            // AbortOnConnectFail=false returns a multiplexer that connects lazily
+            // and retries the *configured* endpoint in the background, so a
+            // transient/startup Redis outage does not throw here. We deliberately
+            // do NOT fall back to a hardcoded localhost:6379 — inside Docker (or any
+            // non-local deploy) that points at a non-existent server and would
+            // silently drop a real password/SSL, masking the real misconfiguration.
+            options.AbortOnConnectFail = false;
+            return ConnectionMultiplexer.Connect(options);
         });
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
         services.AddSingleton<ICacheService, RedisCacheService>();
@@ -147,7 +157,17 @@ public static class DependencyInjection
         services.AddScoped<PaymentFailedEmailJob>();
         services.AddScoped<OwnerWelcomeEmailJob>();
         services.AddScoped<OwnerProvisioningJob>();
+        services.AddScoped<OwnerSecurityRemediationJob>();
+        services.AddScoped<DemoProvisioningJob>();
+        services.AddScoped<DemoWelcomeEmailJob>();
+        services.AddScoped<DemoCredentialsResendJob>();
+        services.AddScoped<DemoCleanupJob>();
         services.AddHostedService<RecurringJobRegistrar>();
+
+        // ── Demo access (#216) ─────────────────────────────────────────────
+        services.Configure<DemoOptions>(configuration.GetSection(DemoOptions.SectionName));
+        services.AddScoped<IDemoAccessService, DemoAccessService>();
+        services.AddSingleton<IDemoTenantSeeder, DemoTenantSeeder>();
 
         // ── AI (Anthropic) ─────────────────────────────────────────────────
         services.AddOptions<AiProviderOptions>()

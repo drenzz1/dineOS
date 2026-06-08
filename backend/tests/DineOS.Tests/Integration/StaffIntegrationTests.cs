@@ -25,10 +25,11 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
         new() { PropertyNameCaseInsensitive = true };
 
     // ── 1. GET returns 200 with empty list (tenant 701 has no staff) ─────────
+    // Staff management is OwnerOnly (account-level), so an Owner token is used.
     [Fact]
-    public async Task GetStaff_AuthenticatedManager_Returns200_WithEmptyList()
+    public async Task GetStaff_AuthenticatedOwner_Returns200_WithEmptyList()
     {
-        var client = ClientWith(Jwt(Roles.Manager, "701"));
+        var client = ClientWith(Jwt(Roles.Owner, "701"));
 
         var response = await client.GetAsync("/api/v1/staff");
 
@@ -46,7 +47,7 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task PostStaff_ValidRequest_Returns201_AndAppearsInGet()
     {
-        var client = ClientWith(Jwt(Roles.Manager, "702"));
+        var client = ClientWith(Jwt(Roles.Owner, "702"));
 
         var postResponse = await client.PostAsync("/api/v1/staff", Json(new
         {
@@ -76,7 +77,7 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task PostStaff_MissingFullName_Returns400_WithValidationErrors()
     {
-        var client = ClientWith(Jwt(Roles.Manager, "703"));
+        var client = ClientWith(Jwt(Roles.Owner, "703"));
 
         var response = await client.PostAsync("/api/v1/staff", Json(new
         {
@@ -102,7 +103,7 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task PutStaff_ValidRequest_UpdatesRecord()
     {
-        var client = ClientWith(Jwt(Roles.Manager, "704"));
+        var client = ClientWith(Jwt(Roles.Owner, "704"));
         var created = await CreateStaffAsync(client, "Bob Jones", "bob@dineos.dev", Roles.Cashier, "5678");
 
         var putResponse = await client.PutAsync($"/api/v1/staff/{created.Id}", Json(new
@@ -124,7 +125,7 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task PatchStaffActive_SetsFalse_ReflectedInGetList()
     {
-        var client = ClientWith(Jwt(Roles.Manager, "705"));
+        var client = ClientWith(Jwt(Roles.Owner, "705"));
         var created = await CreateStaffAsync(client, "Carol White", "carol@dineos.dev", Roles.KitchenStaff, "9012");
 
         var patchResponse = await client.PatchAsync(
@@ -148,8 +149,8 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task TenantIsolation_CrossTenantToken_CannotSeeOrModifyOtherTenantStaff()
     {
-        var t706Client = ClientWith(Jwt(Roles.Manager, "706"));
-        var t707Client = ClientWith(Jwt(Roles.Manager, "707"));
+        var t706Client = ClientWith(Jwt(Roles.Owner, "706"));
+        var t707Client = ClientWith(Jwt(Roles.Owner, "707"));
 
         // Create a staff member belonging to tenant 706
         var created = await CreateStaffAsync(t706Client, "Dave T706", "dave@dineos.dev", Roles.Cashier, "1111");
@@ -175,7 +176,7 @@ public class StaffIntegrationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task PutStaff_NonExistentId_Returns404()
     {
-        var client = ClientWith(Jwt(Roles.Manager, "709"));
+        var client = ClientWith(Jwt(Roles.Owner, "709"));
 
         var response = await client.PutAsync("/api/v1/staff/99999", Json(new { fullName = "Ghost" }));
 

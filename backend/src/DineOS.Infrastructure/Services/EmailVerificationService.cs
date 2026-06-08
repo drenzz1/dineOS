@@ -114,6 +114,32 @@ public sealed class EmailVerificationService(
         return ServiceResult<bool>.Ok(true, "Email verified.");
     }
 
+    public async Task MarkOwnerEmailVerifiedAsync(string ownerEmail, CancellationToken ct = default)
+    {
+        var email = NormalizeEmail(ownerEmail);
+        var tenant = await db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.OwnerEmail.ToLower() == email && t.DeletedAt == null, ct);
+
+        if (tenant is null)
+        {
+            logger.LogWarning(
+                "MarkOwnerEmailVerified: no tenant found for owner email {Email}.", email);
+            return;
+        }
+
+        if (tenant.OwnerEmailVerified)
+            return;
+
+        tenant.OwnerEmailVerified   = true;
+        tenant.OwnerEmailVerifiedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation(
+            "Marked owner email verified via first-login proof: TenantId={TenantId} Email={Email}",
+            tenant.Id, email);
+    }
+
     private async Task ExpirePendingCodesAsync(
         string email,
         EmailVerificationPurpose purpose,

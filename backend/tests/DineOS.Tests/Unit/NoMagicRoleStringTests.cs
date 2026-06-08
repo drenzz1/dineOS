@@ -14,8 +14,10 @@ public class NoMagicRoleStringTests
     private static readonly string[] BannedPolicyPatterns =
     [
         $"Policy = \"{Policies.SuperAdminOnly}\"",
+        $"Policy = \"{Policies.BusinessAccountOnly}\"",
         $"Policy = \"{Policies.ManagerAndAbove}\"",
         $"Policy = \"{Policies.CashierAndAbove}\"",
+        $"Policy = \"{Policies.KitchenAccess}\"",
         $"Policy = \"{Policies.KitchenStaffOnly}\""
     ];
 

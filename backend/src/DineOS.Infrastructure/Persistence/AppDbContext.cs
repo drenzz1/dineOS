@@ -31,6 +31,7 @@ public class AppDbContext : DbContext
     public DbSet<DeadLetterEmail> DeadLetterEmails => Set<DeadLetterEmail>();
     public DbSet<EmailVerificationCode> EmailVerificationCodes => Set<EmailVerificationCode>();
     public DbSet<TenantInvoice> TenantInvoices => Set<TenantInvoice>();
+    public DbSet<DemoUser> DemoUsers => Set<DemoUser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -127,6 +128,14 @@ public class AppDbContext : DbContext
         // Find Pending payments that need an overdue email (NULL = not yet notified).
         modelBuilder.Entity<Payment>()
             .HasIndex(p => new { p.Status, p.CreatedAt, p.OverdueNotifiedAt });
+
+        // Demo access (#216): one row per email; expiry scans drive the cleanup job.
+        modelBuilder.Entity<DemoUser>(entity =>
+        {
+            entity.Property(d => d.Email).HasMaxLength(254).IsRequired();
+            entity.HasIndex(d => d.Email).IsUnique();
+            entity.HasIndex(d => new { d.Status, d.ExpiresAt });
+        });
 
         SeedData(modelBuilder);
 

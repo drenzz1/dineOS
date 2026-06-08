@@ -10,10 +10,23 @@ interface PagedRestaurantData {
   pageSize: number;
 }
 
-export async function getRestaurants(): Promise<Restaurant[]> {
+export interface GetRestaurantsParams {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+// The backend filters and pages server-side; without params it returns only the
+// first page (default 20), which would silently truncate the admin list. We pass
+// the search term through and request the max page size so the table reflects all
+// matches rather than filtering an already-truncated slice on the client.
+export async function getRestaurants(
+  params: GetRestaurantsParams = {}
+): Promise<Restaurant[]> {
   try {
     const res = await apiClient.get<ApiResponse<PagedRestaurantData>>(
-      "/v1/admin/restaurants"
+      "/v1/admin/restaurants",
+      { params }
     );
     return unwrap(res).items;
   } catch (error) {
@@ -77,13 +90,18 @@ export async function deleteRestaurant(id: number): Promise<void> {
   }
 }
 
-export async function resendEmailVerification(tenantId: number): Promise<{ jobId?: string }> {
+interface ResendVerificationEmailResponse {
+  jobId: string;
+}
+
+export async function resendEmailVerification(
+  tenantId: number
+): Promise<{ jobId: string }> {
   try {
-    const res = await apiClient.post<ApiResponse<null>>(
+    const res = await apiClient.post<ApiResponse<ResendVerificationEmailResponse>>(
       `/v1/admin/restaurants/${tenantId}/email-verification/resend`
     );
-    const match = res.data.message?.match(/JobId=([^\s]+)/);
-    return { jobId: match?.[1] };
+    return { jobId: unwrap(res).jobId };
   } catch (error) {
     throw toApiError(error);
   }

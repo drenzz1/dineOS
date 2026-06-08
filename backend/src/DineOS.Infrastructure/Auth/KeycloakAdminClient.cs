@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using DineOS.Application.Authentication;
 using DineOS.Application.Interfaces.Services;
@@ -51,6 +53,7 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
         string lastName,
         string tempPassword,
         IReadOnlyList<string> requiredActions,
+        bool temporaryPassword,
         CancellationToken ct)
     {
         var realm = RequireRealm();
@@ -67,8 +70,8 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
             requiredActions,
             credentials = new[]
             {
-                new { type = "password", value = tempPassword, temporary = true }
-            }
+                new { type = "password", value = tempPassword, temporary = temporaryPassword },
+            },
         };
 
         using var response = await http.PostAsJsonAsync(
@@ -113,6 +116,122 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
             var body = await response.Content.ReadAsStringAsync(ct);
             throw new KeycloakAdminException(
                 (int)response.StatusCode, $"Keycloak role assignment failed: {body}");
+        }
+    }
+
+    public async Task ResetPasswordAsync(string userId, string newPassword, bool temporary, CancellationToken ct)
+    {
+        var realm = RequireRealm();
+        using var http = await CreateAuthenticatedClientAsync(ct);
+
+        var payload = new { type = "password", value = newPassword, temporary };
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"admin/realms/{realm}/users/{userId}/reset-password")
+        {
+            Content = JsonContent.Create(payload, options: JsonOptions),
+        };
+
+        using var response = await http.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)response.StatusCode, $"Keycloak password reset failed: {body}");
+        }
+    }
+
+    public Task SetUserEnabledAsync(string userId, bool enabled, CancellationToken ct) =>
+        MergeUserAsync(userId, obj => obj["enabled"] = enabled, "enabled flag update", ct);
+
+    public Task SetUserAttributeAsync(string userId, string attributeName, string value, CancellationToken ct) =>
+        MergeUserAsync(userId, obj =>
+        {
+            var attrs = obj["attributes"] as JsonObject ?? new JsonObject();
+            attrs[attributeName] = new JsonArray(value);
+            obj["attributes"] = attrs;
+        }, $"attribute '{attributeName}' update", ct);
+
+    public Task SetRequiredActionsAsync(string userId, IReadOnlyList<string> requiredActions, CancellationToken ct) =>
+        MergeUserAsync(userId, obj =>
+        {
+            var array = new JsonArray();
+            foreach (var action in requiredActions)
+                array.Add(action);
+            obj["requiredActions"] = array;
+        }, "requiredActions update", ct);
+
+    public Task SetEmailVerifiedAsync(string userId, bool emailVerified, CancellationToken ct) =>
+        MergeUserAsync(userId, obj => obj["emailVerified"] = emailVerified, "emailVerified update", ct);
+
+    public async Task<KeycloakUserSummary?> FindUserByEmailAsync(string email, CancellationToken ct)
+    {
+        var realm = RequireRealm();
+        using var http = await CreateAuthenticatedClientAsync(ct);
+
+        using var response = await http.GetAsync(
+            $"admin/realms/{realm}/users?email={Uri.EscapeDataString(email)}&exact=true",
+            ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)response.StatusCode, $"Keycloak user lookup by email failed: {body}");
+        }
+
+        var users = await response.Content.ReadFromJsonAsync<List<UserWithActions>>(JsonOptions, ct);
+        var match = users?.FirstOrDefault();
+        return match is null
+            ? null
+            : new KeycloakUserSummary(match.Id, match.RequiredActions ?? Array.Empty<string>());
+    }
+
+    /// <summary>
+    /// Read-modify-write for <c>PUT /users/{id}</c>. Keycloak 24's user PUT
+    /// endpoint treats absent fields as "set to null" — sending only
+    /// <c>{"attributes": …}</c> wipes email/firstName/lastName and any other
+    /// core profile field. Always GET first, mutate the full representation,
+    /// then PUT it back.
+    /// </summary>
+    private async Task MergeUserAsync(
+        string userId,
+        Action<JsonObject> mutate,
+        string operation,
+        CancellationToken ct)
+    {
+        var realm = RequireRealm();
+        using var http = await CreateAuthenticatedClientAsync(ct);
+
+        using var getResponse = await http.GetAsync($"admin/realms/{realm}/users/{userId}", ct);
+        if (!getResponse.IsSuccessStatusCode)
+        {
+            var body = await getResponse.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)getResponse.StatusCode,
+                $"Keycloak user lookup before {operation} failed: {body}");
+        }
+
+        var node = await getResponse.Content.ReadFromJsonAsync<JsonNode>(JsonOptions, ct)
+            ?? throw new KeycloakAdminException(
+                500, $"Keycloak user lookup before {operation} returned empty body.");
+
+        if (node is not JsonObject obj)
+        {
+            throw new KeycloakAdminException(
+                500, $"Keycloak user lookup before {operation} returned a non-object payload.");
+        }
+
+        mutate(obj);
+
+        using var content = new StringContent(obj.ToJsonString(JsonOptions), Encoding.UTF8, "application/json");
+        using var putResponse = await http.PutAsync($"admin/realms/{realm}/users/{userId}", content, ct);
+        if (!putResponse.IsSuccessStatusCode)
+        {
+            var body = await putResponse.Content.ReadAsStringAsync(ct);
+            throw new KeycloakAdminException(
+                (int)putResponse.StatusCode,
+                $"Keycloak user {operation} failed: {body}");
         }
     }
 
@@ -259,4 +378,8 @@ public sealed class KeycloakAdminClient : IKeycloakAdminClient
     private sealed record RealmRole(string Id, string Name);
 
     private sealed record UserSummary(string Id);
+
+    private sealed record UserWithActions(
+        string Id,
+        [property: JsonPropertyName("requiredActions")] IReadOnlyList<string>? RequiredActions);
 }

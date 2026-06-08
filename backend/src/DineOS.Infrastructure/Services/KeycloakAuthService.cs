@@ -16,13 +16,17 @@ public sealed class KeycloakAuthService(
     IHttpClientFactory httpClientFactory,
     IOptions<KeycloakOptions> options,
     ITokenBlacklistService tokenBlacklist,
+    IKeycloakAdminClient keycloakAdmin,
     IValidator<LoginRequest> loginValidator,
     IValidator<RefreshTokenRequest> refreshValidator,
     IValidator<LogoutRequest> logoutValidator,
+    IValidator<FirstLoginPasswordChangeRequest> firstLoginValidator,
+    IEmailVerificationService emailVerification,
     ILogger<KeycloakAuthService> logger) : IKeycloakAuthService
 {
     public const string HttpClientName = "Keycloak";
     private const string ValidationFailedMessage = "Validation failed.";
+    private const string FirstLoginRequiredAction = "UPDATE_PASSWORD";
 
     private readonly KeycloakOptions _options = options.Value;
 
@@ -94,6 +98,114 @@ public sealed class KeycloakAuthService(
         return result;
     }
 
+    public async Task<Result<RefreshTokenResponse>> ChangeFirstLoginPasswordAsync(
+        FirstLoginPasswordChangeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = await firstLoginValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+            return Result<RefreshTokenResponse>.Failure(
+                ValidationFailedMessage,
+                validation.Errors.Select(e => e.ErrorMessage).ToList());
+
+        var user = await keycloakAdmin.FindUserByEmailAsync(request.Email, cancellationToken);
+        if (user is null)
+        {
+            // Do not leak whether the email exists — same response as a bad password.
+            return Result<RefreshTokenResponse>.Failure("Invalid email or temporary password.");
+        }
+
+        if (!user.RequiredActions.Contains(FirstLoginRequiredAction))
+        {
+            // The owner has already rotated the password (or was never in the
+            // first-login state). Reject so this endpoint cannot be used as a
+            // general unauthenticated password-reset primitive.
+            logger.LogWarning(
+                "First-login password change rejected — user {Email} has no pending UPDATE_PASSWORD action.",
+                request.Email);
+            return Result<RefreshTokenResponse>.Failure(
+                "This account is not in the first-login state. Use the standard login flow.");
+        }
+
+        // Clear the required action so the direct-grant verification below
+        // can complete. If the temporary password turns out to be wrong we
+        // restore the action before returning, so the account stays gated.
+        await keycloakAdmin.SetRequiredActionsAsync(user.Id, Array.Empty<string>(), cancellationToken);
+
+        var verifyForm = CreateClientForm();
+        verifyForm["grant_type"] = string.IsNullOrWhiteSpace(_options.GrantType) ? "password" : _options.GrantType;
+        verifyForm["username"] = request.Email;
+        verifyForm["password"] = request.CurrentPassword;
+
+        var verification = await ExchangeTokenAsync(
+            verifyForm,
+            "Invalid email or temporary password.",
+            cancellationToken);
+
+        if (!verification.IsSuccess)
+        {
+            try
+            {
+                await keycloakAdmin.SetRequiredActionsAsync(
+                    user.Id,
+                    new[] { FirstLoginRequiredAction },
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,
+                    "Failed to restore UPDATE_PASSWORD action for {Email} after invalid first-login attempt.",
+                    request.Email);
+            }
+
+            logger.LogWarning(
+                "First-login password change failed for {Email}: temporary password did not verify.",
+                request.Email);
+            return verification;
+        }
+
+        await keycloakAdmin.ResetPasswordAsync(user.Id, request.NewPassword, temporary: false, cancellationToken);
+
+        // Completing the first-login password change proves the owner received
+        // the emailed credentials, so mark the account verified — both the
+        // Keycloak IdP flag and the dineOS tenant record. Best-effort: the
+        // password rotation has already succeeded, so a failure stamping
+        // verification must not fail the request (the 6-digit code flow remains
+        // as a fallback).
+        try
+        {
+            await keycloakAdmin.SetEmailVerifiedAsync(user.Id, true, cancellationToken);
+            await emailVerification.MarkOwnerEmailVerifiedAsync(request.Email, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "First-login password rotated for {Email} but marking the account verified failed.",
+                request.Email);
+        }
+
+        // Re-issue a token pair against the new password so the FE doesn't
+        // have to call /auth/login separately. The token from the
+        // verification step above was issued against the temp password and
+        // is fine to return, but rotating here keeps the password used in
+        // the active token consistent with what the user just chose.
+        var loginForm = CreateClientForm();
+        loginForm["grant_type"] = string.IsNullOrWhiteSpace(_options.GrantType) ? "password" : _options.GrantType;
+        loginForm["username"] = request.Email;
+        loginForm["password"] = request.NewPassword;
+
+        var loginResult = await ExchangeTokenAsync(
+            loginForm,
+            "Password updated but automatic login failed. Please sign in manually.",
+            cancellationToken);
+
+        logger.LogInformation(
+            "First-login password rotated for tenant owner {Email} ({UserId}).",
+            request.Email, user.Id);
+
+        return loginResult;
+    }
+
     public async Task<Result> LogoutAsync(
         LogoutRequest request,
         CancellationToken cancellationToken = default)
@@ -134,10 +246,21 @@ public sealed class KeycloakAuthService(
 
             if (!response.IsSuccessStatusCode)
             {
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
                 logger.LogWarning(
                     "Keycloak token endpoint returned {StatusCode} for grant_type {GrantType}.",
                     (int)response.StatusCode,
                     form.GetValueOrDefault("grant_type"));
+
+                // Surface the "Account is not fully set up" condition so the
+                // controller/FE can redirect new tenant owners (#205) through
+                // the first-login password-change flow rather than show a
+                // generic "invalid credentials" message.
+                if (IsAccountNotFullySetUp(errorBody))
+                {
+                    return Result<RefreshTokenResponse>.Failure("Account requires first-login password change.");
+                }
+
                 return Result<RefreshTokenResponse>.Failure(failureMessage);
             }
 
@@ -263,6 +386,26 @@ public sealed class KeycloakAuthService(
         {
             return new RefreshTokenInfo(null, null);
         }
+    }
+
+    private static bool IsAccountNotFullySetUp(string? body)
+    {
+        if (string.IsNullOrEmpty(body)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("error_description", out var desc))
+            {
+                var text = desc.GetString();
+                return text is not null
+                    && text.Contains("Account is not fully set up", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        catch (JsonException)
+        {
+            // fall through
+        }
+        return body.Contains("Account is not fully set up", StringComparison.OrdinalIgnoreCase);
     }
 
     private static byte[] Base64UrlDecode(string input)

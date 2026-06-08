@@ -21,6 +21,13 @@ const nextConfig: NextConfig = {
         source: "/api/:path*",
         destination: `${backendUrl}/api/:path*`,
       },
+      {
+        // The SignalR hub is mapped at the backend's top-level /hubs/* (NOT
+        // under /api), so it needs its own proxy rule. Without this, the hub
+        // negotiate request 404s and realtime kitchen updates never arrive.
+        source: "/hubs/:path*",
+        destination: `${backendUrl}/hubs/:path*`,
+      },
     ];
   },
 };

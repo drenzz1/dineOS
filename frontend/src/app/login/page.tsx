@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/stores/authStore";
 import { loginSchema, type LoginFormValues } from "@/lib/validations/login";
 import { ApiError } from "@/lib/api/envelope";
+import { FirstLoginRequiredError } from "@/lib/auth/authApi";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,11 +29,21 @@ export default function LoginPage() {
 
   async function onSubmit(values: LoginFormValues) {
     setFormError(null);
+    const from = searchParams.get("from");
     try {
-      const from = searchParams.get("from");
-      const { destination } = await login(values.username, values.password, from);
-      router.push(destination);
+      // Business login establishes the account (owner) session; the operational
+      // role is then chosen on the staff roster via PIN (#staff-pin-auth Phase
+      // 3). SuperAdmins are bounced to /admin by middleware. `from` is carried
+      // through so a deep link still resolves after staff selection.
+      await login(values.username, values.password, from);
+      router.push(from ? `/select-staff?from=${encodeURIComponent(from)}` : "/select-staff");
     } catch (err) {
+      if (err instanceof FirstLoginRequiredError) {
+        const params = new URLSearchParams({ email: err.email });
+        if (from) params.set("from", from);
+        router.push(`/first-login?${params.toString()}`);
+        return;
+      }
       if (err instanceof ApiError) {
         setFormError(err.error);
         return;

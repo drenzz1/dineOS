@@ -52,7 +52,10 @@ public class ApiIntegrationTests(CustomWebApplicationFactory factory)
 
         Assert.NotNull(result);
         Assert.False(result.Success);
-        Assert.Equal("Name is required", result.Message);
+        // ExceptionMiddleware sanitizes ArgumentException messages outside Development
+        // (the test host runs under the "Testing" environment), returning a generic
+        // message so internal details are not leaked.
+        Assert.Equal("The request was invalid.", result.Message);
     }
 
     // ── Test 3a ─────────────────────────────────────────────────────────────
