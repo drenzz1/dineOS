@@ -133,7 +133,7 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     // ── 4b. KitchenStaff rejected from other role-scoped endpoints ────────
     [Theory]
     [InlineData("GET",  "/api/v1/admin/users")]     // SuperAdminOnly
-    [InlineData("GET",  "/api/v1/staff")]            // ManagerAndAbove
+    [InlineData("GET",  "/api/v1/staff")]            // OwnerOnly
     [InlineData("GET",  "/api/v1/menu")]             // ManagerAndAbove
     [InlineData("GET",  "/api/v1/reports/sales")]    // ManagerAndAbove
     [InlineData("GET",  "/api/v1/orders")]           // CashierAndAbove
@@ -151,11 +151,14 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task Manager_XTenantIdHeaderMismatch_Returns403_CrossTenantIsolation()
     {
-        // JWT claims tenant_id=1 but header asserts tenant 2 — middleware must reject
+        // JWT claims tenant_id=1 but header asserts tenant 2 — middleware must reject.
+        // Use a ManagerAndAbove endpoint (/api/v1/menu) so the request clears the role
+        // gate and the TenantIsolationMiddleware mismatch check is what produces the 403
+        // (staff endpoints are OwnerOnly and would 403 a Manager at the role gate first).
         var client = ClientWith(GenerateTestJwt(Roles.Manager, "1"));
         client.DefaultRequestHeaders.Add("X-Tenant-ID", "2");
 
-        var response = await client.GetAsync("/api/v1/staff");
+        var response = await client.GetAsync("/api/v1/menu");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
