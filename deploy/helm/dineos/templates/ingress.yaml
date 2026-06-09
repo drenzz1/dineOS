@@ -71,6 +71,17 @@ spec:
                   number: 80
           {{- end }}
 
+          {{- /* ── Keycloak admin/auth — before the / catch-all ──── */}}
+          {{- if $.Values.ingress.keycloak.enabled }}
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dineos.fullname" $ }}-keycloak-http
+                port:
+                  number: 80
+          {{- end }}
+
           {{- /* ── Frontend catch-all — must be last ─────────────── */}}
           - path: /
             pathType: Prefix

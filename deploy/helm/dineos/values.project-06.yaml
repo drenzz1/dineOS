@@ -126,6 +126,8 @@ ingress:
       secretName: dineos-tls
   swagger:
     enabled: false
+  keycloak:
+    enabled: true
 
 # Dev secrets — these match the bundled Keycloak realm-export.json.
 # Safe placeholder values; never use beyond a class demo.
