@@ -55,6 +55,13 @@ api:
     AllowedOrigins__0: "http://localhost:3000"
     AllowedOrigins__1: "http://localhost:8080"
 
+    # Signup / owner onboarding — correct URL for this cluster
+    Signup__FirstLoginUrl: "https://app.project-06.gjirafa.dev/first-login"
+
+    # Demo access flow — correct login URL for this cluster
+    Demo__LoginUrl: "https://app.project-06.gjirafa.dev/login"
+    Demo__TenantSlug: "demo-restaurant"
+
 frontend:
   image:
     repository: ghcr.io/endrit77/dineos-web
@@ -117,6 +124,7 @@ secrets:
     anthropic: ""
     openai: ""
     googleai: ""
+  staffSessionSigningKey: "dev-staff-session-signing-key-change-me-0123456789"
 
 # All four dependencies run in-cluster (no managed cloud services).
 dependencies:

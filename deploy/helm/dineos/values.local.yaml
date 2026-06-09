@@ -58,6 +58,12 @@ api:
     AllowedOrigins__0: "http://dineos.local"
     AllowedOrigins__1: "http://localhost:3000"
 
+    # Signup / owner onboarding
+    Signup__FirstLoginUrl: "http://dineos.local/first-login"
+
+    # Demo access flow
+    Demo__LoginUrl: "http://dineos.local/login"
+
 frontend:
   image:
     repository: dineos/web
@@ -113,6 +119,7 @@ secrets:
     anthropic: ""
     openai: ""
     googleai: ""
+  staffSessionSigningKey: "dev-staff-session-signing-key-change-me-0123456789"
 
 # All four dependencies run in-cluster for local development.
 dependencies:

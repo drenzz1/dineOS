@@ -83,6 +83,24 @@ data:
   AllowedOrigins__1: {{ .Values.api.env.AllowedOrigins__1 | quote }}
   {{- end }}
 
+  # ── Signup / owner onboarding ──────────────────────────────────────────
+  Signup__FirstLoginUrl: {{ .Values.api.env.Signup__FirstLoginUrl | quote }}
+
+  # ── Demo access flow (#216) ────────────────────────────────────────────
+  Demo__Enabled: {{ .Values.api.env.Demo__Enabled | quote }}
+  Demo__TenantSlug: {{ .Values.api.env.Demo__TenantSlug | quote }}
+  Demo__AccountTtlDays: {{ .Values.api.env.Demo__AccountTtlDays | quote }}
+  Demo__LoginUrl: {{ .Values.api.env.Demo__LoginUrl | quote }}
+  Demo__RealmRole: {{ .Values.api.env.Demo__RealmRole | quote }}
+  Demo__CleanupCron: {{ .Values.api.env.Demo__CleanupCron | quote }}
+
+  # ── Staff session PIN flow — non-secret config only ────────────────────
+  # StaffSession__SigningKey is in the Secret, not here.
+  StaffSession__Issuer: {{ .Values.api.env.StaffSession__Issuer | quote }}
+  StaffSession__Audience: {{ .Values.api.env.StaffSession__Audience | quote }}
+  StaffSession__TokenLifetimeMinutes: {{ .Values.api.env.StaffSession__TokenLifetimeMinutes | quote }}
+  StaffSession__RefreshTokenLifetimeMinutes: {{ .Values.api.env.StaffSession__RefreshTokenLifetimeMinutes | quote }}
+
 ---
 {{/* ------------------------------------------------------------------ */}}
 {{/* Frontend ConfigMap — non-sensitive runtime config for Next.js       */}}

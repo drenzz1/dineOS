@@ -91,6 +91,24 @@ api:
     # CORS — list additional origins in values.local.yaml
     AllowedOrigins__0: "https://app.dineos.io"
 
+    # Signup / owner onboarding — "set your password" link in welcome email
+    Signup__FirstLoginUrl: "https://app.dineos.io/first-login"
+
+    # Demo access flow (#216) — shared demo tenant config
+    Demo__Enabled: "true"
+    Demo__TenantSlug: "demo-restaurant"
+    Demo__AccountTtlDays: "7"
+    Demo__LoginUrl: "https://app.dineos.io/login"
+    Demo__RealmRole: "Demo"
+    Demo__CleanupCron: "0 3 * * *"
+
+    # Staff session PIN flow (#216) — non-secret timing/issuer config only
+    # StaffSession__SigningKey is sensitive — lives in secrets.staffSessionSigningKey
+    StaffSession__Issuer: "dineos-staff-session"
+    StaffSession__Audience: "dineos-api"
+    StaffSession__TokenLifetimeMinutes: "60"
+    StaffSession__RefreshTokenLifetimeMinutes: "720"
+
 # ------------------------------------------------------------
 # Frontend (Next.js 15 — standalone output)
 # ------------------------------------------------------------
@@ -196,6 +214,9 @@ secrets:
   # AI incident triage (DO-12)
   alertWebhookSecret: ""  # AlertWebhook__SharedSecret — shared between Alertmanager and the API
   slackWebhookUrl: ""     # Slack__WebhookUrl — Incoming Webhook URL for triage notifications
+
+  # Staff session PIN flow (#216) — HMAC-SHA256 key; must be ≥32 bytes
+  staffSessionSigningKey: ""  # StaffSession__SigningKey
 
 # ------------------------------------------------------------
 # In-cluster dependency toggles
