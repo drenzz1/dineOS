@@ -53,9 +53,15 @@ api:
     Smtp__Host: dineos-mailhog
     Smtp__Port: "1025"
     Smtp__UseStartTls: "false"
-    # CORS — browser only ever talks to the frontend origin, but keep these sane.
-    AllowedOrigins__0: "http://localhost:3000"
-    AllowedOrigins__1: "http://localhost:8080"
+    # CORS — must include the public origin so preflight requests are accepted.
+    AllowedOrigins__0: "https://app.project-06.gjirafa.dev"
+    AllowedOrigins__1: "http://localhost:3000"
+
+    # Stripe redirect URLs — override base values (app.dineos.io) with this cluster's origin.
+    # CheckoutSuccessUrl uses {CHECKOUT_SESSION_ID} so the success page can poll status.
+    Stripe__CheckoutSuccessUrl: "https://app.project-06.gjirafa.dev/signup/success?session_id={CHECKOUT_SESSION_ID}"
+    Stripe__CheckoutCancelUrl: "https://app.project-06.gjirafa.dev/signup/cancelled"
+    Stripe__PortalReturnUrl: "https://app.project-06.gjirafa.dev/settings/billing"
 
     # Signup / owner onboarding — correct URL for this cluster
     Signup__FirstLoginUrl: "https://app.project-06.gjirafa.dev/first-login"
@@ -87,6 +93,11 @@ frontend:
     API_INTERNAL_URL: "http://dineos-api:80"
     NEXT_PUBLIC_KEYCLOAK_URL: "http://dineos-keycloak-http"
     NEXT_PUBLIC_KEYCLOAK_REALM: dineos
+    # NEXT_DEPLOYMENT_ID is consumed by Next.js App Router at runtime (not baked into
+    # the client bundle). It lets Next.js detect stale Server Action IDs from older
+    # deployments and respond with a graceful full-page reload instead of 405.
+    # Update this value whenever the image tag changes (or pin it to a git SHA in CI).
+    NEXT_DEPLOYMENT_ID: "main"
 
 # ── Public web deploy — app.project-06.gjirafa.dev (single-origin) ──────────
 # Real web deployment. One host serves the whole product: /api, /hubs (SignalR),

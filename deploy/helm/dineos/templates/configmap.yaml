@@ -123,3 +123,8 @@ data:
   # API_INTERNAL_URL is used by Next.js server-side (SSR/RSC) to reach
   # the API without going through the Ingress.
   API_INTERNAL_URL: {{ .Values.frontend.env.API_INTERNAL_URL | quote }}
+  {{- if .Values.frontend.env.NEXT_DEPLOYMENT_ID }}
+  # Lets Next.js detect stale Server Action IDs and respond with a graceful
+  # full-page reload instead of 405 Method Not Allowed.
+  NEXT_DEPLOYMENT_ID: {{ .Values.frontend.env.NEXT_DEPLOYMENT_ID | quote }}
+  {{- end }}
