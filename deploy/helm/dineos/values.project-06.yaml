@@ -57,6 +57,10 @@ api:
     AllowedOrigins__0: "https://app.project-06.gjirafa.dev"
     AllowedOrigins__1: "http://localhost:3000"
 
+    # Stripe — price IDs (from the connected test account, livemode=false)
+    Stripe__ProMonthlyPriceId: "price_1TYTjdRa45n0ZGtQl7hQq5d6"
+    Stripe__ProAnnualPriceId: ""
+
     # Stripe redirect URLs — override base values (app.dineos.io) with this cluster's origin.
     # CheckoutSuccessUrl uses {CHECKOUT_SESSION_ID} so the success page can poll status.
     Stripe__CheckoutSuccessUrl: "https://app.project-06.gjirafa.dev/signup/success?session_id={CHECKOUT_SESSION_ID}"
@@ -132,8 +136,11 @@ secrets:
   smtpPassword: ""
   rabbitMqPassword: "dineos_dev"
   providerApiKeys:
-    stripe: ""
-    stripeWebhook: ""
+    # Get sk_test_... from https://dashboard.stripe.com/acct_1T2WH7Ra45n0ZGtQ/apikeys
+    stripe: "REPLACE_WITH_STRIPE_SECRET_KEY"
+    # Get whsec_... from the webhook endpoint you create in the Stripe dashboard
+    # (Developers → Webhooks → Add endpoint → https://app.project-06.gjirafa.dev/api/v1/billing/webhook)
+    stripeWebhook: "REPLACE_WITH_STRIPE_WEBHOOK_SECRET"
     anthropic: ""
     openai: ""
     googleai: ""
