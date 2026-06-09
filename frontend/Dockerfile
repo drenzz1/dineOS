@@ -13,7 +13,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # NEXT_PUBLIC_* vars are inlined into the browser bundle at build time
-ARG NEXT_PUBLIC_API_URL=http://localhost/api
+ARG NEXT_PUBLIC_API_URL=/api
 ARG NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8080
 ARG NEXT_PUBLIC_KEYCLOAK_REALM=dineos
 # API_INTERNAL_URL is consumed by next.config.ts rewrites() to proxy /api → backend.
