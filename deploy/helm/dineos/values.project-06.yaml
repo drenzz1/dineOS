@@ -136,11 +136,10 @@ secrets:
   smtpPassword: ""
   rabbitMqPassword: "dineos_dev"
   providerApiKeys:
-    # Get sk_test_... from https://dashboard.stripe.com/acct_1T2WH7Ra45n0ZGtQ/apikeys
-    stripe: "REPLACE_WITH_STRIPE_SECRET_KEY"
-    # Get whsec_... from the webhook endpoint you create in the Stripe dashboard
-    # (Developers → Webhooks → Add endpoint → https://app.project-06.gjirafa.dev/api/v1/billing/webhook)
-    stripeWebhook: "REPLACE_WITH_STRIPE_WEBHOOK_SECRET"
+    # Stripe keys are NOT stored here — pass them via --set at upgrade time so
+    # they never land in git. See the upgrade command at the bottom of this file.
+    stripe: ""
+    stripeWebhook: ""
     anthropic: ""
     openai: ""
     googleai: ""
@@ -297,3 +296,13 @@ observability:
         limits:
           cpu: 500m
           memory: 1Gi
+
+# ── How to upgrade this cluster ──────────────────────────────────────────────
+# Stripe keys must be passed via --set so they never land in git.
+# After running this, no kubectl patch is needed.
+#
+#   helm upgrade --install dineos deploy/helm/dineos \
+#     -f deploy/helm/dineos/values.project-06.yaml \
+#     --set secrets.providerApiKeys.stripe="sk_test_51T2WH7Ra45n0ZGtQ..." \
+#     --set secrets.providerApiKeys.stripeWebhook="whsec_SX7Ca..." \
+#     -n project-06
