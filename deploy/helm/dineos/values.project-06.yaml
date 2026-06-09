@@ -47,12 +47,14 @@ api:
     Keycloak__AuthServerUrl: "http://dineos-keycloak-http/auth"
     Keycloak__Authority: "http://dineos-keycloak-http/auth/realms/dineos"
     Keycloak__MetadataAddress: "http://dineos-keycloak-http/auth/realms/dineos/.well-known/openid-configuration"
-    # Loki/Mailhog are not deployed here; unreachable values are tolerated
-    # (Serilog logs locally, email is simply not exercised in the demo).
     Loki__Uri: "http://dineos-loki:3100"
-    Smtp__Host: dineos-mailhog
-    Smtp__Port: "1025"
-    Smtp__UseStartTls: "false"
+    # Gmail SMTP — credentials injected via --set at deploy time (GitHub secrets).
+    Smtp__Host: "smtp.gmail.com"
+    Smtp__Port: "587"
+    Smtp__UseStartTls: "true"
+    Smtp__Username: "just.drenzz@gmail.com"
+    Email__FromAddress: "just.drenzz@gmail.com"
+    Email__FromName: "dineOS"
     # CORS — must include the public origin so preflight requests are accepted.
     AllowedOrigins__0: "https://app.project-06.gjirafa.dev"
     AllowedOrigins__1: "http://localhost:3000"
