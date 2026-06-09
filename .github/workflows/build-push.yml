@@ -292,9 +292,9 @@ jobs:
             --set api.image.tag=${{ needs.build-backend.outputs.image_tag }} \
             --set frontend.image.repository=ghcr.io/${{ github.repository_owner }}/dineos-frontend \
             --set frontend.image.tag=${{ needs.build-frontend.outputs.image_tag }} \
-            --set secrets.providerApiKeys.stripe=${{ secrets.STRIPE_SECRET_KEY }} \
-            --set secrets.providerApiKeys.stripeWebhook=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
-            --set secrets.smtpPassword=${{ secrets.SMTP_PASSWORD }} \
+            --set "secrets.providerApiKeys.stripe=${{ secrets.STRIPE_SECRET_KEY }}" \
+            --set "secrets.providerApiKeys.stripeWebhook=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
+            --set "secrets.smtpPassword=${{ secrets.SMTP_PASSWORD }}" \
             --atomic --timeout 8m --wait
 
       - name: Deploy — dry-run (no KUBE_CONFIG_DATA)
