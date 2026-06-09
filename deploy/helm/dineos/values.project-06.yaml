@@ -6,17 +6,19 @@
 # + RabbitMQ + Keycloak. No persistence (data is ephemeral, fine
 # for a demo), no TLS, no Ingress — reached via `kubectl port-forward`.
 #
-# Images are pulled from Endriti's public GHCR.
-# Install:
+# Images are built by the build-push.yml CI on every push to main
+# and pushed to ghcr.io/drenzz1/ (the repo owner). The `main` tag
+# always points at the latest successful build from main.
+# Install / upgrade:
 #   helm upgrade --install dineos deploy/helm/dineos \
 #     -f deploy/helm/dineos/values.project-06.yaml -n project-06
 # ============================================================
 
 api:
   image:
-    repository: ghcr.io/endrit77/dineos-api
-    tag: demo3
-    pullPolicy: IfNotPresent
+    repository: ghcr.io/drenzz1/dineos-backend
+    tag: main
+    pullPolicy: Always
   replicaCount: 2
   # Shared uploads volume so both API replicas serve the same images
   # (local per-pod storage would split uploads → intermittent 404s).
@@ -64,9 +66,9 @@ api:
 
 frontend:
   image:
-    repository: ghcr.io/endrit77/dineos-web
-    tag: demo2
-    pullPolicy: IfNotPresent
+    repository: ghcr.io/drenzz1/dineos-frontend
+    tag: main
+    pullPolicy: Always
   replicaCount: 2
   resources:
     requests:
