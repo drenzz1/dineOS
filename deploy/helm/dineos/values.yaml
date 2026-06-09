@@ -172,6 +172,10 @@ ingress:
   # Set to true in values.local.yaml or a staging overlay.
   swagger:
     enabled: false
+  # Expose Keycloak /auth via the ingress. Disabled by default (in-cluster only).
+  # Set to true in an overlay (e.g. values.project-06.yaml) to reach the admin UI.
+  keycloak:
+    enabled: false
 
 # ------------------------------------------------------------
 # Secrets

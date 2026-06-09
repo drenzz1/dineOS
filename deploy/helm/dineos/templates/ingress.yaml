@@ -72,7 +72,7 @@ spec:
           {{- end }}
 
           {{- /* ── Keycloak admin/auth — before the / catch-all ──── */}}
-          {{- if $.Values.ingress.keycloak.enabled }}
+          {{- if and $.Values.ingress.keycloak ($.Values.ingress.keycloak.enabled) }}
           - path: /auth
             pathType: Prefix
             backend:
