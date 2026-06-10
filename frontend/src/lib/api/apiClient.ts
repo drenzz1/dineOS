@@ -7,7 +7,7 @@ import {
   getStaffRefreshToken,
   clearAuthCookies,
 } from "@/lib/auth/keycloak";
-import { isStaffSessionToken } from "@/lib/auth/routeRole";
+import { getRoleFromToken, isStaffSessionToken } from "@/lib/auth/routeRole";
 import type { AppRole } from "@/types";
 
 const apiClient = axios.create({
@@ -159,11 +159,14 @@ apiClient.interceptors.response.use(
 
         const { accessToken, refreshToken: newRefreshToken, expiresIn, refreshExpiresIn } =
           envelope.data;
-        const { role, tenantId } = useAuthStore.getState();
+        const { role: storeRole, tenantId } = useAuthStore.getState();
+        // The fresh token is authoritative for the role: a role changed or
+        // revoked server-side must not be resurrected from stale client state.
+        const role = getRoleFromToken(accessToken) ?? storeRole ?? "Manager";
 
-        persistAuthCookies(accessToken, newRefreshToken, expiresIn, refreshExpiresIn, role ?? "Manager", tenantId);
+        persistAuthCookies(accessToken, newRefreshToken, expiresIn, refreshExpiresIn, role, tenantId);
         persistBusinessToken(accessToken, refreshExpiresIn ?? expiresIn);
-        useAuthStore.setState({ accessToken });
+        useAuthStore.setState({ accessToken, role });
       } catch {
         clearAuthCookies();
         useAuthStore.getState().clearAuth();

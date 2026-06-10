@@ -122,10 +122,14 @@ public sealed class OwnerProvisioningJob(
         // DemoCleanupJob would otherwise call SetUserEnabledAsync(false)
         // on the same Keycloak user once the demo TTL expires, locking out
         // the paid owner.
+        // DemoUser.Email is stored normalized (Trim + lowercase, see
+        // DemoAccessService) while Tenant.OwnerEmail keeps the casing typed at
+        // signup — so the match must be against the normalized form.
+        var normalizedOwnerEmail = tenant.OwnerEmail.Trim().ToLowerInvariant();
         var demoUser = await db.DemoUsers
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(
-                d => d.Email == tenant.OwnerEmail
+                d => d.Email == normalizedOwnerEmail
                   && d.Status == DemoUserStatus.Active,
                 ct);
 

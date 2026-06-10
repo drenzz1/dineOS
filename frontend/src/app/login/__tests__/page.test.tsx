@@ -32,6 +32,13 @@ describe("LoginPage", () => {
   });
 
   it("calls authStore.login and redirects to the staff roster on success", async () => {
+    // Post-login navigates with window.location.assign (a full document
+    // request so middleware sees the fresh auth cookies), NOT router.push.
+    // jsdom's Location methods are unforgeable and cannot be mocked; the
+    // observable signal that assign() ran is jsdom emitting "Not implemented:
+    // navigation" via console.error (same constraint as
+    // apiClient.interceptor.test.ts).
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const loginSpy = jest
       .fn()
       .mockResolvedValue({ destination: "/dashboard" });
@@ -49,7 +56,16 @@ describe("LoginPage", () => {
     });
     // Post-login goes to the staff roster, not straight to a role dashboard
     // (#staff-pin-auth Phase 3) — the operational role is chosen there via PIN.
-    expect(pushMock).toHaveBeenCalledWith("/select-staff");
+    await waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining("Not implemented: navigation"),
+        })
+      );
+    });
+    // No client-side route change — the redirect must be a document request.
+    expect(pushMock).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 
   it("shows the server error message when the API returns 401", async () => {

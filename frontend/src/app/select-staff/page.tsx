@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -13,7 +13,6 @@ import { ApiError } from "@/lib/api/envelope";
 import type { StaffMember } from "@/types";
 
 function SelectStaffInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
 

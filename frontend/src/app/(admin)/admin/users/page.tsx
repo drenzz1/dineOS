@@ -54,7 +54,7 @@ export default function UsersPage() {
     placeholderData: keepPreviousData,
   });
 
-  const users = data?.users ?? [];
+  const users = useMemo(() => data?.users ?? [], [data]);
   const totalCount = data?.totalCount ?? 0;
   const totalPages = data?.totalPages ?? 1;
   const showPagination = totalPages > 1;

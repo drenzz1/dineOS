@@ -144,8 +144,48 @@ describe("apiClient — 401 response interceptor", () => {
       NEW_ACCESS_TOKEN,
       1800
     );
+    // NEW_ACCESS_TOKEN is not a decodable JWT, so the role falls back to the
+    // store's current role.
     expect(useAuthStore.setState).toHaveBeenCalledWith({
       accessToken: NEW_ACCESS_TOKEN,
+      role: "Manager",
+    });
+  });
+
+  // ── 1b. role comes from the refreshed token, not stale client state ──────────
+
+  it("refresh persists the role carried by the new token, not the stale store role", async () => {
+    // A Keycloak role change (e.g. Manager demoted to Cashier) lands in the
+    // next refreshed token. The interceptor must persist THAT role — reusing
+    // the store's pre-refresh role would let the old role survive until the
+    // next full login.
+    const payload = Buffer.from(
+      JSON.stringify({ realm_access: { roles: ["Cashier"] } })
+    ).toString("base64url");
+    const cashierToken = `header.${payload}.signature`;
+
+    adapter.onGet("/resource").replyOnce(401).onGet("/resource").replyOnce(200, { ok: true });
+    refreshPostMock.mockResolvedValue({
+      data: {
+        ...REFRESH_SUCCESS,
+        data: { ...REFRESH_SUCCESS.data, accessToken: cashierToken },
+      },
+    });
+
+    const response = await client.get("/resource");
+    expect(response.status).toBe(200);
+
+    expect(jest.mocked(persistAuthCookies)).toHaveBeenCalledWith(
+      cashierToken,
+      NEW_REFRESH_TOKEN,
+      300,
+      1800,
+      "Cashier",
+      "tenant-1"
+    );
+    expect(useAuthStore.setState).toHaveBeenCalledWith({
+      accessToken: cashierToken,
+      role: "Cashier",
     });
   });
 

@@ -1,5 +1,6 @@
 using DineOS.Application.Interfaces.Services;
 using DineOS.Domain.Entities;
+using DineOS.Domain.Enums;
 using DineOS.Infrastructure.Jobs;
 using DineOS.Infrastructure.Persistence;
 using Hangfire;
@@ -237,5 +238,39 @@ public class OwnerProvisioningJobTests
             "kc-user-id",
             Arg.Is<IReadOnlyList<string>>(a => a.Count == 1 && a.Contains("UPDATE_PASSWORD")),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RunAsync_ExpiresActiveDemoRecord_WhenOwnerEmailCasingDiffers()
+    {
+        // Regression: DemoUser.Email is stored normalized to lowercase
+        // (DemoAccessService), while Tenant.OwnerEmail keeps the casing typed
+        // at signup. The lookup compared them case-sensitively, so a
+        // "Jane@Example.com" signup never matched the "jane@example.com" demo
+        // record — it stayed Active and DemoCleanupJob had to rely on its
+        // owner-lockout safety guard alone.
+        var (job, db, _, _) = CreateSut();
+        var tenant = new Tenant
+        {
+            Name       = "Olio & Sale",
+            Slug       = "olio-and-sale",
+            OwnerName  = "Jane Doe",
+            OwnerEmail = "Jane@Example.com",
+            IsActive   = true,
+        };
+        db.Tenants.Add(tenant);
+        db.DemoUsers.Add(new DemoUser
+        {
+            Email       = "jane@example.com",
+            Status      = DemoUserStatus.Active,
+            RequestedAt = DateTime.UtcNow,
+            ExpiresAt   = DateTime.UtcNow.AddDays(7),
+        });
+        await db.SaveChangesAsync();
+
+        await job.RunAsync(tenant.Id, "TempPass!23", CancellationToken.None);
+
+        var demo = await db.DemoUsers.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(DemoUserStatus.Expired, demo.Status);
     }
 }

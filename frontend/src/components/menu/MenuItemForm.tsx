@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -66,11 +66,14 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
     setPreview(URL.createObjectURL(file));
   }
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  // Not memoized: a useCallback with an empty dep list captured the
+  // first-render handleFile (and its preview), so later drops never revoked
+  // the previous object URL.
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragOver(false);
     handleFile(e.dataTransfer.files[0]);
-  }, []);
+  }
 
   function clearFile() {
     setValue("imageFile", undefined, { shouldValidate: false });

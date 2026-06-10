@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/Button";
@@ -15,10 +15,15 @@ import {
 import { ApiError } from "@/lib/api/envelope";
 import { firstLoginPasswordChange } from "@/lib/auth/authApi";
 import { getMe } from "@/lib/api/meApi";
-import { getDestination, getPrimaryRole, persistAuthCookies, persistBusinessToken } from "@/lib/auth/keycloak";
+import {
+  getDestination,
+  getPrimaryRole,
+  persistAccessTokenCookie,
+  persistAuthCookies,
+  persistBusinessToken,
+} from "@/lib/auth/keycloak";
 
 function FirstLoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const setAuth = useAuthStore((state) => state.setAuth);
   const [formError, setFormError] = useState<string | null>(null);
@@ -49,14 +54,10 @@ function FirstLoginForm() {
         values.newPassword
       );
 
-      persistAuthCookies(
-        tokens.accessToken,
-        tokens.refreshToken,
-        tokens.expiresIn,
-        tokens.refreshExpiresIn,
-        "Manager",
-        null
-      );
+      // Authorize the bootstrap /me call from the access_token cookie alone —
+      // the role isn't known yet, so writing the full cookie set here would
+      // briefly publish a guessed role to the middleware.
+      persistAccessTokenCookie(tokens.accessToken, tokens.expiresIn);
 
       const me = await getMe();
       const role = getPrimaryRole(me.roles);

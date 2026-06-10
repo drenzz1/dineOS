@@ -131,11 +131,11 @@ export function useOrderHub(options?: UseOrderHubOptions): void {
     let cancelled = false;
     let conn: HubConnection | null = null;
 
-    const onCreated = (_event: OrderCreatedEvent) => {
+    const onCreated = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
     };
 
-    const onStatusChanged = (_event: OrderStatusChangedEvent) => {
+    const onStatusChanged = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
     };
 
