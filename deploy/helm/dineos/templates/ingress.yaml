@@ -5,10 +5,11 @@ metadata:
   name: {{ include "dineos.fullname" . }}
   labels:
     {{- include "dineos.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className | quote }}
@@ -81,6 +82,7 @@ spec:
                 port:
                   number: 80
           {{- end }}
+
 
           {{- /* ── Frontend catch-all — must be last ─────────────── */}}
           - path: /
