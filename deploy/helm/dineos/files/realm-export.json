@@ -15,7 +15,20 @@
       { "name": "Manager",      "composite": false, "clientRole": false },
       { "name": "Cashier",      "composite": false, "clientRole": false },
       { "name": "KitchenStaff", "composite": false, "clientRole": false },
-      { "name": "Owner",        "composite": false, "clientRole": false }
+      {
+        "name": "Owner",
+        "description": "Account-level role for the business Keycloak account (#staff-pin-auth Phase 2): gates staff management + billing. Composite over Manager BY DESIGN (permanent, decided 2026-05-31).",
+        "composite": true,
+        "composites": { "realm": ["Manager"] },
+        "clientRole": false
+      },
+      {
+        "name": "Demo",
+        "description": "Composite role for shared demo tenant access (#216). Includes Owner + Manager + KitchenStaff so demo users get the full owner experience incl. staff management and the kitchen board.",
+        "composite": true,
+        "composites": { "realm": ["Owner", "Manager", "KitchenStaff"] },
+        "clientRole": false
+      }
     ]
   },
   "clients": [
