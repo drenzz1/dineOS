@@ -229,6 +229,29 @@ keycloak:
       value: /auth
     - name: KC_PROXY_HEADERS
       value: xforwarded
+    # ── Persistence — store Keycloak state in the in-cluster Bitnami
+    #    Postgres instead of the ephemeral embedded H2. Without this, the
+    #    command (kc.sh start-dev) uses an in-memory/file H2 DB that is wiped
+    #    on every pod restart — re-running all 124 Liquibase changesets and
+    #    re-importing realm-export.json — so any users, password changes, or
+    #    admin-console edits made at runtime are lost. The `keycloak` database
+    #    is created out-of-band, owned by the existing `dineos` role; the
+    #    password is the same one the API uses (dineos-postgres / password).
+    #    NOTE: db config is honoured in start-dev too — start-dev re-augments
+    #    on every boot, so KC_DB is applied; only storage changes, hostname
+    #    and proxy behaviour (and thus the internal issuer + admin console)
+    #    stay exactly as before.
+    - name: KC_DB
+      value: postgres
+    - name: KC_DB_URL
+      value: jdbc:postgresql://dineos-postgres:5432/keycloak
+    - name: KC_DB_USERNAME
+      value: dineos
+    - name: KC_DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: dineos-postgres
+          key: password
 
 # ── Observability add-ons (persisted from the live --set flags) ─────────────
 # Prometheus + Uptime Kuma run in-cluster; persistence OFF (no StorageClass
