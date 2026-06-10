@@ -1,21 +1,13 @@
 "use client";
 
+import { RouteError } from "@/components/shared/RouteError";
+
 export default function RestaurantProfileError({
+  error,
   unstable_retry,
 }: {
   error: Error & { digest?: string };
   unstable_retry: () => void;
 }) {
-  return (
-    <div className="space-y-3">
-      <p className="text-[13px] text-fg">Something went wrong loading the profile.</p>
-      <button
-        type="button"
-        onClick={() => unstable_retry()}
-        className="text-[13px] underline text-accent hover:text-accent-hover"
-      >
-        Try again
-      </button>
-    </div>
-  );
+  return <RouteError error={error} retry={unstable_retry} title="Couldn't load profile settings" />;
 }

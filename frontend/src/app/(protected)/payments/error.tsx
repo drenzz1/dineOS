@@ -1,14 +1,13 @@
 "use client";
 
+import { RouteError } from "@/components/shared/RouteError";
+
 export default function PaymentsError({
+  error,
   unstable_retry,
 }: {
+  error: Error & { digest?: string };
   unstable_retry: () => void;
 }) {
-  return (
-    <div>
-      <p>Something went wrong on payments.</p>
-      <button onClick={() => unstable_retry()}>Try again</button>
-    </div>
-  );
+  return <RouteError error={error} retry={unstable_retry} title="Couldn't load payments" />;
 }
