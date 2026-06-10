@@ -295,7 +295,7 @@ jobs:
             --set "secrets.providerApiKeys.stripe=${{ secrets.STRIPE_SECRET_KEY }}" \
             --set "secrets.providerApiKeys.stripeWebhook=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
             --set "secrets.smtpPassword=${{ secrets.SMTP_PASSWORD }}" \
-            --atomic --timeout 8m --wait
+            --rollback-on-failure --force-conflicts --timeout 8m --wait
 
       - name: Deploy — dry-run (no KUBE_CONFIG_DATA)
         if: env.HAS_KUBECONFIG != 'true'
