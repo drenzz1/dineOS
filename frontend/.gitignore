@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# lighthouse ci (local report output — CI uploads as an artifact)
+/.lighthouseci/
+
 # next.js
 /.next/
 /out/
