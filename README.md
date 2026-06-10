@@ -30,6 +30,67 @@ Frontend:
 - TanStack Query, Zustand, React Hook Form, Zod
 - Jest and Playwright
 
+## Architecture
+
+High-level container view — every technology and the protocol on each connection.
+For the full picture (C4 context/container/component diagrams, both deployment
+views, and the decision register) see
+**[docs/architecture/README.md](docs/architecture/README.md)**.
+
+```mermaid
+flowchart TB
+    browser(["Browser<br/>React 19 SPA"])
+
+    subgraph edge["Edge"]
+        proxy["Nginx (Compose) /<br/>Ingress-NGINX (K8s)<br/>single origin, TLS"]
+    end
+
+    subgraph app["Application tier"]
+        fe["Frontend<br/><b>Next.js 16</b> (App Router)<br/>TS · Tailwind 4 · TanStack Query<br/>Zustand · RHF + Zod"]
+        api["DineOS API<br/><b>.NET 10 / ASP.NET Core</b><br/>REST v1 · SignalR · Swagger<br/>JWT auth · rate limiting"]
+    end
+
+    subgraph data["Data &amp; messaging"]
+        pg[("PostgreSQL<br/>relational store")]
+        redis[("Redis<br/>cache · token blacklist<br/>SignalR backplane")]
+        mq[["RabbitMQ<br/>order/event bus"]]
+        kc["Keycloak<br/>OIDC identity provider<br/>realm: dineos"]
+    end
+
+    subgraph obs["Observability"]
+        prom["Prometheus + Alertmanager"]
+        graf["Grafana"]
+        loki[("Loki<br/>logs — local only")]
+        elk["ELK<br/>Elasticsearch · Logstash · Kibana"]
+        kuma["Uptime-Kuma"]
+    end
+
+    stripe["Stripe"]
+    smtp["SMTP"]
+    ai["AI providers"]
+
+    browser -->|"HTTPS"| proxy
+    proxy -->|"/ → UI"| fe
+    proxy -->|"/api · /hubs · /uploads"| api
+    browser -.->|"SignalR / WebSocket<br/>?access_token=JWT"| api
+    fe -->|"SSR proxy: /api → API_INTERNAL_URL"| api
+
+    api -->|"EF Core 10 / Npgsql (SQL/TCP)"| pg
+    api -->|"StackExchange.Redis (RESP)"| redis
+    api -->|"RabbitMQ.Client (AMQP)"| mq
+    api -->|"JWT validate · password grant (OIDC)"| kc
+    api -->|"Stripe.net (HTTPS + webhooks)"| stripe
+    api -->|"MailKit (SMTP)"| smtp
+    api -->|"HTTPS"| ai
+
+    api -->|"/metrics (prometheus-net)"| prom
+    api -->|"Serilog → Loki sink"| loki
+    api -->|"Serilog → TCP (Logstash)"| elk
+    prom --> graf
+    loki --> graf
+    proxy -.->|"health probe"| kuma
+```
+
 ## Prerequisites
 
 - Node.js 20+
@@ -214,6 +275,8 @@ See [docs/devops/security.md](docs/devops/security.md) for the image hardening c
 
 ## More Documentation
 
+- **System architecture (C4 diagrams + deployment views): `docs/architecture/README.md`**
+- **Architecture decision register (every choice justified): `docs/architecture/decisions.md`**
 - Backend details: `backend/README.md`
 - Frontend details: `frontend/README.md`
 - Keycloak setup: `docs/keycloak-setup.md`
@@ -230,4 +293,5 @@ See [docs/devops/security.md](docs/devops/security.md) for the image hardening c
 - Observability (Uptime Kuma status page): `docs/devops/uptime-kuma.md`
 - AI-powered incident triage (DO-12): `docs/devops/aiops-triage.md`
 - Container security (image hardening, Trivy scanning): `docs/devops/security.md`
+- Performance audit (Lighthouse, caching, CDN, Redis, images): `docs/devops/performance-audit.md`
 - Release workflow (Conventional Commits, release-please, semver): `docs/devops/releases.md`
