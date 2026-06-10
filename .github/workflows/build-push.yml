@@ -89,9 +89,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
-            NEXT_PUBLIC_KEYCLOAK_URL=${{ secrets.NEXT_PUBLIC_KEYCLOAK_URL }}
-            NEXT_PUBLIC_KEYCLOAK_REALM=${{ secrets.NEXT_PUBLIC_KEYCLOAK_REALM }}
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL || '/api' }}
+            NEXT_PUBLIC_KEYCLOAK_URL=${{ secrets.NEXT_PUBLIC_KEYCLOAK_URL || 'http://localhost:8080' }}
+            NEXT_PUBLIC_KEYCLOAK_REALM=${{ secrets.NEXT_PUBLIC_KEYCLOAK_REALM || 'dineos' }}
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -292,6 +292,9 @@ jobs:
             --set api.image.tag=${{ needs.build-backend.outputs.image_tag }} \
             --set frontend.image.repository=ghcr.io/${{ github.repository_owner }}/dineos-frontend \
             --set frontend.image.tag=${{ needs.build-frontend.outputs.image_tag }} \
+            --set "secrets.providerApiKeys.stripe=${{ secrets.STRIPE_SECRET_KEY }}" \
+            --set "secrets.providerApiKeys.stripeWebhook=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
+            --set "secrets.smtpPassword=${{ secrets.SMTP_PASSWORD }}" \
             --atomic --timeout 8m --wait
 
       - name: Deploy — dry-run (no KUBE_CONFIG_DATA)

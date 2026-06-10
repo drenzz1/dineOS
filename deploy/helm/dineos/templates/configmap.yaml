@@ -60,6 +60,9 @@ data:
   Smtp__Host: {{ .Values.api.env.Smtp__Host | quote }}
   Smtp__Port: {{ .Values.api.env.Smtp__Port | quote }}
   Smtp__UseStartTls: {{ .Values.api.env.Smtp__UseStartTls | quote }}
+  {{- if .Values.api.env.Smtp__Username }}
+  Smtp__Username: {{ .Values.api.env.Smtp__Username | quote }}
+  {{- end }}
 
   # ── Email behaviour ───────────────────────────────────────────────────
   Email__Enabled: {{ .Values.api.env.Email__Enabled | quote }}
