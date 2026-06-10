@@ -29,4 +29,24 @@ public interface IEmailVerificationService
     /// owner is already verified or no matching tenant exists.
     /// </summary>
     Task MarkOwnerEmailVerifiedAsync(string ownerEmail, CancellationToken ct = default);
+
+    /// <summary>
+    /// Generates a fresh password-reset code for the given email, persists the
+    /// hash, expires any earlier pending reset codes for the same email, and
+    /// returns the plaintext to hand off to the email job. Does NOT check that
+    /// an account exists — callers do that, so issuance stays usable from the
+    /// enumeration-safe background job.
+    /// </summary>
+    Task<string> IssuePasswordResetCodeAsync(string email, CancellationToken ct = default);
+
+    /// <summary>
+    /// Validates a submitted password-reset code and consumes it on success so
+    /// it cannot be replayed. Every failure shape (missing, expired, attempt
+    /// cap, mismatch) returns the same constant message so the response cannot
+    /// be used to probe which emails have pending resets.
+    /// </summary>
+    Task<ServiceResult<bool>> ConsumePasswordResetCodeAsync(
+        string email,
+        string code,
+        CancellationToken ct = default);
 }

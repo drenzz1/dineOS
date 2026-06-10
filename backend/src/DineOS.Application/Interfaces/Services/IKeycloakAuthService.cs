@@ -28,4 +28,15 @@ public interface IKeycloakAuthService
         string email,
         ChangePasswordRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Completes a forgot-password reset for an unauthenticated user: verifies
+    /// and consumes the emailed one-time code, then sets the new permanent
+    /// password via the Admin API. Receiving the code proves inbox ownership,
+    /// so any pending <c>UPDATE_PASSWORD</c> required action is cleared and
+    /// the email is marked verified (best-effort).
+    /// </summary>
+    Task<Result> ResetForgottenPasswordAsync(
+        ResetPasswordRequest request,
+        CancellationToken cancellationToken = default);
 }

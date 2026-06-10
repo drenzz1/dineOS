@@ -116,6 +116,49 @@ export async function changePassword(
   }
 }
 
+/**
+ * Requests a password-reset code for the given email (forgot password).
+ * The backend always answers 200 with the same message whether or not an
+ * account exists, so success here only means "the request was accepted".
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  try {
+    await apiClient.post("/v1/auth/forgot-password", { email });
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    if (axios.isAxiosError(err)) {
+      const status = err.response?.status;
+      const body = err.response?.data as ApiResponse<unknown> | undefined;
+      const message = body?.errors?.[0] ?? body?.message ?? "Could not send the reset code.";
+      if (status === 400) throw new ApiError({ error: message, errors: body?.errors ?? [], status: 400 });
+      if (status === 429) throw new ApiError({ error: "Too many attempts, try again later.", status: 429 });
+    }
+    throw err;
+  }
+}
+
+/** Completes a forgot-password reset with the emailed 6-digit code. */
+export async function resetForgottenPassword(
+  email: string,
+  code: string,
+  newPassword: string
+): Promise<void> {
+  try {
+    await apiClient.post("/v1/auth/reset-password", { email, code, newPassword });
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    if (axios.isAxiosError(err)) {
+      const status = err.response?.status;
+      const body = err.response?.data as ApiResponse<unknown> | undefined;
+      const message = body?.errors?.[0] ?? body?.message ?? "Password reset failed.";
+      if (status === 400) throw new ApiError({ error: message, errors: body?.errors ?? [], status: 400 });
+      if (status === 401) throw new ApiError({ error: message, errors: body?.errors ?? [], status: 401 });
+      if (status === 429) throw new ApiError({ error: "Too many attempts, try again later.", status: 429 });
+    }
+    throw err;
+  }
+}
+
 export async function firstLoginPasswordChange(
   email: string,
   currentPassword: string,

@@ -1,4 +1,5 @@
 using DineOS.Application.Authentication;
+using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Infrastructure.Services;
@@ -191,6 +192,68 @@ public class KeycloakAuthServiceTests
             .MarkOwnerEmailVerifiedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task ResetForgottenPasswordAsync_WithValidCode_ResetsPasswordAndClearsRequiredActions()
+    {
+        _emailVerification.ConsumePasswordResetCodeAsync("owner@dineos.dev", "123456", Arg.Any<CancellationToken>())
+            .Returns(ServiceResult<bool>.Ok(true));
+        // An owner who lost the emailed temp password still has UPDATE_PASSWORD
+        // pending — the reset must clear it so direct-grant login works after.
+        _admin.FindUserByEmailAsync("owner@dineos.dev", Arg.Any<CancellationToken>())
+            .Returns(new KeycloakUserSummary("user-123", new[] { "UPDATE_PASSWORD" }));
+
+        var sut = CreateService(new RecordingHandler());
+
+        var result = await sut.ResetForgottenPasswordAsync(
+            new ResetPasswordRequest("owner@dineos.dev", "123456", "BrandNewPass-456"));
+
+        Assert.True(result.IsSuccess);
+        await _admin.Received(1).ResetPasswordAsync(
+            "user-123", "BrandNewPass-456", temporary: false, Arg.Any<CancellationToken>());
+        await _admin.Received(1).SetRequiredActionsAsync(
+            "user-123", Arg.Is<IReadOnlyList<string>>(a => a.Count == 0), Arg.Any<CancellationToken>());
+        await _admin.Received(1).SetEmailVerifiedAsync("user-123", true, Arg.Any<CancellationToken>());
+        await _emailVerification.Received(1)
+            .MarkOwnerEmailVerifiedAsync("owner@dineos.dev", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ResetForgottenPasswordAsync_WithInvalidCode_DoesNotTouchKeycloak()
+    {
+        const string invalid = "Reset code is invalid or expired. Request a new code and try again.";
+        _emailVerification.ConsumePasswordResetCodeAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(ServiceResult<bool>.ValidationFailed(invalid, new List<string> { invalid }));
+
+        var sut = CreateService(new RecordingHandler());
+
+        var result = await sut.ResetForgottenPasswordAsync(
+            new ResetPasswordRequest("owner@dineos.dev", "000000", "BrandNewPass-456"));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(invalid, result.Error);
+        await _admin.DidNotReceive().ResetPasswordAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ResetForgottenPasswordAsync_WhenNoUserMatches_FailsWithSameConstantMessage()
+    {
+        // The account vanished between code issuance and redemption — the
+        // response must be indistinguishable from a bad code (no enumeration).
+        _emailVerification.ConsumePasswordResetCodeAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(ServiceResult<bool>.Ok(true));
+        _admin.FindUserByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((KeycloakUserSummary?)null);
+
+        var sut = CreateService(new RecordingHandler());
+
+        var result = await sut.ResetForgottenPasswordAsync(
+            new ResetPasswordRequest("ghost@dineos.dev", "123456", "BrandNewPass-456"));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Reset code is invalid or expired. Request a new code and try again.", result.Error);
+    }
+
     private KeycloakAuthService CreateService(RecordingHandler handler, KeycloakOptions? options = null)
     {
         var client = new HttpClient(handler);
@@ -206,6 +269,7 @@ public class KeycloakAuthServiceTests
             new LogoutRequestValidator(),
             new FirstLoginPasswordChangeRequestValidator(),
             new ChangePasswordRequestValidator(),
+            new ResetPasswordRequestValidator(),
             _emailVerification,
             NullLogger<KeycloakAuthService>.Instance);
     }

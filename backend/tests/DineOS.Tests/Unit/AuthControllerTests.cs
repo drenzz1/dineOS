@@ -2,6 +2,7 @@ using DineOS.Api.Controllers;
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
+using Hangfire;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
 
@@ -11,11 +12,16 @@ public class AuthControllerTests
 {
     private readonly IKeycloakAuthService _authService = Substitute.For<IKeycloakAuthService>();
     private readonly IStaffSessionService _staffSessionService = Substitute.For<IStaffSessionService>();
+    private readonly IBackgroundJobClient _backgroundJobs = Substitute.For<IBackgroundJobClient>();
     private readonly AuthController _controller;
 
     public AuthControllerTests()
     {
-        _controller = new AuthController(_authService, _staffSessionService);
+        _controller = new AuthController(
+            _authService,
+            _staffSessionService,
+            _backgroundJobs,
+            new ForgotPasswordRequestValidator());
     }
 
     [Fact]

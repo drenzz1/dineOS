@@ -150,6 +150,7 @@ public static class DependencyInjection
             options.Queues = new[] { "default" };
         });
         services.AddScoped<AccountVerificationEmailJob>();
+        services.AddScoped<PasswordResetEmailJob>();
         services.AddScoped<DailyPaymentSummaryJob>();
         services.AddScoped<OverduePaymentNotificationJob>();
         services.AddScoped<SubscriptionActivatedEmailJob>();

@@ -22,6 +22,7 @@ public sealed class KeycloakAuthService(
     IValidator<LogoutRequest> logoutValidator,
     IValidator<FirstLoginPasswordChangeRequest> firstLoginValidator,
     IValidator<ChangePasswordRequest> changePasswordValidator,
+    IValidator<ResetPasswordRequest> resetPasswordValidator,
     IEmailVerificationService emailVerification,
     ILogger<KeycloakAuthService> logger) : IKeycloakAuthService
 {
@@ -244,6 +245,57 @@ public sealed class KeycloakAuthService(
         await keycloakAdmin.ResetPasswordAsync(user.Id, request.NewPassword, temporary: false, cancellationToken);
 
         logger.LogInformation("Password changed for user {Email}.", email);
+        return Result.Success();
+    }
+
+    public async Task<Result> ResetForgottenPasswordAsync(
+        ResetPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = await resetPasswordValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+            return Result.Failure(
+                ValidationFailedMessage,
+                validation.Errors.Select(e => e.ErrorMessage).ToList());
+
+        var codeResult = await emailVerification.ConsumePasswordResetCodeAsync(
+            request.Email, request.Code, cancellationToken);
+        if (!codeResult.IsSuccess)
+            return Result.Failure(
+                codeResult.Message ?? "Reset code is invalid or expired. Request a new code and try again.");
+
+        var user = await keycloakAdmin.FindUserByEmailAsync(request.Email, cancellationToken);
+        if (user is null)
+        {
+            // The account vanished between code issuance and redemption. Reply
+            // with the same constant message as a bad code — never confirm
+            // whether an account exists from this endpoint.
+            logger.LogWarning("Password reset code verified but no Keycloak user matches the email.");
+            return Result.Failure("Reset code is invalid or expired. Request a new code and try again.");
+        }
+
+        await keycloakAdmin.ResetPasswordAsync(user.Id, request.NewPassword, temporary: false, cancellationToken);
+
+        // Receiving the code proves inbox ownership: clear any pending
+        // UPDATE_PASSWORD action (an owner who lost the temp password recovers
+        // here without the first-login flow) and mark the email verified.
+        // Best-effort — the new password is already active, so cleanup
+        // failures must not fail the request.
+        try
+        {
+            if (user.RequiredActions.Count > 0)
+                await keycloakAdmin.SetRequiredActionsAsync(user.Id, Array.Empty<string>(), cancellationToken);
+            await keycloakAdmin.SetEmailVerifiedAsync(user.Id, true, cancellationToken);
+            await emailVerification.MarkOwnerEmailVerifiedAsync(request.Email, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Post-reset account cleanup failed for {Email}; the new password is already active.",
+                request.Email);
+        }
+
+        logger.LogInformation("Forgotten password reset completed for user {Email}.", request.Email);
         return Result.Success();
     }
 

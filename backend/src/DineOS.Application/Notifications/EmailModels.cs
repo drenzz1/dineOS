@@ -6,6 +6,11 @@ public sealed record AccountVerificationEmailModel(
     string Code,
     int    CodeTtlMinutes);
 
+public sealed record PasswordResetEmailModel(
+    string Email,
+    string Code,
+    int    CodeTtlMinutes);
+
 public sealed record DailyPaymentSummaryEmailModel(
     string OwnerName,
     string RestaurantName,

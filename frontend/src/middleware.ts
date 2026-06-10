@@ -12,6 +12,8 @@ const PUBLIC_PATHS = [
   "/signup/cancelled",
   "/demo",
   "/first-login",
+  "/forgot-password",
+  "/reset-password",
   // Always reachable so the "you don't have access" page can render without the
   // role check below redirecting it back onto itself.
   "/forbidden",

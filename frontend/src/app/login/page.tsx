@@ -102,6 +102,15 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-sm text-zinc-500">
+          <Link
+            href="/forgot-password"
+            className="font-medium text-zinc-900 underline underline-offset-2"
+          >
+            Forgot password?
+          </Link>
+        </p>
+
+        <p className="text-center text-sm text-zinc-500">
           New to dineOS?{" "}
           <Link
             href="/signup"

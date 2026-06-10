@@ -345,6 +345,22 @@ try
                     QueueLimit = 0,
                 }));
 
+        // Anonymous forgot/reset-password — per-IP, shared by both endpoints.
+        // A legitimate user needs one code request plus a few redemption
+        // attempts; everything beyond that is probing. Per-email abuse is
+        // additionally bounded by single-active-code-per-email issuance and
+        // the in-row FailedAttempts cap.
+        options.AddPolicy("password-reset", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(5),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0,
+                }));
+
         // Demo access (#216). Partitioned on a composite (email + IP) key when
         // the body carries an email; otherwise by IP alone. 3 requests/hour
         // per email keeps re-submits cheap while blocking enumeration; the

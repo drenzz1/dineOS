@@ -3,6 +3,9 @@ using DineOS.Application.Authorization;
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
+using DineOS.Infrastructure.Jobs;
+using FluentValidation;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +20,9 @@ namespace DineOS.Api.Controllers;
 [Produces("application/json")]
 public class AuthController(
     IKeycloakAuthService authService,
-    IStaffSessionService staffSessionService) : ControllerBase
+    IStaffSessionService staffSessionService,
+    IBackgroundJobClient backgroundJobs,
+    IValidator<ForgotPasswordRequest> forgotPasswordValidator) : ControllerBase
 {
     /// <summary>Authenticates a user through Keycloak and returns an access/refresh token pair.</summary>
     [HttpPost("auth/login")]
@@ -168,6 +173,53 @@ public class AuthController(
         return NoContent();
     }
 
+    /// <summary>
+    /// Requests a password-reset code for the given email (forgot password).
+    /// Always returns the same 200 response whether or not an account exists —
+    /// the Keycloak lookup happens inside the background job, so the response
+    /// cannot be used to enumerate accounts.
+    /// </summary>
+    [HttpPost("auth/forgot-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("password-reset")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken ct)
+    {
+        var validation = await forgotPasswordValidator.ValidateAsync(request, ct);
+        if (!validation.IsValid)
+            return BadRequest(ApiResponse.Fail(
+                "Validation failed.",
+                validation.Errors.Select(e => e.ErrorMessage).ToList()));
+
+        backgroundJobs.Enqueue<PasswordResetEmailJob>(
+            job => job.SendAsync(request.Email.Trim(), CancellationToken.None));
+
+        return Ok(ApiResponse.Ok(
+            "If an account exists for that email, a password reset code has been sent."));
+    }
+
+    /// <summary>Resets a forgotten password using the emailed one-time code. Anonymous: the code itself is proof of inbox ownership.</summary>
+    [HttpPost("auth/reset-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("password-reset")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest request,
+        CancellationToken ct)
+    {
+        var result = await authService.ResetForgottenPasswordAsync(request, ct);
+        if (!result.IsSuccess)
+            return ToFailureResponse(result.Error, result.Errors);
+
+        return NoContent();
+    }
+
     /// <summary>Blacklists the provided refresh token, effectively invalidating the session. Idempotent — returns 204 even if the token is already blacklisted or jti is missing.</summary>
     [HttpPost("auth/logout")]
     [Authorize(Policy = Policies.BusinessAccountOnly)]
@@ -203,6 +255,10 @@ public class AuthController(
             "Account requires first-login password change." =>
                 Conflict(ApiResponse.Fail(message)),
             "Tenant context is required." =>
+                BadRequest(ApiResponse.Fail(message)),
+            // Forgot-password redemption failures are client errors (bad/expired
+            // code), not authentication failures — 400, not 401.
+            "Reset code is invalid or expired. Request a new code and try again." =>
                 BadRequest(ApiResponse.Fail(message)),
             "Staff sessions are not configured." =>
                 StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse.Fail(message)),

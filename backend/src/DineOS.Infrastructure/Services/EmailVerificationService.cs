@@ -140,6 +140,68 @@ public sealed class EmailVerificationService(
             tenant.Id, email);
     }
 
+    public async Task<string> IssuePasswordResetCodeAsync(string email, CancellationToken ct = default)
+    {
+        var normalized = NormalizeEmail(email);
+        await ExpirePendingCodesAsync(normalized, EmailVerificationPurpose.PasswordReset, ct);
+
+        var code = GenerateCode();
+        var entry = new EmailVerificationCode
+        {
+            Email     = normalized,
+            Purpose   = EmailVerificationPurpose.PasswordReset,
+            CodeHash  = HashCode(code),
+            ExpiresAt = DateTime.UtcNow.AddMinutes(_opts.CodeTtlMinutes),
+        };
+
+        db.EmailVerificationCodes.Add(entry);
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation(
+            "Issued password reset code: Email={Email} ExpiresAt={ExpiresAt}",
+            normalized, entry.ExpiresAt);
+
+        return code;
+    }
+
+    public async Task<ServiceResult<bool>> ConsumePasswordResetCodeAsync(
+        string email,
+        string code,
+        CancellationToken ct = default)
+    {
+        // One constant failure message for every shape (missing, expired,
+        // locked, mismatch) so the endpoint cannot be used to probe which
+        // emails have pending resets.
+        const string invalid = "Reset code is invalid or expired. Request a new code and try again.";
+
+        var normalized = NormalizeEmail(email);
+        var entry = await db.EmailVerificationCodes
+            .Where(c => c.Email == normalized
+                     && c.Purpose == EmailVerificationPurpose.PasswordReset
+                     && c.ConsumedAt == null)
+            .OrderByDescending(c => c.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+
+        if (entry is null || entry.ExpiresAt < DateTime.UtcNow)
+            return ServiceResult<bool>.ValidationFailed(invalid, new List<string> { invalid });
+
+        if (entry.FailedAttempts >= _opts.MaxAttemptsPerCode)
+            return ServiceResult<bool>.ValidationFailed(invalid, new List<string> { invalid });
+
+        if (!FixedTimeEquals(entry.CodeHash, HashCode(code)))
+        {
+            entry.FailedAttempts++;
+            await db.SaveChangesAsync(ct);
+            return ServiceResult<bool>.ValidationFailed(invalid, new List<string> { invalid });
+        }
+
+        entry.ConsumedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation("Password reset code consumed: Email={Email}", normalized);
+        return ServiceResult<bool>.Ok(true, "Code verified.");
+    }
+
     private async Task ExpirePendingCodesAsync(
         string email,
         EmailVerificationPurpose purpose,
