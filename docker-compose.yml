@@ -51,6 +51,9 @@ services:
       - GoogleAI__ApiKey=${GoogleAI__ApiKey:-}
       - Slack__WebhookUrl=${SLACK_WEBHOOK_URL:-}
       - AlertWebhook__SharedSecret=${ALERT_WEBHOOK_SECRET:-}
+      - Unleash__Enabled=${Unleash__Enabled:-true}
+      - Unleash__ApiUrl=${Unleash__ApiUrl:-http://unleash:4242/api/}
+      - Unleash__ApiToken=${Unleash__ApiToken:-default:development.unleash-insecure-api-token}
     volumes:
       - dineos_uploads:/app/uploads
     healthcheck:
@@ -71,6 +74,8 @@ services:
       loki:
         condition: service_healthy
       mailhog:
+        condition: service_started
+      unleash:
         condition: service_started
     networks:
       - dineos-net
@@ -177,6 +182,107 @@ services:
       - ./backend/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     networks:
       - dineos-net
+
+  # ── Feature flags (Unleash, M5.6) ───────────────────────────────────────
+  # Unleash gets its OWN small Postgres rather than reusing dineos-postgres:
+  # the shared volume is already initialised (no init-script hook) and this keeps
+  # flag data fully isolated from app data. In the cluster, Helm points Unleash at
+  # a dedicated database inside the shared Postgres (the Keycloak pattern).
+  unleash-db:
+    image: postgres:16-alpine
+    container_name: dineos-unleash-db
+    environment:
+      POSTGRES_DB: unleash
+      POSTGRES_USER: unleash
+      POSTGRES_PASSWORD: ${UNLEASH_DB_PASSWORD:-unleash_dev}
+    volumes:
+      - unleash_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unleash -d unleash"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  unleash:
+    image: unleashorg/unleash-server:6
+    container_name: dineos-unleash
+    depends_on:
+      unleash-db:
+        condition: service_healthy
+    ports:
+      - "${UNLEASH_PORT:-4242}:4242"
+    environment:
+      DATABASE_URL: postgres://unleash:${UNLEASH_DB_PASSWORD:-unleash_dev}@unleash-db:5432/unleash
+      DATABASE_SSL: "false"
+      LOG_LEVEL: warn
+      # Seed deterministic tokens so the demo needs no manual setup:
+      #  - client token: used by the API's Unleash SDK (Unleash__ApiToken)
+      #  - admin token:  used to script flag creation via the admin API
+      INIT_CLIENT_API_TOKENS: "default:development.unleash-insecure-api-token"
+      INIT_ADMIN_API_TOKENS: "*:*.unleash-insecure-admin-token"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4242/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  # ── Workflow automation (n8n, M5.8) ─────────────────────────────────────
+  # Self-hosted n8n providing the M5.8 "webhook -> LLM -> notification" pipeline,
+  # the same self-hosted pattern as Unleash (M5.6). The committed demo workflow
+  # (deploy/n8n/workflows/*.json) is imported AND activated via the n8n CLI on
+  # startup, so the order-triage webhook is live with zero manual GUI setup.
+  # The workflow reads ANTHROPIC_API_KEY / ANTHROPIC_MODEL / SLACK_WEBHOOK_URL
+  # from the container env -- the SAME secrets the API already uses (see DO-12).
+  # See docs/devops/n8n-automation.md.
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.25.7
+    container_name: dineos-n8n
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        n8n import:workflow --separate --input=/demo-workflows || echo "n8n: workflow import skipped"
+        for wid in $$(n8n list:workflow --onlyId 2>/dev/null); do
+          n8n publish:workflow --id="$$wid" || echo "n8n: publish skipped for $$wid"
+        done
+        exec n8n start
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678/}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Europe/Belgrade}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-dineos-dev-n8n-encryption-key-change-me}
+      - N8N_USER_MANAGEMENT_DISABLED=true
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_PERSONALIZATION_ENABLED=false
+      # Allow $env.* access inside node expressions so the workflow can read the
+      # injected secrets without a GUI-configured credential.
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      # Reused from the API's existing secrets -- no new keys required.
+      - ANTHROPIC_API_KEY=${Anthropic__ApiKey:-}
+      - ANTHROPIC_MODEL=${Anthropic__Model:-claude-sonnet-4-5}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./deploy/n8n/workflows:/demo-workflows:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5678/healthz',r=>process.exit(r.statusCode<400?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - dineos-net
+    restart: unless-stopped
 
   rabbitmq:
     image: rabbitmq:4-management
@@ -441,6 +547,8 @@ services:
 
 volumes:
   postgres_data:
+  unleash_db_data:
+  n8n_data:
   redis_data:
   rabbitmq_data:
   loki_data:

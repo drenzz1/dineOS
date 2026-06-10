@@ -1,5 +1,9 @@
 # Performance Audit — M2.8
 
+> **Superseded by the full-stack M5.4 audit:**
+> [`docs/devops/performance-audit.md`](../../docs/devops/performance-audit.md).
+> This file is the original pre-backend-integration snapshot, kept for history.
+
 ## Lighthouse Scores
 
 | Page | Performance | Accessibility | Best Practices |
@@ -9,7 +13,7 @@
 
 ## What was fixed
 - Added next/dynamic lazy loading for heavy components
-- Replaced <img> tags with next/imageok, ive don
+- Replaced `<img>` tags with `next/image`
 - Added next/font for custom fonts
 
 ## What remains

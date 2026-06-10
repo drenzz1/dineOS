@@ -104,6 +104,13 @@ data:
   StaffSession__TokenLifetimeMinutes: {{ .Values.api.env.StaffSession__TokenLifetimeMinutes | quote }}
   StaffSession__RefreshTokenLifetimeMinutes: {{ .Values.api.env.StaffSession__RefreshTokenLifetimeMinutes | quote }}
 
+  # ── Feature flags (Unleash, M5.6) — non-secret config (token is in the Secret) ──
+  # Disabled by default in-cluster → the API defaults the 'ai-menu-generation' flag
+  # ON, so behaviour is unchanged until an Unleash server is deployed and
+  # Unleash__Enabled is flipped to "true" with a client token in the Secret.
+  Unleash__Enabled: {{ .Values.api.env.Unleash__Enabled | quote }}
+  Unleash__ApiUrl: {{ .Values.api.env.Unleash__ApiUrl | quote }}
+
 ---
 {{/* ------------------------------------------------------------------ */}}
 {{/* Frontend ConfigMap — non-sensitive runtime config for Next.js       */}}

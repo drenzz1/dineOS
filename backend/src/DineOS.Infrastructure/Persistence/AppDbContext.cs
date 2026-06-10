@@ -70,7 +70,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ShiftNote>()
             .HasIndex(sn => new { sn.TenantId, sn.CreatedAt });
         modelBuilder.Entity<MenuItem>()
-            .HasIndex(mi => new { mi.TenantId, mi.Category });
+            .HasIndex(mi => new { mi.TenantId, mi.CategoryId });
+        // Real FK to MenuCategory. Restrict on delete: a category that still has
+        // items cannot be removed (the app soft-deletes, so this is belt-and-braces).
+        modelBuilder.Entity<MenuItem>()
+            .HasOne(mi => mi.Category)
+            .WithMany()
+            .HasForeignKey(mi => mi.CategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
         // Supports the daily/period revenue queries the reports & admin
         // dashboards run. See docs/backend/sql-optimization.md (Q4) for the
         // EXPLAIN ANALYZE proof.

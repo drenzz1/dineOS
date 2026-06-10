@@ -237,6 +237,44 @@ public static class DependencyInjection
         });
         services.AddScoped<IAiMenuService, AiMenuService>();
 
+        // ── Feature flags (Unleash) ────────────────────────────────────────
+        // When Unleash is configured (Unleash:Enabled=true) flags resolve from the
+        // Unleash server with background polling (runtime toggle, no redeploy);
+        // otherwise a no-op provider returns each call's default, so dev/test/CI
+        // behave exactly as if no flag system existed. Client construction is guarded
+        // so a misconfigured/unreachable Unleash degrades to defaults, never a crash.
+        services.Configure<UnleashOptions>(configuration.GetSection(UnleashOptions.SectionName));
+        if (configuration.GetValue($"{UnleashOptions.SectionName}:Enabled", false))
+        {
+            services.AddSingleton<IFeatureFlags>(sp =>
+            {
+                var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<UnleashOptions>>().Value;
+                var logger = sp.GetRequiredService<ILogger<UnleashFeatureFlags>>();
+                try
+                {
+                    // Fully qualified: the Unleash namespace also defines an
+                    // IHttpClientFactory that would clash with System.Net.Http's.
+                    var settings = new Unleash.UnleashSettings
+                    {
+                        AppName              = opts.AppName,
+                        UnleashApi           = new Uri(opts.ApiUrl),
+                        FetchTogglesInterval = TimeSpan.FromSeconds(opts.FetchTogglesIntervalSeconds),
+                        CustomHttpHeaders    = new Dictionary<string, string> { ["Authorization"] = opts.ApiToken },
+                    };
+                    return new UnleashFeatureFlags(new Unleash.DefaultUnleash(settings), logger);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to initialise Unleash; feature flags will use defaults.");
+                    return new DefaultFeatureFlags();
+                }
+            });
+        }
+        else
+        {
+            services.AddSingleton<IFeatureFlags, DefaultFeatureFlags>();
+        }
+
         // ── Incident triage (Alertmanager webhook) ─────────────────────────
         services.Configure<AlertWebhookOptions>(
             configuration.GetSection(AlertWebhookOptions.SectionName));

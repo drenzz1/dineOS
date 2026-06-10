@@ -109,6 +109,13 @@ api:
     StaffSession__TokenLifetimeMinutes: "60"
     StaffSession__RefreshTokenLifetimeMinutes: "720"
 
+    # Feature flags (Unleash, M5.6). Disabled in-cluster by default: the API then
+    # defaults 'ai-menu-generation' ON, so AI behaviour is unchanged. To enable in a
+    # cluster: deploy an Unleash server, set Unleash__Enabled "true" + Unleash__ApiUrl,
+    # and put the client token in secrets.unleashApiToken.
+    Unleash__Enabled: "false"
+    Unleash__ApiUrl: ""
+
 # ------------------------------------------------------------
 # Frontend (Next.js 15 — standalone output)
 # ------------------------------------------------------------
@@ -221,6 +228,9 @@ secrets:
 
   # Staff session PIN flow (#216) — HMAC-SHA256 key; must be ≥32 bytes
   staffSessionSigningKey: ""  # StaffSession__SigningKey
+
+  # Feature flags (Unleash, M5.6) — Unleash client API token; empty while disabled
+  unleashApiToken: ""  # Unleash__ApiToken
 
 # ------------------------------------------------------------
 # In-cluster dependency toggles

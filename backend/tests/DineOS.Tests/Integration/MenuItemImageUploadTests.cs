@@ -182,7 +182,7 @@ public class MenuItemImageUploadTests(CustomWebApplicationFactory factory)
             TenantId    = long.Parse(tenantId),
             Name        = $"Test Item {tenantId}",
             Price       = 9.99m,
-            Category    = "Mains",
+            Category    = new MenuCategory { TenantId = long.Parse(tenantId), Name = "Mains" },
             Description = "Integration test item",
         };
         db.MenuItems.Add(item);

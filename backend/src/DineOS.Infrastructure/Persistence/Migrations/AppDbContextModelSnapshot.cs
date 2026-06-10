@@ -256,9 +256,8 @@ namespace DineOS.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<long>("CategoryId")
+                        .HasColumnType("bigint");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -296,7 +295,9 @@ namespace DineOS.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "Category");
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("TenantId", "CategoryId");
 
                     b.ToTable("MenuItems");
                 });
@@ -727,15 +728,9 @@ namespace DineOS.Infrastructure.Persistence.Migrations
                     b.Property<int>("Plan")
                         .HasColumnType("integer");
 
-                    b.Property<decimal>("Revenue")
-                        .HasColumnType("numeric");
-
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<int>("StaffCount")
-                        .HasColumnType("integer");
 
                     b.Property<string>("StripeCustomerId")
                         .HasColumnType("text");
@@ -745,9 +740,6 @@ namespace DineOS.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("StripeSubscriptionId")
                         .HasColumnType("text");
-
-                    b.Property<int>("TotalOrders")
-                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -784,10 +776,7 @@ namespace DineOS.Infrastructure.Persistence.Migrations
                             OwnerName = "Demo Owner",
                             Phone = "+1 555 000 0000",
                             Plan = 1,
-                            Revenue = 0m,
-                            Slug = "demo-restaurant",
-                            StaffCount = 0,
-                            TotalOrders = 0
+                            Slug = "demo-restaurant"
                         });
                 });
 
@@ -873,6 +862,17 @@ namespace DineOS.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "ProcessedAt");
 
                     b.ToTable("ProcessedMessages");
+                });
+
+            modelBuilder.Entity("DineOS.Domain.Entities.MenuItem", b =>
+                {
+                    b.HasOne("DineOS.Domain.Entities.MenuCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
                 });
 
             modelBuilder.Entity("DineOS.Domain.Entities.OrderItem", b =>

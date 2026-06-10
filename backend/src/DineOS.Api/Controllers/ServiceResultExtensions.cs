@@ -33,6 +33,8 @@ internal static class ServiceResultExtensions
                 new UnauthorizedObjectResult(failure),
             ServiceErrorKind.UnprocessableEntity =>
                 new UnprocessableEntityObjectResult(failure),
+            ServiceErrorKind.ServiceUnavailable =>
+                new ObjectResult(failure) { StatusCode = StatusCodes.Status503ServiceUnavailable },
             _ => new ObjectResult(failure) { StatusCode = StatusCodes.Status500InternalServerError }
         };
     }
