@@ -273,6 +273,8 @@ Trivy scans dependency manifests on every pull request (`trivy fs`) and the buil
 
 See [docs/devops/security.md](docs/devops/security.md) for the image hardening criteria with Dockerfile references, how to reproduce scans locally with `trivy fs` and `trivy image`, and the full `.trivyignore` add/review/expiry workflow.
 
+At the application layer, **gitleaks** scans the full git history for committed secrets on every push/PR (`.github/workflows/secret-scan.yml`), an **OWASP ZAP** baseline DAST drove the HTTP security-header hardening in `next.config.ts` (CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Permissions-Policy`, HSTS, COOP/CORP), and **Lighthouse CI** (`.github/workflows/lighthouse.yml`) gates web-quality regressions. See [docs/devops/security-audit.md](docs/devops/security-audit.md) for the full audit — scan results, before/after evidence, and prioritized recommendations.
+
 ## More Documentation
 
 - **System architecture (C4 diagrams + deployment views): `docs/architecture/README.md`**
@@ -281,6 +283,7 @@ See [docs/devops/security.md](docs/devops/security.md) for the image hardening c
 - Frontend details: `frontend/README.md`
 - Keycloak setup: `docs/keycloak-setup.md`
 - Backend auth design: `docs/backend/auth.md`
+- Feature flags (Unleash runtime toggles): `docs/backend/feature-flags.md`
 - Database migrations: `docs/database-migrations.md`
 - Database ERD: `docs/database/ERD.md`
 - Database schema reference: `docs/database/SCHEMA.md`
@@ -293,5 +296,6 @@ See [docs/devops/security.md](docs/devops/security.md) for the image hardening c
 - Observability (Uptime Kuma status page): `docs/devops/uptime-kuma.md`
 - AI-powered incident triage (DO-12): `docs/devops/aiops-triage.md`
 - Container security (image hardening, Trivy scanning): `docs/devops/security.md`
+- Security audit (gitleaks, OWASP ZAP, secrets, Lighthouse CI): `docs/devops/security-audit.md`
 - Performance audit (Lighthouse, caching, CDN, Redis, images): `docs/devops/performance-audit.md`
 - Release workflow (Conventional Commits, release-please, semver): `docs/devops/releases.md`
