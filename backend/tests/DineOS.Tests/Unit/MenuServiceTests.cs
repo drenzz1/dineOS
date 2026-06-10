@@ -65,7 +65,7 @@ public class MenuServiceTests
     public async Task GetMenuItemsAsync_CacheMiss_LoadsFromDbAndPopulatesCache()
     {
         var (svc, db, cache) = CreateSut(tenantId: 1L);
-        db.MenuItems.Add(new MenuItem { TenantId = 1, Name = "Pizza", Price = 10m, Category = "Mains" });
+        db.MenuItems.Add(new MenuItem { TenantId = 1, Name = "Pizza", Price = 10m, Category = new MenuCategory { TenantId = 1, Name = "Mains" } });
         await db.SaveChangesAsync();
 
         var result = await svc.GetMenuItemsAsync();
@@ -87,7 +87,7 @@ public class MenuServiceTests
         };
 
         // DB has a *different* row to prove the service did not hit it
-        db.MenuItems.Add(new MenuItem { TenantId = 1, Name = "Db Pizza", Price = 99m, Category = "Mains" });
+        db.MenuItems.Add(new MenuItem { TenantId = 1, Name = "Db Pizza", Price = 99m, Category = new MenuCategory { TenantId = 1, Name = "Mains" } });
         await db.SaveChangesAsync();
 
         var result = await svc.GetMenuItemsAsync();
@@ -119,7 +119,7 @@ public class MenuServiceTests
     public async Task UpdateMenuItemAsync_Success_InvalidatesCache()
     {
         var (svc, db, cache) = CreateSut(tenantId: 1L);
-        var item = new MenuItem { TenantId = 1, Name = "Old", Price = 5m, Category = "X" };
+        var item = new MenuItem { TenantId = 1, Name = "Old", Price = 5m, Category = new MenuCategory { TenantId = 1, Name = "X" } };
         db.MenuItems.Add(item);
         await db.SaveChangesAsync();
         cache.Store["menu:items:tenant:1"] = new List<MenuItemDto>();
@@ -138,7 +138,7 @@ public class MenuServiceTests
     public async Task DeleteMenuItemAsync_Success_InvalidatesCache()
     {
         var (svc, db, cache) = CreateSut(tenantId: 1L);
-        var item = new MenuItem { TenantId = 1, Name = "X", Price = 1m, Category = "Y" };
+        var item = new MenuItem { TenantId = 1, Name = "X", Price = 1m, Category = new MenuCategory { TenantId = 1, Name = "Y" } };
         db.MenuItems.Add(item);
         await db.SaveChangesAsync();
         cache.Store["menu:items:tenant:1"] = new List<MenuItemDto>();

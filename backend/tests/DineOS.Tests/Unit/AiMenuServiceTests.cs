@@ -38,7 +38,7 @@ public class AiMenuServiceTests
         {
             Name        = "Margherita Pizza",
             Price       = 9.50m,
-            Category    = "Pizza",
+            Category    = new MenuCategory { TenantId = tenantId, Name = "Pizza" },
             TenantId    = tenantId,
             Description = null,
         };

@@ -13,9 +13,10 @@ public class Tenant : BaseAuditingEntity
     public string Phone { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
     public SubscriptionPlan Plan { get; set; } = SubscriptionPlan.Free;
-    public int TotalOrders { get; set; }
-    public int StaffCount { get; set; }
-    public decimal Revenue { get; set; }
+    // TotalOrders / StaffCount / Revenue used to be stored on the tenant row, but
+    // they are derived values (counts/sums over Orders, StaffMembers, Payments).
+    // Storing them duplicated derivable data and they were never maintained, so
+    // they always read 0. They are now computed on demand in AdminRestaurantService.
     public bool OwnerEmailVerified { get; set; }
     public DateTime? OwnerEmailVerifiedAt { get; set; }
 

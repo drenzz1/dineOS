@@ -21,6 +21,7 @@ public sealed class AiMenuService(
         // Tenant-scoped query filter is applied automatically, so an item from
         // another tenant returns null without leaking existence.
         var item = await db.MenuItems.AsNoTracking()
+            .Include(m => m.Category)
             .FirstOrDefaultAsync(m => m.Id == menuItemId, ct);
 
         if (item is null)
@@ -29,7 +30,7 @@ public sealed class AiMenuService(
 
         var request = new MenuDescriptionAiRequest(
             Name:                item.Name,
-            Category:            item.Category,
+            Category:            item.Category.Name,
             Price:               item.Price,
             ExistingDescription: item.Description);
 
@@ -50,7 +51,7 @@ public sealed class AiMenuService(
             var dto = new MenuItemDescriptionSuggestionDto(
                 MenuItemId:           item.Id,
                 ItemName:             item.Name,
-                Category:             item.Category,
+                Category:             item.Category.Name,
                 SuggestedDescription: result.Description,
                 SuggestedAllergens:   result.Allergens,
                 Metadata: new AiSuggestionMetadata(

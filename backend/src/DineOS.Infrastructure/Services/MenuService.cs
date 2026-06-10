@@ -44,19 +44,36 @@ public class MenuService(
     private Task<List<MenuItemDto>> LoadMenuItemsAsync(CancellationToken ct) =>
         db.MenuItems
             .AsNoTracking()
-            .OrderBy(mi => mi.Category)
+            .OrderBy(mi => mi.Category.Name)
             .ThenBy(mi => mi.Name)
             .Select(mi => new MenuItemDto
             {
                 Id          = mi.Id,
                 Name        = mi.Name,
                 Price       = mi.Price,
-                Category    = mi.Category,
+                Category    = mi.Category.Name,
                 Description = mi.Description,
                 ImageUrl    = mi.ImageUrl,
                 TenantId    = mi.TenantId,
             })
             .ToListAsync(ct);
+
+    // Resolves a category *name* to a MenuCategory for the tenant, creating it on
+    // first use. The new category is attached to the context and persisted by the
+    // caller's SaveChanges (EF sets the FK via the navigation on the menu item).
+    private async Task<MenuCategory> ResolveCategoryAsync(long tenantId, string name, CancellationToken ct)
+    {
+        var trimmed = name.Trim();
+
+        var existing = await db.MenuCategories
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Name == trimmed, ct);
+        if (existing is not null)
+            return existing;
+
+        var created = new MenuCategory { TenantId = tenantId, Name = trimmed };
+        db.MenuCategories.Add(created);
+        return created;
+    }
 
     public async Task<ServiceResult<MenuItemDto>> CreateMenuItemAsync(
         CreateMenuItemRequest request,
@@ -73,12 +90,14 @@ public class MenuService(
         if (tenantService.TenantId is not { } tenantId)
             return ServiceResult<MenuItemDto>.BadRequest("Tenant context is required.");
 
+        var category = await ResolveCategoryAsync(tenantId, request.Category, ct);
+
         var item = new MenuItem
         {
             TenantId    = tenantId,
             Name        = request.Name,
             Price       = request.Price,
-            Category    = request.Category,
+            Category    = category,
             Description = request.Description,
             ImageUrl    = request.ImageUrl,
         };
@@ -89,7 +108,7 @@ public class MenuService(
 
         logger.LogInformation(
             "Menu item created: MenuItemId={MenuItemId} TenantId={TenantId} ActorUserId={ActorUserId} Category={Category}",
-            item.Id, tenantId, currentUserService.UserId, item.Category);
+            item.Id, tenantId, currentUserService.UserId, item.Category.Name);
 
         return ServiceResult<MenuItemDto>.Created(ToItemDto(item), "Menu item created.");
     }
@@ -111,9 +130,11 @@ public class MenuService(
         if (item is null)
             return ServiceResult<MenuItemDto>.NotFound($"Menu item {id} not found.");
 
+        var category = await ResolveCategoryAsync(item.TenantId, request.Category, ct);
+
         item.Name        = request.Name;
         item.Price       = request.Price;
-        item.Category    = request.Category;
+        item.Category    = category;
         item.Description = request.Description;
         item.ImageUrl    = request.ImageUrl;
 
@@ -232,12 +253,14 @@ public class MenuService(
         return ServiceResult<MenuCategoryDto>.Created(ToCategoryDto(category), "Menu category created.");
     }
 
+    // Callers set the Category navigation (via ResolveCategoryAsync) before
+    // mapping, so mi.Category.Name is always populated here.
     private static MenuItemDto ToItemDto(MenuItem mi) => new()
     {
         Id          = mi.Id,
         Name        = mi.Name,
         Price       = mi.Price,
-        Category    = mi.Category,
+        Category    = mi.Category.Name,
         Description = mi.Description,
         ImageUrl    = mi.ImageUrl,
         TenantId    = mi.TenantId,
