@@ -43,6 +43,24 @@ public sealed class DemoCleanupJob(
         {
             if (user.KeycloakUserId is not null)
             {
+                // Safety guard: if this Keycloak identity was reused for a paid
+                // tenant owner (demo user converted to paid), do not disable it.
+                // OwnerProvisioningJob should have already marked the record Expired
+                // before it reaches here, but this check prevents a lockout in case
+                // of job ordering or retry edge cases.
+                var isOwner = await db.Tenants
+                    .IgnoreQueryFilters()
+                    .AnyAsync(t => t.KeycloakUserId == user.KeycloakUserId, ct);
+
+                if (isOwner)
+                {
+                    user.Status = DemoUserStatus.Expired;
+                    logger.LogWarning(
+                        "Demo cleanup skipping Keycloak disable — Keycloak user is also a tenant owner. DemoUserId={DemoUserId} KeycloakUserId={KeycloakUserId}",
+                        user.Id, user.KeycloakUserId);
+                    continue;
+                }
+
                 try
                 {
                     await keycloakAdmin.SetUserEnabledAsync(user.KeycloakUserId, enabled: false, ct);

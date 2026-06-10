@@ -1,4 +1,5 @@
 using DineOS.Application.Interfaces.Services;
+using DineOS.Domain.Enums;
 using DineOS.Infrastructure.Auth;
 using DineOS.Infrastructure.Persistence;
 using Hangfire;
@@ -94,6 +95,14 @@ public sealed class OwnerProvisioningJob(
             temporaryPassword:  true,
             ct);
 
+        // CreateUserAsync recovers from a 409 (email already in Keycloak) by
+        // returning the existing user's id without touching their password.
+        // Explicitly reset here so the welcome email's temp password always
+        // matches the Keycloak credential — for both new users and the
+        // conflict-recovery path.
+        await keycloakAdmin.ResetPasswordAsync(userId, tempPassword, temporary: true, ct);
+        await keycloakAdmin.SetRequiredActionsAsync(userId, OwnerRequiredActions, ct);
+
         tenant.KeycloakUserId = userId;
         await db.SaveChangesAsync(ct);
 
@@ -108,6 +117,26 @@ public sealed class OwnerProvisioningJob(
             userId, "tenant_id", tenant.Id.ToString(), ct);
 
         await keycloakAdmin.AssignRealmRoleAsync(userId, OwnerRoleName, ct);
+
+        // If this email previously held a demo account, retire it now.
+        // DemoCleanupJob would otherwise call SetUserEnabledAsync(false)
+        // on the same Keycloak user once the demo TTL expires, locking out
+        // the paid owner.
+        var demoUser = await db.DemoUsers
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(
+                d => d.Email == tenant.OwnerEmail
+                  && d.Status == DemoUserStatus.Active,
+                ct);
+
+        if (demoUser is not null)
+        {
+            demoUser.Status = DemoUserStatus.Expired;
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation(
+                "Demo record expired on paid conversion. DemoUserId={DemoUserId} Email={OwnerEmail}",
+                demoUser.Id, tenant.OwnerEmail);
+        }
 
         backgroundJobs.Enqueue<OwnerWelcomeEmailJob>(
             job => job.SendAsync(tenant.Id, tempPassword, CancellationToken.None));

@@ -216,4 +216,26 @@ public class OwnerProvisioningJobTests
         await admin.DidNotReceive().AssignRealmRoleAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task RunAsync_ResetsPasswordAndRequiredActionsAfterConflictRecovery()
+    {
+        // Regression: when CreateUserAsync returns an existing user's id (409
+        // conflict — same email used for a prior signup), the welcome email
+        // contained a new temp password that did not match the stale Keycloak
+        // credential, causing invalid_user_credentials on every login attempt.
+        // The fix: always call ResetPasswordAsync + SetRequiredActionsAsync so
+        // the emailed credentials are authoritative regardless of the create path.
+        var (job, db, admin, _) = CreateSut();
+        var tenant = SeedTenant(db);
+
+        await job.RunAsync(tenant.Id, "TempPass!23", CancellationToken.None);
+
+        await admin.Received(1).ResetPasswordAsync(
+            "kc-user-id", "TempPass!23", temporary: true, Arg.Any<CancellationToken>());
+        await admin.Received(1).SetRequiredActionsAsync(
+            "kc-user-id",
+            Arg.Is<IReadOnlyList<string>>(a => a.Count == 1 && a.Contains("UPDATE_PASSWORD")),
+            Arg.Any<CancellationToken>());
+    }
 }

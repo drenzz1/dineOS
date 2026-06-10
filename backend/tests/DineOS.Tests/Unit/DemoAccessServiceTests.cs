@@ -186,4 +186,60 @@ public class DemoAccessServiceTests
         var row = await db.DemoUsers.IgnoreQueryFilters().SingleAsync();
         Assert.Equal("visitor@example.com", row.Email);
     }
+
+    [Fact]
+    public async Task RequestAsync_ActivePaidTenantOwner_ReturnsOkWithoutInsertingRowOrEnqueuingJob()
+    {
+        // Regression: demo provisioning overwrites the Keycloak tenant_id attribute,
+        // cutting a paid owner off from their account.
+        var (svc, db, jobs) = CreateSut();
+
+        db.Tenants.Add(new DineOS.Domain.Entities.Tenant
+        {
+            Name          = "Paid Restaurant",
+            Slug          = "paid-restaurant",
+            OwnerEmail    = "OWNER@Example.com",  // mixed case — guard must match case-insensitively
+            OwnerName     = "Alice",
+            IsActive      = true,
+            BillingStatus = DineOS.Domain.Enums.BillingStatus.Active,
+            Plan          = DineOS.Domain.Enums.SubscriptionPlan.Pro,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.RequestAsync(ValidRequest("owner@example.com"), ipAddress: "1.2.3.4");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, await db.DemoUsers.IgnoreQueryFilters().CountAsync());
+        jobs.DidNotReceive().Create(
+            Arg.Any<Hangfire.Common.Job>(),
+            Arg.Any<Hangfire.States.EnqueuedState>());
+    }
+
+    [Fact]
+    public async Task RequestAsync_CancelledTenantOwner_ProceedsNormally()
+    {
+        // A cancelled (churned) paid owner is allowed to request demo access —
+        // their account is inactive and they may want to re-evaluate the product.
+        var (svc, db, jobs) = CreateSut();
+
+        db.Tenants.Add(new DineOS.Domain.Entities.Tenant
+        {
+            Name          = "Old Restaurant",
+            Slug          = "old-restaurant",
+            OwnerEmail    = "churned@example.com",
+            OwnerName     = "Bob",
+            IsActive      = false,
+            BillingStatus = DineOS.Domain.Enums.BillingStatus.Canceled,
+            Plan          = DineOS.Domain.Enums.SubscriptionPlan.Free,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.RequestAsync(ValidRequest("churned@example.com"), ipAddress: "1.2.3.4");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, await db.DemoUsers.IgnoreQueryFilters().CountAsync());
+        jobs.Received(1).Create(
+            Arg.Any<Hangfire.Common.Job>(),
+            Arg.Any<Hangfire.States.EnqueuedState>());
+    }
 }

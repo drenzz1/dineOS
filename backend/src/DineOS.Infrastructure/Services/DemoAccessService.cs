@@ -64,6 +64,26 @@ public sealed class DemoAccessService(
         var now = DateTime.UtcNow;
         var expiresAt = now + opts.AccountTtl;
 
+        // Silently no-op for active paid tenants. Demo provisioning rewrites the
+        // Keycloak tenant_id attribute, which would cut the owner off from their
+        // paid account. Return the same constant response as the happy path so
+        // the caller cannot enumerate paid-owner emails from this endpoint.
+        var isPaidOwner = await db.Tenants
+            .IgnoreQueryFilters()
+            .AnyAsync(
+                t => t.OwnerEmail.ToLower() == normalizedEmail
+                  && (t.BillingStatus == BillingStatus.Active || t.BillingStatus == BillingStatus.Trialing)
+                  && t.DeletedAt == null,
+                ct);
+
+        if (isPaidOwner)
+        {
+            logger.LogInformation(
+                "Demo request silently skipped — email is an active paid tenant owner. Email={Email}",
+                normalizedEmail);
+            return ServiceResult<RequestDemoAccessResponse>.Ok(new RequestDemoAccessResponse());
+        }
+
         var existing = await db.DemoUsers
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(d => d.Email == normalizedEmail, ct);
