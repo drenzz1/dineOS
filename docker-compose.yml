@@ -51,6 +51,9 @@ services:
       - GoogleAI__ApiKey=${GoogleAI__ApiKey:-}
       - Slack__WebhookUrl=${SLACK_WEBHOOK_URL:-}
       - AlertWebhook__SharedSecret=${ALERT_WEBHOOK_SECRET:-}
+      - Unleash__Enabled=${Unleash__Enabled:-true}
+      - Unleash__ApiUrl=${Unleash__ApiUrl:-http://unleash:4242/api/}
+      - Unleash__ApiToken=${Unleash__ApiToken:-default:development.unleash-insecure-api-token}
     volumes:
       - dineos_uploads:/app/uploads
     healthcheck:
@@ -71,6 +74,8 @@ services:
       loki:
         condition: service_healthy
       mailhog:
+        condition: service_started
+      unleash:
         condition: service_started
     networks:
       - dineos-net
@@ -177,6 +182,56 @@ services:
       - ./backend/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     networks:
       - dineos-net
+
+  # ── Feature flags (Unleash, M5.6) ───────────────────────────────────────
+  # Unleash gets its OWN small Postgres rather than reusing dineos-postgres:
+  # the shared volume is already initialised (no init-script hook) and this keeps
+  # flag data fully isolated from app data. In the cluster, Helm points Unleash at
+  # a dedicated database inside the shared Postgres (the Keycloak pattern).
+  unleash-db:
+    image: postgres:16-alpine
+    container_name: dineos-unleash-db
+    environment:
+      POSTGRES_DB: unleash
+      POSTGRES_USER: unleash
+      POSTGRES_PASSWORD: ${UNLEASH_DB_PASSWORD:-unleash_dev}
+    volumes:
+      - unleash_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unleash -d unleash"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  unleash:
+    image: unleashorg/unleash-server:6
+    container_name: dineos-unleash
+    depends_on:
+      unleash-db:
+        condition: service_healthy
+    ports:
+      - "${UNLEASH_PORT:-4242}:4242"
+    environment:
+      DATABASE_URL: postgres://unleash:${UNLEASH_DB_PASSWORD:-unleash_dev}@unleash-db:5432/unleash
+      DATABASE_SSL: "false"
+      LOG_LEVEL: warn
+      # Seed deterministic tokens so the demo needs no manual setup:
+      #  - client token: used by the API's Unleash SDK (Unleash__ApiToken)
+      #  - admin token:  used to script flag creation via the admin API
+      INIT_CLIENT_API_TOKENS: "default:development.unleash-insecure-api-token"
+      INIT_ADMIN_API_TOKENS: "*:*.unleash-insecure-admin-token"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4242/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - dineos-net
+    restart: unless-stopped
 
   rabbitmq:
     image: rabbitmq:4-management
@@ -441,6 +496,7 @@ services:
 
 volumes:
   postgres_data:
+  unleash_db_data:
   redis_data:
   rabbitmq_data:
   loki_data:

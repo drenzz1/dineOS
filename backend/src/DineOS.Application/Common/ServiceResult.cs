@@ -10,7 +10,8 @@ public enum ServiceErrorKind
     BadRequest,
     Conflict,
     Unauthorized,
-    UnprocessableEntity
+    UnprocessableEntity,
+    ServiceUnavailable
 }
 
 public class ServiceResult<T>
@@ -59,4 +60,8 @@ public class ServiceResult<T>
 
     public static ServiceResult<T> UnprocessableEntity(string message) =>
         new(default, ServiceErrorKind.UnprocessableEntity, message, null, null, isCreated: false);
+
+    /// <summary>The capability is currently turned off (e.g. behind a feature flag) — maps to HTTP 503.</summary>
+    public static ServiceResult<T> ServiceUnavailable(string message) =>
+        new(default, ServiceErrorKind.ServiceUnavailable, message, null, null, isCreated: false);
 }
