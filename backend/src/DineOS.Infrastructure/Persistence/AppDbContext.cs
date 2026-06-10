@@ -181,13 +181,16 @@ public class AppDbContext : DbContext
         var contextConst = Expression.Constant(this, typeof(AppDbContext));
         var tenantIdField = Expression.Field(contextConst, nameof(_currentTenantId));
         var tenantIdHasValue = Expression.Property(tenantIdField, nameof(Nullable<long>.HasValue));
-        var tenantIdValue = Expression.Property(tenantIdField, nameof(Nullable<long>.Value));
         var entityTenantId = Expression.Property(param, nameof(TenantAuditingEntity.TenantId));
+        // Cast entity TenantId to long? so we compare long? == long? (avoids .Value on null for SuperAdmin)
+        var entityTenantIdNullable = Expression.Convert(entityTenantId, typeof(long?));
 
-        // filter: notDeleted && (!tenantId.HasValue || e.TenantId == tenantId.Value)
+        // filter: notDeleted && (!tenantId.HasValue || (long?)e.TenantId == tenantId)
+        // Using tenantIdField (long?) directly instead of tenantIdValue (.Value) prevents
+        // InvalidOperationException when _currentTenantId is null (e.g. SuperAdmin has no tenant_id claim).
         var tenantMatches = Expression.OrElse(
             Expression.Not(tenantIdHasValue),
-            Expression.Equal(entityTenantId, tenantIdValue));
+            Expression.Equal(entityTenantIdNullable, tenantIdField));
 
         var body = Expression.AndAlso(notDeleted, tenantMatches);
         return Expression.Lambda(body, param);
