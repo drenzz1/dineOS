@@ -1,0 +1,89 @@
+{
+  "id": "dineOSOrderTri01",
+  "name": "dineOS Order Triage (webhook to LLM to Slack)",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-triage",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "WebhookNode000001",
+      "name": "Order Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 320],
+      "webhookId": "dineos-order-triage-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: ($env.ANTHROPIC_MODEL || 'claude-sonnet-4-5'), max_tokens: 400, system: 'You are an operations assistant for the dineOS restaurant platform. Given a JSON order event, reply with ONE concise sentence that summarizes the order (table/customer, item count, total) and explicitly flags whether it needs staff attention (high value, many items, or allergy / special-request notes). Plain text only, no preamble.', messages: [ { role: 'user', content: ('Order event JSON:\\n' + JSON.stringify($json.body || $json)) } ] }) }}",
+        "options": {}
+      },
+      "id": "AnthropicNode0001",
+      "name": "Anthropic Triage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 320],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: (':bell: *dineOS order triage*\\n' + ((($json.content && $json.content[0] && $json.content[0].text)) || 'AI summary unavailable - set ANTHROPIC_API_KEY to enable LLM triage.')) }) }}",
+        "options": {}
+      },
+      "id": "SlackNotifyNode01",
+      "name": "Slack Notify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 320],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, summary: ((($('Anthropic Triage').item.json.content && $('Anthropic Triage').item.json.content[0] && $('Anthropic Triage').item.json.content[0].text)) || 'AI summary unavailable - set ANTHROPIC_API_KEY to enable LLM triage.') } }}",
+        "options": {}
+      },
+      "id": "RespondNode00001",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [940, 320]
+    }
+  ],
+  "connections": {
+    "Order Webhook": {
+      "main": [[{ "node": "Anthropic Triage", "type": "main", "index": 0 }]]
+    },
+    "Anthropic Triage": {
+      "main": [[{ "node": "Slack Notify", "type": "main", "index": 0 }]]
+    },
+    "Slack Notify": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": {
+    "description": "M5.8 automation pipeline. A POST to /webhook/order-triage triggers an Anthropic LLM call that summarizes and flags the order, posts the result to Slack, and returns the summary in the HTTP response. Reads ANTHROPIC_API_KEY, ANTHROPIC_MODEL and SLACK_WEBHOOK_URL from the n8n container environment."
+  }
+}

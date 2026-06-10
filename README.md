@@ -124,6 +124,7 @@ The app is available at **http://localhost** once all services are healthy (~60�
 | Keycloak | http://localhost:8080 |
 | Grafana | http://localhost:4000 |
 | Mailhog | http://localhost:8025 |
+| n8n (workflow automation) | http://localhost:5678 |
 
 See [docs/devops/compose.md](docs/devops/compose.md) for the full service URL map, credentials, lifecycle commands, and troubleshooting.
 
@@ -295,6 +296,7 @@ At the application layer, **gitleaks** scans the full git history for committed 
 - Observability (ELK centralized logging): `docs/devops/elk.md`
 - Observability (Uptime Kuma status page): `docs/devops/uptime-kuma.md`
 - AI-powered incident triage (DO-12): `docs/devops/aiops-triage.md`
+- n8n workflow automation (webhook → LLM → notification, M5.8): `docs/devops/n8n-automation.md`
 - Container security (image hardening, Trivy scanning): `docs/devops/security.md`
 - Security audit (gitleaks, OWASP ZAP, secrets, Lighthouse CI): `docs/devops/security-audit.md`
 - Performance audit (Lighthouse, caching, CDN, Redis, images): `docs/devops/performance-audit.md`
