@@ -39,10 +39,38 @@ public class AdminRestaurantService(
         }
 
         var total = await query.CountAsync(ct);
-        var items = await query
+        var tenants = await query
             .OrderBy(t => t.Name)
             .Skip(pagination.Skip)
             .Take(pagination.PageSize)
+            .ToListAsync(ct);
+
+        // Compute the derived aggregates (orders / staff / revenue) in three
+        // batched grouped queries rather than per-row, to avoid an N+1.
+        var ids = tenants.Select(t => t.Id).ToList();
+
+        // These queries run as SuperAdmin (no ambient tenant), so they bypass the
+        // tenant query filter and scope by TenantId explicitly. DeletedAt == null
+        // preserves the soft-delete semantics the filter would otherwise apply.
+        var orderCounts = await db.Orders.IgnoreQueryFilters()
+            .Where(o => ids.Contains(o.TenantId) && o.DeletedAt == null)
+            .GroupBy(o => o.TenantId)
+            .Select(g => new { TenantId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Count, ct);
+
+        var staffCounts = await db.StaffMembers.IgnoreQueryFilters()
+            .Where(s => ids.Contains(s.TenantId) && s.DeletedAt == null)
+            .GroupBy(s => s.TenantId)
+            .Select(g => new { TenantId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Count, ct);
+
+        var revenue = await db.Payments.IgnoreQueryFilters()
+            .Where(p => ids.Contains(p.TenantId) && p.DeletedAt == null && p.Status == PaymentStatus.Completed)
+            .GroupBy(p => p.TenantId)
+            .Select(g => new { TenantId = g.Key, Sum = g.Sum(p => p.Amount) })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Sum, ct);
+
+        var items = tenants
             .Select(t => new RestaurantDto(
                 t.Id,
                 t.Name,
@@ -52,12 +80,12 @@ public class AdminRestaurantService(
                 t.City,
                 t.Plan.ToString(),
                 t.IsActive ? "Active" : "Suspended",
-                t.TotalOrders,
-                t.StaffCount,
-                t.Revenue,
+                orderCounts.GetValueOrDefault(t.Id),
+                staffCounts.GetValueOrDefault(t.Id),
+                revenue.GetValueOrDefault(t.Id),
                 t.CreatedAt,
                 t.OwnerEmailVerified))
-            .ToListAsync(ct);
+            .ToList();
 
         return ServiceResult<PagedResponse<RestaurantDto>>.Ok(
             PagedResponse<RestaurantDto>.From(items, total, pagination));
@@ -71,7 +99,7 @@ public class AdminRestaurantService(
         if (tenant is null)
             return ServiceResult<RestaurantDto>.NotFound($"Restaurant {id} not found.");
 
-        return ServiceResult<RestaurantDto>.Ok(ToDto(tenant));
+        return ServiceResult<RestaurantDto>.Ok(await ToDtoAsync(tenant, ct));
     }
 
     public async Task<ServiceResult<RestaurantDto>> CreateAsync(
@@ -117,7 +145,7 @@ public class AdminRestaurantService(
             "Account verification email enqueued: RestaurantId={RestaurantId} JobId={JobId}",
             tenant.Id, jobId);
 
-        return ServiceResult<RestaurantDto>.Created(ToDto(tenant), "Restaurant created.");
+        return ServiceResult<RestaurantDto>.Created(await ToDtoAsync(tenant, ct), "Restaurant created.");
     }
 
     public async Task<ServiceResult<RestaurantDto>> UpdateStatusAsync(
@@ -148,7 +176,7 @@ public class AdminRestaurantService(
             tenant.IsActive ? "Active" : "Suspended",
             currentUserService.UserId);
 
-        return ServiceResult<RestaurantDto>.Ok(ToDto(tenant));
+        return ServiceResult<RestaurantDto>.Ok(await ToDtoAsync(tenant, ct));
     }
 
     public async Task<ServiceResult<RestaurantDto>> UpdatePlanAsync(
@@ -176,7 +204,7 @@ public class AdminRestaurantService(
             "Restaurant plan changed: RestaurantId={RestaurantId} Previous={Previous} Current={Current} ActorUserId={ActorUserId}",
             tenant.Id, previous, tenant.Plan, currentUserService.UserId);
 
-        return ServiceResult<RestaurantDto>.Ok(ToDto(tenant));
+        return ServiceResult<RestaurantDto>.Ok(await ToDtoAsync(tenant, ct));
     }
 
     public async Task<ServiceResult<RestaurantDto>> DeleteAsync(long id, CancellationToken ct = default)
@@ -185,7 +213,7 @@ public class AdminRestaurantService(
         if (tenant is null)
             return ServiceResult<RestaurantDto>.NotFound($"Restaurant {id} not found.");
 
-        var dto = ToDto(tenant);
+        var dto = await ToDtoAsync(tenant, ct);
 
         // Soft delete — AuditInterceptor + query filters keep deleted tenants out of listings.
         db.Tenants.Remove(tenant);
@@ -198,20 +226,33 @@ public class AdminRestaurantService(
         return ServiceResult<RestaurantDto>.Ok(dto, $"Restaurant {id} deleted.");
     }
 
-    private static RestaurantDto ToDto(Tenant t) => new(
-        t.Id,
-        t.Name,
-        t.OwnerName,
-        t.OwnerEmail,
-        t.Phone,
-        t.City,
-        t.Plan.ToString(),
-        t.IsActive ? "Active" : "Suspended",
-        t.TotalOrders,
-        t.StaffCount,
-        t.Revenue,
-        t.CreatedAt,
-        t.OwnerEmailVerified);
+    // Builds the DTO with the derived aggregates (orders / staff / revenue)
+    // computed from the related tables rather than read off the tenant row.
+    private async Task<RestaurantDto> ToDtoAsync(Tenant t, CancellationToken ct)
+    {
+        var orders = await db.Orders.IgnoreQueryFilters()
+            .CountAsync(o => o.TenantId == t.Id && o.DeletedAt == null, ct);
+        var staff = await db.StaffMembers.IgnoreQueryFilters()
+            .CountAsync(s => s.TenantId == t.Id && s.DeletedAt == null, ct);
+        var revenue = await db.Payments.IgnoreQueryFilters()
+            .Where(p => p.TenantId == t.Id && p.DeletedAt == null && p.Status == PaymentStatus.Completed)
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+
+        return new RestaurantDto(
+            t.Id,
+            t.Name,
+            t.OwnerName,
+            t.OwnerEmail,
+            t.Phone,
+            t.City,
+            t.Plan.ToString(),
+            t.IsActive ? "Active" : "Suspended",
+            orders,
+            staff,
+            revenue,
+            t.CreatedAt,
+            t.OwnerEmailVerified);
+    }
 
     private static string GenerateSlug(string name) =>
         Regex.Replace(name.ToLower().Trim(), @"[^a-z0-9]+", "-").Trim('-');

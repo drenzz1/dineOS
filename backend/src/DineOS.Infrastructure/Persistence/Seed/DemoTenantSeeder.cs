@@ -86,14 +86,17 @@ public sealed class DemoTenantSeeder(
             return;
 
         string[] categories = ["Starters", "Mains", "Drinks"];
+        var categoriesByName = new Dictionary<string, MenuCategory>();
         foreach (var name in categories)
         {
-            db.MenuCategories.Add(new MenuCategory
+            var category = new MenuCategory
             {
                 TenantId  = tenantId,
                 Name      = name,
                 CreatedAt = DateTime.UtcNow,
-            });
+            };
+            db.MenuCategories.Add(category);
+            categoriesByName[name] = category;
         }
 
         (string Name, decimal Price, string Category, string Description)[] items =
@@ -119,7 +122,7 @@ public sealed class DemoTenantSeeder(
                 TenantId    = tenantId,
                 Name        = name,
                 Price       = price,
-                Category    = category,
+                Category    = categoriesByName[category],
                 Description = description,
                 CreatedAt   = DateTime.UtcNow,
             });

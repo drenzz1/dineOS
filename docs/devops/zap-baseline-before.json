@@ -1,0 +1,103 @@
+{
+  "tool": "OWASP ZAP baseline (passive spider + passive scan)",
+  "target": "dineOS frontend \u2014 local production build, public surface",
+  "date": "2026-06-10",
+  "summary": {
+    "fail": 0,
+    "warn": 10,
+    "pass": 57
+  },
+  "alerts": [
+    {
+      "name": "Content Security Policy (CSP) Header Not Set",
+      "risk": "Medium",
+      "count": 5,
+      "pluginid": "10038",
+      "cweid": "693"
+    },
+    {
+      "name": "Missing Anti-clickjacking Header",
+      "risk": "Medium",
+      "count": 5,
+      "pluginid": "10020",
+      "cweid": "1021"
+    },
+    {
+      "name": "Application Error Disclosure",
+      "risk": "Low",
+      "count": 2,
+      "pluginid": "90022",
+      "cweid": "550"
+    },
+    {
+      "name": "Cross-Origin-Embedder-Policy Header Missing or Invalid",
+      "risk": "Low",
+      "count": 2,
+      "pluginid": "90004",
+      "cweid": "693"
+    },
+    {
+      "name": "Cross-Origin-Opener-Policy Header Missing or Invalid",
+      "risk": "Low",
+      "count": 2,
+      "pluginid": "90004",
+      "cweid": "693"
+    },
+    {
+      "name": "Cross-Origin-Resource-Policy Header Missing or Invalid",
+      "risk": "Low",
+      "count": 5,
+      "pluginid": "90004",
+      "cweid": "693"
+    },
+    {
+      "name": "Permissions Policy Header Not Set",
+      "risk": "Low",
+      "count": 5,
+      "pluginid": "10063",
+      "cweid": "693"
+    },
+    {
+      "name": "Server Leaks Information via \"X-Powered-By\" HTTP Response Header Field(s)",
+      "risk": "Low",
+      "count": 5,
+      "pluginid": "10037",
+      "cweid": "497"
+    },
+    {
+      "name": "X-Content-Type-Options Header Missing",
+      "risk": "Low",
+      "count": 5,
+      "pluginid": "10021",
+      "cweid": "693"
+    },
+    {
+      "name": "Content-Type Header Missing",
+      "risk": "Info",
+      "count": 4,
+      "pluginid": "10019",
+      "cweid": "345"
+    },
+    {
+      "name": "Information Disclosure - Sensitive Information in URL",
+      "risk": "Info",
+      "count": 2,
+      "pluginid": "10024",
+      "cweid": "598"
+    },
+    {
+      "name": "Non-Storable Content",
+      "risk": "Info",
+      "count": 5,
+      "pluginid": "10049",
+      "cweid": "524"
+    },
+    {
+      "name": "Storable and Cacheable Content",
+      "risk": "Info",
+      "count": 5,
+      "pluginid": "10049",
+      "cweid": "524"
+    }
+  ]
+}

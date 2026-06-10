@@ -1,5 +1,7 @@
 "use client";
 
+import { RouteError } from "@/components/shared/RouteError";
+
 export default function NewRestaurantError({
   error,
   unstable_retry,
@@ -8,16 +10,6 @@ export default function NewRestaurantError({
   unstable_retry: () => void;
 }) {
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-red-600">
-        Failed to load the onboard form: {error.message}
-      </p>
-      <button
-        onClick={unstable_retry}
-        className="text-sm font-medium text-blue-600 hover:underline"
-      >
-        Try again
-      </button>
-    </div>
+    <RouteError error={error} retry={unstable_retry} title="Couldn't load the onboarding form" />
   );
 }

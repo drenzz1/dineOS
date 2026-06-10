@@ -38,6 +38,9 @@ services:
       - Email__FromAddress=no-reply@dineos.local
       - Email__FromName=DineOS
       - Email__SimulateFailure=false
+      - Unleash__Enabled=${Unleash__Enabled:-true}
+      - Unleash__ApiUrl=${Unleash__ApiUrl:-http://unleash:4242/api/}
+      - Unleash__ApiToken=${Unleash__ApiToken:-default:development.unleash-insecure-api-token}
     volumes:
       - dineos_uploads:/app/uploads
     depends_on:
@@ -52,6 +55,8 @@ services:
       loki:
         condition: service_healthy
       mailhog:
+        condition: service_started
+      unleash:
         condition: service_started
     networks:
       - dineos-net
@@ -200,8 +205,55 @@ services:
     profiles:
       - tools
 
+  # ── Feature flags (Unleash, M5.6) ───────────────────────────────────────
+  # Unleash uses its OWN small Postgres (the shared one is already initialised,
+  # no init hook) so flag data stays isolated from app data. Deterministic seeded
+  # tokens (client + admin) mean the dev stack needs no manual Unleash setup.
+  unleash-db:
+    image: postgres:16-alpine
+    container_name: dineos-unleash-db
+    environment:
+      POSTGRES_DB: unleash
+      POSTGRES_USER: unleash
+      POSTGRES_PASSWORD: ${UNLEASH_DB_PASSWORD:-unleash_dev}
+    volumes:
+      - unleash_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unleash -d unleash"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
+  unleash:
+    image: unleashorg/unleash-server:6
+    container_name: dineos-unleash
+    depends_on:
+      unleash-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${UNLEASH_PORT:-4242}:4242"
+    environment:
+      DATABASE_URL: postgres://unleash:${UNLEASH_DB_PASSWORD:-unleash_dev}@unleash-db:5432/unleash
+      DATABASE_SSL: "false"
+      LOG_LEVEL: warn
+      INIT_CLIENT_API_TOKENS: "default:development.unleash-insecure-api-token"
+      INIT_ADMIN_API_TOKENS: "*:*.unleash-insecure-admin-token"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4242/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - dineos-net
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  unleash_db_data:
   keycloak_data:
   redis_data:
   rabbitmq_data:

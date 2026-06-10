@@ -1,0 +1,13 @@
+# gitleaks false-positive suppressions (fingerprint format: <commit>:<path>:<rule>:<line>)
+#
+# CVE-style review: each entry must be a CONFIRMED false positive, not deferred
+# remediation. If a real secret is ever committed, rotate it and scrub history —
+# do not add it here.
+
+# Truncated Stripe TEST-mode key fragment shown as a FORMAT EXAMPLE inside a
+# `helm upgrade --set secrets.providerApiKeys.stripe="..."` usage comment at the
+# bottom of values.project-06.yaml. Not a working credential: the sk_test_ body is
+# 17 chars (a real Stripe key body is ~99) and the value ends in a literal "..."
+# ellipsis. Verified during the M5.5 security audit (2026-06-10). Optional hygiene:
+# replace the example with an obviously-fake placeholder next time the file is edited.
+e69cf71f9b7c2998ff772b8ce4c2b57fa6f41c5c:deploy/helm/dineos/values.project-06.yaml:generic-api-key:306

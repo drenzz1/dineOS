@@ -34,6 +34,7 @@ All commands in this document are run from the **repo root**.
 | `MAILHOG_SMTP_PORT` | `1025` | Mailhog SMTP |
 | `MAILHOG_UI_PORT` | `8025` | Mailhog web UI |
 | `PGADMIN_PORT` | `5050` | pgAdmin (tools profile) |
+| `N8N_PORT` | `5678` | n8n workflow automation (M5.8) |
 
 ---
 
@@ -69,6 +70,7 @@ The first build takes 3–5 minutes (downloading base images, compiling the .NET
 | **Loki** | http://localhost:3100 | Log aggregation (internal; also queried by Grafana) |
 | **Mailhog** | http://localhost:8025 | Catches all outbound email from the API |
 | **pgAdmin** | http://localhost:5050 | Database UI — requires `--profile tools` (see Lifecycle) |
+| **n8n** | http://localhost:5678 | Workflow automation (M5.8). Webhook → LLM → Slack; see `n8n-automation.md` |
 
 ---
 

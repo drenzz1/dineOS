@@ -1,0 +1,89 @@
+{
+  "tool": "OWASP ZAP baseline (passive spider + passive scan)",
+  "target": "dineOS frontend \u2014 local production build, public surface",
+  "date": "2026-06-10",
+  "summary": {
+    "fail": 0,
+    "warn": 6,
+    "pass": 61
+  },
+  "alerts": [
+    {
+      "name": "CSP: Wildcard Directive",
+      "risk": "Medium",
+      "count": 2,
+      "pluginid": "10055",
+      "cweid": "693"
+    },
+    {
+      "name": "CSP: script-src unsafe-eval",
+      "risk": "Medium",
+      "count": 2,
+      "pluginid": "10055",
+      "cweid": "693"
+    },
+    {
+      "name": "CSP: script-src unsafe-inline",
+      "risk": "Medium",
+      "count": 2,
+      "pluginid": "10055",
+      "cweid": "693"
+    },
+    {
+      "name": "CSP: style-src unsafe-inline",
+      "risk": "Medium",
+      "count": 2,
+      "pluginid": "10055",
+      "cweid": "693"
+    },
+    {
+      "name": "Application Error Disclosure",
+      "risk": "Low",
+      "count": 2,
+      "pluginid": "90022",
+      "cweid": "550"
+    },
+    {
+      "name": "Cross-Origin-Embedder-Policy Header Missing or Invalid",
+      "risk": "Low",
+      "count": 5,
+      "pluginid": "90004",
+      "cweid": "693"
+    },
+    {
+      "name": "Content-Type Header Missing",
+      "risk": "Info",
+      "count": 4,
+      "pluginid": "10019",
+      "cweid": "345"
+    },
+    {
+      "name": "Information Disclosure - Sensitive Information in URL",
+      "risk": "Info",
+      "count": 2,
+      "pluginid": "10024",
+      "cweid": "598"
+    },
+    {
+      "name": "Non-Storable Content",
+      "risk": "Info",
+      "count": 1,
+      "pluginid": "10049",
+      "cweid": "524"
+    },
+    {
+      "name": "Storable and Cacheable Content",
+      "risk": "Info",
+      "count": 5,
+      "pluginid": "10049",
+      "cweid": "524"
+    },
+    {
+      "name": "Storable but Non-Cacheable Content",
+      "risk": "Info",
+      "count": 1,
+      "pluginid": "10049",
+      "cweid": "524"
+    }
+  ]
+}

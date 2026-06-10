@@ -12,7 +12,8 @@ namespace DineOS.Tests.Unit;
 
 public class AiMenuServiceTests
 {
-    private static (AiMenuService svc, AppDbContext db, IAiClient ai) CreateSut(long? tenantId = 1L)
+    private static (AiMenuService svc, AppDbContext db, IAiClient ai) CreateSut(
+        long? tenantId = 1L, bool aiFlagEnabled = true)
     {
         var tenantSvc = Substitute.For<ITenantService>();
         tenantSvc.TenantId.Returns(tenantId);
@@ -28,7 +29,11 @@ public class AiMenuServiceTests
 
         var ai = Substitute.For<IAiClient>();
 
-        var svc = new AiMenuService(db, ai, currentUser, NullLogger<AiMenuService>.Instance);
+        // Feature flag defaults ON; tests that need it off pass aiFlagEnabled: false.
+        var featureFlags = Substitute.For<IFeatureFlags>();
+        featureFlags.IsEnabled(Arg.Any<string>(), Arg.Any<bool>()).Returns(aiFlagEnabled);
+
+        var svc = new AiMenuService(db, ai, currentUser, featureFlags, NullLogger<AiMenuService>.Instance);
         return (svc, db, ai);
     }
 
@@ -38,7 +43,7 @@ public class AiMenuServiceTests
         {
             Name        = "Margherita Pizza",
             Price       = 9.50m,
-            Category    = "Pizza",
+            Category    = new MenuCategory { TenantId = tenantId, Name = "Pizza" },
             TenantId    = tenantId,
             Description = null,
         };
@@ -113,5 +118,20 @@ public class AiMenuServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ServiceErrorKind.NotFound, result.Error);
+    }
+
+    [Fact]
+    public async Task SuggestDescriptionAsync_FeatureDisabled_ReturnsServiceUnavailableAndSkipsAi()
+    {
+        // 'ai-menu-generation' flag is off → the service must short-circuit before
+        // touching the database or the AI provider, returning 503 ServiceUnavailable.
+        var (svc, db, ai) = CreateSut(aiFlagEnabled: false);
+        var item = await SeedItemAsync(db);
+
+        var result = await svc.SuggestDescriptionAsync(item.Id);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ServiceErrorKind.ServiceUnavailable, result.Error);
+        await ai.DidNotReceiveWithAnyArgs().GenerateMenuDescriptionAsync(default!, default);
     }
 }

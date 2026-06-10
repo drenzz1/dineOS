@@ -12,15 +12,25 @@ public sealed class AiMenuService(
     AppDbContext db,
     IAiClient aiClient,
     ICurrentUserService currentUser,
+    IFeatureFlags featureFlags,
     ILogger<AiMenuService> logger) : IAiMenuService
 {
     public async Task<ServiceResult<MenuItemDescriptionSuggestionDto>> SuggestDescriptionAsync(
         long menuItemId,
         CancellationToken ct = default)
     {
+        // Feature flag (M5.6): AI menu generation is a runtime kill-switch. It defaults
+        // ON when no flag provider is configured, so removing Unleash never silently
+        // disables AI; flipping 'ai-menu-generation' off in Unleash stops generation
+        // (e.g. to cap provider spend) with no redeploy — short-circuit before any work.
+        if (!featureFlags.IsEnabled(FeatureFlag.AiMenuGeneration, defaultValue: true))
+            return ServiceResult<MenuItemDescriptionSuggestionDto>.ServiceUnavailable(
+                "AI menu generation is currently disabled.");
+
         // Tenant-scoped query filter is applied automatically, so an item from
         // another tenant returns null without leaking existence.
         var item = await db.MenuItems.AsNoTracking()
+            .Include(m => m.Category)
             .FirstOrDefaultAsync(m => m.Id == menuItemId, ct);
 
         if (item is null)
@@ -29,7 +39,7 @@ public sealed class AiMenuService(
 
         var request = new MenuDescriptionAiRequest(
             Name:                item.Name,
-            Category:            item.Category,
+            Category:            item.Category.Name,
             Price:               item.Price,
             ExistingDescription: item.Description);
 
@@ -50,7 +60,7 @@ public sealed class AiMenuService(
             var dto = new MenuItemDescriptionSuggestionDto(
                 MenuItemId:           item.Id,
                 ItemName:             item.Name,
-                Category:             item.Category,
+                Category:             item.Category.Name,
                 SuggestedDescription: result.Description,
                 SuggestedAllergens:   result.Allergens,
                 Metadata: new AiSuggestionMetadata(

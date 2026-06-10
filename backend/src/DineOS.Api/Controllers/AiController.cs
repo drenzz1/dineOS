@@ -33,6 +33,7 @@ public class AiController(IAiMenuService aiMenuService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> DescribeMenuItem(long id, CancellationToken ct) =>
         (await aiMenuService.SuggestDescriptionAsync(id, ct)).ToActionResult();
 }
