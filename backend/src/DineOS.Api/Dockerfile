@@ -25,6 +25,11 @@ RUN dotnet publish src/DineOS.Api/DineOS.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 
+# Patch base-image OS packages to pick up Alpine security fixes the upstream
+# base image lags on (e.g. the openssl/libcrypto3/libssl3 CVE batch). Keeps the
+# Trivy gate in build-push.yml green without waiting for a base-image rebuild.
+RUN apk upgrade --no-cache
+
 RUN addgroup -S -g 1001 appgroup \
  && adduser  -S -u 1001 -G appgroup appuser \
  && mkdir -p /app/uploads \

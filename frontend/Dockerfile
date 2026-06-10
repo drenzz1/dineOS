@@ -34,6 +34,11 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
+# Patch base-image OS packages to pick up Alpine security fixes the upstream
+# node:alpine image lags on (e.g. the openssl/libcrypto3/libssl3 CVE batch).
+# Keeps the Trivy gate in build-push.yml green without waiting for a base rebuild.
+RUN apk upgrade --no-cache
+
 RUN addgroup -S -g 1001 nodejs \
  && adduser  -S -u 1001 -G nodejs nextjs \
  && rm -rf /usr/local/lib/node_modules/npm \
