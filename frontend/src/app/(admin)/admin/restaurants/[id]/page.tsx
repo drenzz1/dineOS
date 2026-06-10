@@ -134,6 +134,13 @@ export default function RestaurantDetailPage() {
 
   return (
     <div className="space-y-8">
+      <Link
+        href="/admin/restaurants"
+        className="inline-flex items-center gap-1 text-[13px] text-zinc-500 hover:text-zinc-900 transition-colors"
+      >
+        ← Back to restaurants
+      </Link>
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>

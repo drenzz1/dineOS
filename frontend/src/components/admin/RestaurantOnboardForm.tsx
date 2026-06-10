@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,10 +46,18 @@ export default function RestaurantOnboardForm() {
   });
 
   return (
+    <div className="mx-auto max-w-xl space-y-6">
+      <Link
+        href="/admin/restaurants"
+        className="inline-flex items-center gap-1 text-[13px] text-zinc-500 hover:text-zinc-900 transition-colors"
+      >
+        ← Back to restaurants
+      </Link>
+
     <form
       onSubmit={handleSubmit((d) => mutate(d))}
       noValidate
-      className="mx-auto max-w-xl space-y-6"
+      className="space-y-6"
     >
       <h1 className="text-2xl font-semibold text-zinc-900">
         Onboard Restaurant
@@ -193,5 +202,6 @@ export default function RestaurantOnboardForm() {
         </Button>
       </div>
     </form>
+    </div>
   );
 }

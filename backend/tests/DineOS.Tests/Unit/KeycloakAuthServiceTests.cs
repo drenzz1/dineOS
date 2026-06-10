@@ -205,6 +205,7 @@ public class KeycloakAuthServiceTests
             new RefreshTokenRequestValidator(),
             new LogoutRequestValidator(),
             new FirstLoginPasswordChangeRequestValidator(),
+            new ChangePasswordRequestValidator(),
             _emailVerification,
             NullLogger<KeycloakAuthService>.Instance);
     }

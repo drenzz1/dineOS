@@ -36,7 +36,9 @@ export default function LoginPage() {
       // 3). SuperAdmins are bounced to /admin by middleware. `from` is carried
       // through so a deep link still resolves after staff selection.
       await login(values.username, values.password, from);
-      router.push(from ? `/select-staff?from=${encodeURIComponent(from)}` : "/select-staff");
+      // Use a full document request so Next middleware sees the freshly-written
+      // auth cookies rather than the client router's pre-auth cached state.
+      window.location.assign(from ? `/select-staff?from=${encodeURIComponent(from)}` : "/select-staff");
     } catch (err) {
       if (err instanceof FirstLoginRequiredError) {
         const params = new URLSearchParams({ email: err.email });

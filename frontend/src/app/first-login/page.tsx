@@ -15,7 +15,7 @@ import {
 import { ApiError } from "@/lib/api/envelope";
 import { firstLoginPasswordChange } from "@/lib/auth/authApi";
 import { getMe } from "@/lib/api/meApi";
-import { getDestination, getPrimaryRole, persistAuthCookies } from "@/lib/auth/keycloak";
+import { getDestination, getPrimaryRole, persistAuthCookies, persistBusinessToken } from "@/lib/auth/keycloak";
 
 function FirstLoginForm() {
   const router = useRouter();
@@ -70,8 +70,9 @@ function FirstLoginForm() {
         me.tenantId
       );
 
+      persistBusinessToken(tokens.accessToken, tokens.refreshExpiresIn ?? tokens.expiresIn);
       setAuth(me.id, role, me.tenantId, null, tokens.accessToken);
-      router.push(getDestination(role, from));
+      window.location.assign(getDestination(role, from));
     } catch (err) {
       if (err instanceof ApiError) {
         setFormError(err.error);

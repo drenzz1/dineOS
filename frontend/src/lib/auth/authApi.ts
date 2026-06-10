@@ -96,6 +96,26 @@ export async function login(username: string, password: string): Promise<AuthTok
   }
 }
 
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  try {
+    await apiClient.post("/v1/auth/change-password", { currentPassword, newPassword });
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    if (axios.isAxiosError(err)) {
+      const status = err.response?.status;
+      const body = err.response?.data as ApiResponse<unknown> | undefined;
+      const message = body?.errors?.[0] ?? body?.message ?? "Password change failed.";
+      if (status === 400) throw new ApiError({ error: message, errors: body?.errors ?? [], status: 400 });
+      if (status === 401) throw new ApiError({ error: "Current password is incorrect.", status: 401 });
+      if (status === 429) throw new ApiError({ error: "Too many attempts, try again later.", status: 429 });
+    }
+    throw err;
+  }
+}
+
 export async function firstLoginPasswordChange(
   email: string,
   currentPassword: string,

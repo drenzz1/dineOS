@@ -150,6 +150,24 @@ public class AuthController(
         return NoContent();
     }
 
+    /// <summary>Changes the authenticated user's password. Verifies the current password then resets via the Keycloak Admin API.</summary>
+    [HttpPost("auth/change-password")]
+    [Authorize(Policy = Policies.BusinessAccountOnly)]
+    [EnableRateLimiting("authenticated")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken ct)
+    {
+        var email = User.FindFirstValue("email") ?? User.FindFirstValue("preferred_username");
+        var result = await authService.ChangePasswordAsync(email ?? string.Empty, request, ct);
+        if (!result.IsSuccess)
+            return ToFailureResponse(result.Error, result.Errors);
+
+        return NoContent();
+    }
+
     /// <summary>Blacklists the provided refresh token, effectively invalidating the session. Idempotent — returns 204 even if the token is already blacklisted or jti is missing.</summary>
     [HttpPost("auth/logout")]
     [Authorize(Policy = Policies.BusinessAccountOnly)]

@@ -18,4 +18,14 @@ public interface IKeycloakAuthService
     Task<Result<RefreshTokenResponse>> ChangeFirstLoginPasswordAsync(
         FirstLoginPasswordChangeRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Changes the password for an already-authenticated user. Verifies the
+    /// current password via Keycloak direct-grant, then resets to the new
+    /// permanent password via the Admin API.
+    /// </summary>
+    Task<Result> ChangePasswordAsync(
+        string email,
+        ChangePasswordRequest request,
+        CancellationToken cancellationToken = default);
 }

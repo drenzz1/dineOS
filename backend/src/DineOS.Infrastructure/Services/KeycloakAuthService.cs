@@ -21,6 +21,7 @@ public sealed class KeycloakAuthService(
     IValidator<RefreshTokenRequest> refreshValidator,
     IValidator<LogoutRequest> logoutValidator,
     IValidator<FirstLoginPasswordChangeRequest> firstLoginValidator,
+    IValidator<ChangePasswordRequest> changePasswordValidator,
     IEmailVerificationService emailVerification,
     ILogger<KeycloakAuthService> logger) : IKeycloakAuthService
 {
@@ -204,6 +205,46 @@ public sealed class KeycloakAuthService(
             request.Email, user.Id);
 
         return loginResult;
+    }
+
+    public async Task<Result> ChangePasswordAsync(
+        string email,
+        ChangePasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return Result.Failure("User identity could not be resolved from the token.");
+
+        var validation = await changePasswordValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+            return Result.Failure(
+                ValidationFailedMessage,
+                validation.Errors.Select(e => e.ErrorMessage).ToList());
+
+        var verifyForm = CreateClientForm();
+        verifyForm["grant_type"] = string.IsNullOrWhiteSpace(_options.GrantType) ? "password" : _options.GrantType;
+        verifyForm["username"] = email;
+        verifyForm["password"] = request.CurrentPassword;
+
+        var verification = await ExchangeTokenAsync(
+            verifyForm,
+            "Current password is incorrect.",
+            cancellationToken);
+
+        if (!verification.IsSuccess)
+        {
+            logger.LogWarning("Change-password failed for {Email}: current password did not verify.", email);
+            return Result.Failure(verification.Error ?? "Current password is incorrect.");
+        }
+
+        var user = await keycloakAdmin.FindUserByEmailAsync(email, cancellationToken);
+        if (user is null)
+            return Result.Failure("Account not found.");
+
+        await keycloakAdmin.ResetPasswordAsync(user.Id, request.NewPassword, temporary: false, cancellationToken);
+
+        logger.LogInformation("Password changed for user {Email}.", email);
+        return Result.Success();
     }
 
     public async Task<Result> LogoutAsync(

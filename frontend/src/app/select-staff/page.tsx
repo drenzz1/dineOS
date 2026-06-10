@@ -18,7 +18,13 @@ function SelectStaffInner() {
   const from = searchParams.get("from");
 
   const role = useAuthStore((s) => s.role);
+  const logout = useAuthStore((s) => s.logout);
   const startStaffSession = useAuthStore((s) => s.startStaffSession);
+
+  async function handleSignOut() {
+    await logout();
+    window.location.assign("/login");
+  }
 
   const { staff, isLoading, isError } = useStaff();
   const activeStaff = staff.filter((s) => s.isActive);
@@ -36,7 +42,8 @@ function SelectStaffInner() {
 
   function continueAsOwner() {
     const ownerRole = role && role !== "SuperAdmin" ? role : "Manager";
-    router.push(getDestination(ownerRole, from));
+    // Full document request — same reason as the staff session path below.
+    window.location.assign(getDestination(ownerRole, from));
   }
 
   async function submitPin(e: React.FormEvent) {
@@ -60,12 +67,21 @@ function SelectStaffInner() {
 
   return (
     <main id="main-content" className="mx-auto min-h-screen max-w-2xl px-4 py-12">
-      <header className="mb-8 text-center">
-        <h1 className="text-2xl font-semibold text-fg">Who&apos;s working?</h1>
-        <p className="mt-1 text-sm text-fg-muted">
-          Choose your profile and enter your PIN to start your shift.
-        </p>
-      </header>
+      <div className="mb-8 flex items-start justify-between">
+        <header className="text-center flex-1">
+          <h1 className="text-2xl font-semibold text-fg">Who&apos;s working?</h1>
+          <p className="mt-1 text-sm text-fg-muted">
+            Choose your profile and enter your PIN to start your shift.
+          </p>
+        </header>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="shrink-0 text-[13px] text-fg-muted hover:text-fg transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
 
       {isLoading && <p className="text-center text-sm text-fg-muted">Loading staff…</p>}
       {isError && (

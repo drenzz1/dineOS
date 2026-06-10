@@ -17,12 +17,40 @@ import {
   restaurantProfileSchema,
   type RestaurantProfileFormValues,
 } from "@/lib/validations/restaurantProfile";
+import {
+  changePasswordSchema,
+  type ChangePasswordFormValues,
+} from "@/lib/validations/changePassword";
+import { changePassword } from "@/lib/auth/authApi";
 import { ApiError } from "@/lib/api/envelope";
 
 export default function RestaurantProfilePage() {
   const { tenantId } = useTenant();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const {
+    register: registerPw,
+    handleSubmit: handleSubmitPw,
+    reset: resetPw,
+    formState: { errors: pwErrors },
+  } = useForm<ChangePasswordFormValues>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+  });
+
+  const { mutate: doChangePassword, isPending: isChangingPw } = useMutation({
+    mutationFn: (data: ChangePasswordFormValues) =>
+      changePassword(data.currentPassword, data.newPassword),
+    onSuccess: () => {
+      resetPw();
+      toast({ title: "Password changed", description: "Your password has been updated.", variant: "success" });
+    },
+    onError: (err) => {
+      const message = err instanceof ApiError ? err.error : "Failed to change password.";
+      toast({ title: "Change failed", description: message, variant: "error" });
+    },
+  });
 
   const { data: profile, isLoading } = useQuery({
     queryKey: queryKeys.restaurantProfile.current(tenantId),
@@ -161,6 +189,52 @@ export default function RestaurantProfilePage() {
           </div>
         </form>
       )}
+
+      <div>
+        <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-fg">
+          Change password
+        </h2>
+        <p className="mt-0.5 text-[13px] text-fg-muted">
+          Update your account password. You&apos;ll stay signed in after the change.
+        </p>
+      </div>
+
+      <form
+        noValidate
+        onSubmit={handleSubmitPw((values) => doChangePassword(values))}
+        className="space-y-4 bg-surface border border-border rounded-md p-5"
+      >
+        <Input
+          id="pw-current"
+          label="Current password"
+          type="password"
+          autoComplete="current-password"
+          error={pwErrors.currentPassword?.message}
+          {...registerPw("currentPassword")}
+        />
+        <Input
+          id="pw-new"
+          label="New password"
+          type="password"
+          autoComplete="new-password"
+          placeholder="At least 12 characters"
+          error={pwErrors.newPassword?.message}
+          {...registerPw("newPassword")}
+        />
+        <Input
+          id="pw-confirm"
+          label="Confirm new password"
+          type="password"
+          autoComplete="new-password"
+          error={pwErrors.confirmPassword?.message}
+          {...registerPw("confirmPassword")}
+        />
+        <div className="flex justify-end border-t border-border pt-4">
+          <Button type="submit" isLoading={isChangingPw}>
+            Change password
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
