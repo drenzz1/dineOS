@@ -33,6 +33,12 @@ public sealed class EfCoreMetricsListener
         });
 
     private IDisposable? _allListenersSubscription;
+
+    // Guards _efSubscriptions: OnNext(DiagnosticListener) is invoked on background
+    // threads by DiagnosticListener.AllListeners and can race StopAsync during host
+    // shutdown. Without the lock, the foreach in StopAsync throws "Collection was
+    // modified" when a listener is added mid-teardown.
+    private readonly object _subscriptionsLock = new();
     private readonly List<IDisposable> _efSubscriptions = [];
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -45,10 +51,19 @@ public sealed class EfCoreMetricsListener
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        // Stop receiving new listeners first, then dispose a snapshot taken under
+        // the lock so a concurrent OnNext add can't invalidate the enumeration.
         _allListenersSubscription?.Dispose();
-        foreach (var sub in _efSubscriptions)
+
+        IDisposable[] subscriptions;
+        lock (_subscriptionsLock)
+        {
+            subscriptions = _efSubscriptions.ToArray();
+            _efSubscriptions.Clear();
+        }
+
+        foreach (var sub in subscriptions)
             sub.Dispose();
-        _efSubscriptions.Clear();
         return Task.CompletedTask;
     }
 
@@ -56,8 +71,12 @@ public sealed class EfCoreMetricsListener
 
     void IObserver<DiagnosticListener>.OnNext(DiagnosticListener listener)
     {
-        if (listener.Name == EfCoreDiagnosticSource)
-            _efSubscriptions.Add(listener.Subscribe(this));
+        if (listener.Name != EfCoreDiagnosticSource)
+            return;
+
+        var subscription = listener.Subscribe(this);
+        lock (_subscriptionsLock)
+            _efSubscriptions.Add(subscription);
     }
 
     void IObserver<DiagnosticListener>.OnError(Exception error) { }
