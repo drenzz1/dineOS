@@ -1,0 +1,36 @@
+{
+  "url": "http://localhost:3200/",
+  "fetchTime": "2026-06-09T23:53:35.770Z",
+  "lighthouseVersion": "12.8.2",
+  "formFactor": "desktop",
+  "scores": {
+    "performance": 100,
+    "accessibility": 93,
+    "best-practices": 100,
+    "seo": 91
+  },
+  "metrics": {
+    "first-contentful-paint": "0.3 s",
+    "largest-contentful-paint": "0.7 s",
+    "total-blocking-time": "10 ms",
+    "cumulative-layout-shift": "0",
+    "speed-index": "0.3 s"
+  },
+  "topOpportunities": [
+    {
+      "id": "unused-javascript",
+      "title": "Reduce unused JavaScript",
+      "saving": "Est savings of 88 KiB"
+    },
+    {
+      "id": "legacy-javascript",
+      "title": "Avoid serving legacy JavaScript to modern browsers",
+      "saving": "Est savings of 13 KiB"
+    },
+    {
+      "id": "server-response-time",
+      "title": "Initial server response time was short",
+      "saving": "Root document took 20 ms"
+    }
+  ]
+}

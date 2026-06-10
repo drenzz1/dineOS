@@ -14,6 +14,14 @@ const withBundleAnalyzer = bundleAnalyzer({
 const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: { root: projectRoot },
+  // Performance (M5.4): serve modern, smaller formats from the built-in image
+  // optimizer — AVIF first (best compression), WebP fallback; legacy browsers
+  // still get the original. minimumCacheTTL keeps optimized variants cached
+  // ~31 days so repeat views skip re-encoding.
+  images: {
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 2678400,
+  },
   async rewrites() {
     const backendUrl = process.env.API_INTERNAL_URL ?? "http://localhost:5138";
     return [
