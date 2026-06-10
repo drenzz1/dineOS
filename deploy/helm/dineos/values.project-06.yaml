@@ -229,8 +229,6 @@ keycloak:
       value: /auth
     - name: KC_PROXY_HEADERS
       value: xforwarded
-    - name: KC_HOSTNAME_URL
-      value: https://app.project-06.gjirafa.dev/auth
 
 # ── Observability add-ons (persisted from the live --set flags) ─────────────
 # Prometheus + Uptime Kuma run in-cluster; persistence OFF (no StorageClass
