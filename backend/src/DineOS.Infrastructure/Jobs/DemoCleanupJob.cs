@@ -75,6 +75,18 @@ public sealed class DemoCleanupJob(
                 }
             }
 
+            // Soft-delete the user's isolated demo tenant so its data doesn't
+            // linger after the demo expires.
+            if (user.TenantId is not null)
+            {
+                var demoTenant = await db.Tenants
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(
+                        t => t.Id == user.TenantId && t.DeletedAt == null, ct);
+                if (demoTenant is not null)
+                    demoTenant.DeletedAt = DateTime.UtcNow;
+            }
+
             user.Status = DemoUserStatus.Expired;
         }
 

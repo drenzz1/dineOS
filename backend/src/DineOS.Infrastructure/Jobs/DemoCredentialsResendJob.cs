@@ -49,16 +49,24 @@ public sealed class DemoCredentialsResendJob(
         await keycloakAdmin.SetUserEnabledAsync(demoUser.KeycloakUserId, enabled: true, ct);
         await keycloakAdmin.ResetPasswordAsync(demoUser.KeycloakUserId, tempPassword, temporary: false, ct);
 
-        // Re-stamp tenant_id in case it was missing (e.g. first provisioning
-        // completed before the attribute mapper was configured, or the attribute
-        // was cleared by a realm re-import).
-        var opts = demoOptions.Value;
-        var tenant = await db.Tenants
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.Slug == opts.TenantSlug && t.DeletedAt == null, ct);
-        if (tenant is not null)
+        // Re-stamp the user's own demo tenant_id. Fall back to the shared
+        // demo tenant slug for users provisioned before per-user tenants
+        // were introduced.
+        if (demoUser.TenantId is not null)
+        {
             await keycloakAdmin.SetUserAttributeAsync(
-                demoUser.KeycloakUserId, "tenant_id", tenant.Id.ToString(), ct);
+                demoUser.KeycloakUserId, "tenant_id", demoUser.TenantId.ToString()!, ct);
+        }
+        else
+        {
+            var opts = demoOptions.Value;
+            var tenant = await db.Tenants
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Slug == opts.TenantSlug && t.DeletedAt == null, ct);
+            if (tenant is not null)
+                await keycloakAdmin.SetUserAttributeAsync(
+                    demoUser.KeycloakUserId, "tenant_id", tenant.Id.ToString(), ct);
+        }
 
         backgroundJobs.Enqueue<DemoWelcomeEmailJob>(
             job => job.SendAsync(demoUser.Id, tempPassword, isReissue: true, CancellationToken.None));

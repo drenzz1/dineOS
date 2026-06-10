@@ -42,10 +42,14 @@ public sealed class DemoWelcomeEmailJob(
         }
 
         var opts = demoOptions.Value;
-        var tenant = await db.Tenants
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Slug == opts.TenantSlug && t.DeletedAt == null, ct);
+
+        // Prefer the user's own isolated demo tenant; fall back to the shared
+        // slug for users provisioned before per-user tenants were introduced.
+        var tenant = demoUser.TenantId is not null
+            ? await db.Tenants.IgnoreQueryFilters().AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == demoUser.TenantId, ct)
+            : await db.Tenants.IgnoreQueryFilters().AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Slug == opts.TenantSlug && t.DeletedAt == null, ct);
 
         var model = new DemoWelcomeEmailModel(
             Email:          demoUser.Email,

@@ -1,8 +1,9 @@
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Options;
+using DineOS.Domain.Entities;
 using DineOS.Domain.Enums;
-using DineOS.Infrastructure.Auth;
 using DineOS.Infrastructure.Persistence;
+using DineOS.Infrastructure.Persistence.Seed;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -11,28 +12,23 @@ using Microsoft.Extensions.Options;
 namespace DineOS.Infrastructure.Jobs;
 
 /// <summary>
-/// Provisions a Keycloak user for a demo access request (#216): creates the
-/// user, stamps the demo tenant id attribute, assigns the configured realm
-/// role, then enqueues the welcome email. Idempotent: short-circuits if the
-/// <c>DemoUser</c> already has a <c>KeycloakUserId</c>; rotates the password
-/// instead so the email can carry a fresh value.
+/// Provisions an isolated demo tenant + Keycloak user for a demo access
+/// request (#216). Each requester gets their own tenant seeded with the full
+/// demo data set, so users never share data. Idempotent on the Keycloak side:
+/// if the user already exists the password is rotated and the tenant updated.
+/// On re-provision (expired user re-requests), the previous tenant is
+/// soft-deleted and a fresh one is created.
 /// </summary>
 public sealed class DemoProvisioningJob(
     AppDbContext db,
     IKeycloakAdminClient keycloakAdmin,
+    IPinHasher pinHasher,
     IBackgroundJobClient backgroundJobs,
     IOptions<DemoOptions> demoOptions,
     ILogger<DemoProvisioningJob> logger)
 {
-    // Display-name fields for demo users. Demo accounts have no per-user
-    // identity collected at request time, so we use fixed literals — but we
-    // intentionally route them through KeycloakProfileDefaults rather than
-    // hard-coding string constants in the CreateUserAsync call so this job
-    // cannot drift from OwnerProvisioningJob's "always non-empty" invariant.
-    // If KeycloakProfileDefaults.MissingFieldPlaceholder changes (or the
-    // realm tightens its user-profile validators), both jobs evolve together.
     private const string DemoFirstName = "Demo";
-    private const string DemoLastName = "User";
+    private const string DemoLastName  = "User";
 
     [AutomaticRetry(
         Attempts = 5,
@@ -54,42 +50,62 @@ public sealed class DemoProvisioningJob(
 
         var opts = demoOptions.Value;
 
-        var tenant = await db.Tenants
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.Slug == opts.TenantSlug && t.DeletedAt == null, ct);
-
-        if (tenant is null)
+        // Soft-delete the previous demo tenant so it doesn't accumulate across
+        // re-provisions (expired user re-requesting demo access).
+        if (demoUser.TenantId is not null)
         {
-            logger.LogError(
-                "Demo provisioning aborted — demo tenant slug '{Slug}' not found. Configure Demo:TenantSlug or seed the tenant.",
-                opts.TenantSlug);
-            throw new InvalidOperationException(
-                $"Demo tenant '{opts.TenantSlug}' is not seeded.");
+            var oldTenant = await db.Tenants
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(
+                    t => t.Id == demoUser.TenantId && t.DeletedAt == null, ct);
+            if (oldTenant is not null)
+            {
+                oldTenant.DeletedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+                logger.LogInformation(
+                    "Demo re-provision: soft-deleted previous tenant. TenantId={TenantId} DemoUserId={DemoUserId}",
+                    oldTenant.Id, demoUserId);
+            }
         }
 
+        // Create an isolated tenant for this demo user.
+        var slug = $"demo-{Guid.NewGuid():N}"[..20];
+        var tenant = new Tenant
+        {
+            Name       = "Demo Restaurant",
+            Slug       = slug,
+            IsActive   = true,
+            OwnerName  = "Demo",
+            // Placeholder owner email — not the requester's real email so that
+            // SignupService and DemoAccessService guards don't treat this as a
+            // paid owner or a pending-payment tenant.
+            OwnerEmail = $"owner@{slug}.local",
+            Phone      = "+1 555 000 0000",
+            City       = "Tirana",
+            Plan       = SubscriptionPlan.Pro,
+            CreatedAt  = DateTime.UtcNow,
+        };
+        db.Tenants.Add(tenant);
+        await db.SaveChangesAsync(ct);
+
+        await DemoDataSeeder.SeedAsync(db, pinHasher, tenant.Id, ct);
+
+        // Provision (or reset) the Keycloak user.
         string keycloakUserId;
         if (demoUser.KeycloakUserId is null)
         {
-            // Guard: both fields must be non-empty per
-            // KeycloakProfileDefaults.SplitDisplayName's contract — assert it
-            // here too so a future "edit the constants" pass cannot silently
-            // re-introduce the empty-lastName "Account is not fully set up"
-            // bug that broke OwnerProvisioningJob for single-word owners.
             System.Diagnostics.Debug.Assert(
                 !string.IsNullOrWhiteSpace(DemoFirstName) &&
                 !string.IsNullOrWhiteSpace(DemoLastName),
-                "Demo first/last names must be non-empty — Keycloak's declarative " +
-                "user-profile rejects empty values with 'Account is not fully set up'.");
+                "Demo first/last names must be non-empty.");
 
             keycloakUserId = await keycloakAdmin.CreateUserAsync(
-                email:              demoUser.Email,
-                firstName:          DemoFirstName,
-                lastName:           DemoLastName,
-                tempPassword:       tempPassword,
-                requiredActions:    Array.Empty<string>(),
-                // Demo: emailed creds ARE the credential — UPDATE_PASSWORD
-                // would break the frontend's password-grant login.
-                temporaryPassword:  false,
+                email:             demoUser.Email,
+                firstName:         DemoFirstName,
+                lastName:          DemoLastName,
+                tempPassword:      tempPassword,
+                requiredActions:   Array.Empty<string>(),
+                temporaryPassword: false,
                 ct);
             demoUser.KeycloakUserId = keycloakUserId;
         }
@@ -105,14 +121,15 @@ public sealed class DemoProvisioningJob(
 
         await keycloakAdmin.AssignRealmRoleAsync(keycloakUserId, opts.RealmRole, ct);
 
-        demoUser.Status = DemoUserStatus.Active;
+        demoUser.TenantId = tenant.Id;
+        demoUser.Status   = DemoUserStatus.Active;
         await db.SaveChangesAsync(ct);
 
         backgroundJobs.Enqueue<DemoWelcomeEmailJob>(
             job => job.SendAsync(demoUser.Id, tempPassword, isReissue: false, CancellationToken.None));
 
         logger.LogInformation(
-            "Demo provisioned. DemoUserId={DemoUserId} KeycloakUserId={KeycloakUserId} Email={Email}",
-            demoUser.Id, keycloakUserId, demoUser.Email);
+            "Demo provisioned. DemoUserId={DemoUserId} TenantId={TenantId} KeycloakUserId={KeycloakUserId} Email={Email}",
+            demoUser.Id, tenant.Id, keycloakUserId, demoUser.Email);
     }
 }

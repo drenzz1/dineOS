@@ -14,6 +14,11 @@ public class DemoUser : BaseAuditingEntity
 {
     public string Email { get; set; } = string.Empty;
     public string? KeycloakUserId { get; set; }
+    /// <summary>
+    /// The isolated demo tenant provisioned for this user. Null for users
+    /// provisioned before per-user demo tenants were introduced.
+    /// </summary>
+    public long? TenantId { get; set; }
     public DateTime RequestedAt { get; set; }
     public DateTime ExpiresAt { get; set; }
     public DateTime? LastEmailSentAt { get; set; }
