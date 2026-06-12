@@ -48,13 +48,6 @@ jobs:
             --no-build \
             --output ./publish
 
-      - name: Upload publish artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
-        with:
-          name: backend-publish
-          path: backend/publish
-          retention-days: 7
-
       - name: Run tests with coverage
         working-directory: backend
         run: |
@@ -65,22 +58,6 @@ jobs:
             --collect:"XPlat Code Coverage" \
             --results-directory ./TestResults \
             --logger "trx;LogFileName=test-results.trx"
-
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
-        with:
-          name: coverage-report
-          path: backend/TestResults/**/coverage.cobertura.xml
-          retention-days: 14
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
-        with:
-          name: test-results
-          path: backend/TestResults/**/*.trx
-          retention-days: 14
 
       - name: Check coverage threshold (≥ 70%)
         run: |
@@ -201,14 +178,6 @@ jobs:
             --settings tests/DineOS.Tests/live.runsettings \
             --results-directory ./TestResults \
             --logger "trx;LogFileName=live-auth-results.trx"
-
-      - name: Upload live test results
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
-        with:
-          name: live-auth-test-results
-          path: backend/TestResults/**/*.trx
-          retention-days: 14
 
   notify:
     name: Notify

@@ -10,13 +10,15 @@ import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/stores/authStore";
 import { loginSchema, type LoginFormValues } from "@/lib/validations/login";
 import { ApiError } from "@/lib/api/envelope";
-import { FirstLoginRequiredError } from "@/lib/auth/authApi";
+import { FirstLoginRequiredError, getGoogleLoginUrl } from "@/lib/auth/authApi";
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useAuthStore((state) => state.login);
   const [formError, setFormError] = useState<string | null>(null);
+  const from = searchParams.get("from");
+  const googleError = searchParams.get("error");
 
   const {
     register,
@@ -29,7 +31,6 @@ export default function LoginPage() {
 
   async function onSubmit(values: LoginFormValues) {
     setFormError(null);
-    const from = searchParams.get("from");
     try {
       // Business login establishes the account (owner) session; the operational
       // role is then chosen on the staff roster via PIN (#staff-pin-auth Phase
@@ -100,6 +101,30 @@ export default function LoginPage() {
             Sign in
           </Button>
         </form>
+
+        <div className="flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1 bg-zinc-200" />
+          <span className="text-xs uppercase tracking-wide text-zinc-400">or</span>
+          <span className="h-px flex-1 bg-zinc-200" />
+        </div>
+
+        {googleError && (
+          <p
+            role="alert"
+            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700"
+          >
+            {googleError === "google_account_not_linked"
+              ? "This Google account is not linked to a dineOS restaurant account."
+              : "Google sign-in could not be completed. Please try again."}
+          </p>
+        )}
+
+        <a
+          href={getGoogleLoginUrl(from)}
+          className="flex h-10 w-full items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 shadow-xs transition hover:bg-zinc-50"
+        >
+          Continue with Google
+        </a>
 
         <p className="text-center text-sm text-zinc-500">
           <Link

@@ -1,4 +1,4 @@
-import { login } from "../authApi";
+import { getGoogleLoginUrl, login } from "../authApi";
 import apiClient from "@/lib/api/apiClient";
 
 jest.mock("@/lib/api/apiClient", () => ({
@@ -24,6 +24,14 @@ function makeAxiosError(status: number, data: unknown = {}) {
 }
 
 afterEach(() => jest.resetAllMocks());
+
+describe("getGoogleLoginUrl", () => {
+  it("builds the backend Google auth endpoint with a safe encoded return path", () => {
+    expect(getGoogleLoginUrl("/reports?period=today")).toBe(
+      "/api/v1/auth/google?from=%2Freports%3Fperiod%3Dtoday"
+    );
+  });
+});
 
 // ─── 200 success ──────────────────────────────────────────────────────────────
 

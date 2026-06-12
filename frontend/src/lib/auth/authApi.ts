@@ -31,6 +31,12 @@ export class FirstLoginRequiredError extends Error {
   }
 }
 
+export function getGoogleLoginUrl(from: string | null): string {
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? "/api").replace(/\/+$/, "");
+  const query = from ? `?from=${encodeURIComponent(from)}` : "";
+  return `${apiBase}/v1/auth/google${query}`;
+}
+
 export async function logout(): Promise<void> {
   const refreshToken = document.cookie
     .split("; ")

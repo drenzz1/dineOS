@@ -17,6 +17,11 @@ public sealed class KeycloakOptions
     public string? AdminClientId { get; set; }
     public string? AdminClientSecret { get; set; }
     public string? AdminBaseUrl { get; set; }
+    public string GoogleProviderAlias { get; set; } = "google";
+    public string GoogleClientId { get; set; } = "dineos-google";
+    public string? GoogleClientSecret { get; set; }
+    public string? GoogleCallbackUrl { get; set; }
+    public string? FrontendUrl { get; set; }
 
     public string GetAdminBaseUrl() =>
         TrimTrailingSlash(
@@ -61,10 +66,22 @@ public sealed class KeycloakOptions
     public string? GetBackchannelRevocationEndpoint() =>
         BuildOpenIdConnectEndpoint(GetBackchannelAuthority(), "revoke");
 
+    public string GetGoogleCallbackUrl() =>
+        GetRequiredAbsoluteUrl(GoogleCallbackUrl, "Keycloak:GoogleCallbackUrl");
+
+    public string GetFrontendUrl() =>
+        TrimTrailingSlash(GetRequiredAbsoluteUrl(FrontendUrl, "Keycloak:FrontendUrl"));
+
     private static string? BuildOpenIdConnectEndpoint(string? authority, string endpoint) =>
         string.IsNullOrWhiteSpace(authority)
             ? null
             : $"{TrimTrailingSlash(authority)}/protocol/openid-connect/{endpoint}";
+
+    private static string GetRequiredAbsoluteUrl(string? value, string settingName) =>
+        !string.IsNullOrWhiteSpace(value)
+        && Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            ? uri.ToString()
+            : throw new InvalidOperationException($"{settingName} must be configured as an absolute URL.");
 
     private static string TrimTrailingSlash(string value) => value.Trim().TrimEnd('/');
 }

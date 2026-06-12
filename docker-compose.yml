@@ -23,6 +23,10 @@ services:
       - Keycloak__RequireHttpsMetadata=${Keycloak__RequireHttpsMetadata:-false}
       - Keycloak__AdminClientId=${Keycloak__AdminClientId:-dineos-admin}
       - Keycloak__AdminClientSecret=${Keycloak__AdminClientSecret:-dev-admin-secret-change-me}
+      - Keycloak__GoogleClientId=${Keycloak__GoogleClientId:-dineos-google}
+      - Keycloak__GoogleClientSecret=${Keycloak__GoogleClientSecret:-dev-google-auth-client-secret-change-me}
+      - Keycloak__GoogleCallbackUrl=${Keycloak__GoogleCallbackUrl:-http://localhost/api/v1/auth/google/callback}
+      - Keycloak__FrontendUrl=${Keycloak__FrontendUrl:-http://localhost}
       - Redis__ConnectionString=${Redis__ConnectionString:-redis:6379}
       - RabbitMq__Enabled=${RabbitMq__Enabled:-true}
       - RabbitMq__HostName=${RabbitMq__HostName:-rabbitmq}
@@ -167,7 +171,9 @@ services:
     restart: unless-stopped
 
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0
+    build:
+      context: ./backend/keycloak
+    image: dineos/keycloak:google-auth
     container_name: dineos-keycloak
     ports:
       - "${KEYCLOAK_PORT:-8080}:8080"
@@ -177,9 +183,10 @@ services:
       KC_HOSTNAME_STRICT: "${KC_HOSTNAME_STRICT:-false}"
       KC_HTTP_ENABLED: "${KC_HTTP_ENABLED:-true}"
       KC_HOSTNAME_URL: "${Keycloak__PublicAuthServerUrl:-http://localhost:8080}"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_AUTH_CLIENT_SECRET: ${Keycloak__GoogleClientSecret:-dev-google-auth-client-secret-change-me}
     command: start-dev --import-realm
-    volumes:
-      - ./backend/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     networks:
       - dineos-net
 

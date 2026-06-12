@@ -12,6 +12,8 @@ import {
   persistStaffSessionCookies,
   persistStaffRefreshToken,
   persistRoleCookie,
+  persistTenantCookie,
+  getAuthCookie,
   getBusinessToken,
   getStaffRefreshToken,
   clearStaffRefreshToken,
@@ -42,6 +44,7 @@ interface AuthState {
   isStaffSession: boolean;
   activeStaffName: string | null;
   login: (username: string, password: string, from?: string | null) => Promise<{ destination: string }>;
+  completeExternalLogin: (from?: string | null) => Promise<{ destination: string; role: Role | "SuperAdmin" }>;
   startStaffSession: (staffMemberId: number, pin: string) => Promise<{ role: Role }>;
   endStaffSession: () => void;
   signOutOfShift: () => Promise<void>;
@@ -149,6 +152,58 @@ export const useAuthStore = create<AuthState>()(
           }
           set(snapshot);
           throw err;
+        }
+      },
+      completeExternalLogin: async (from = null) => {
+        const accessToken = getAuthCookie("access_token");
+        if (!accessToken) {
+          throw new Error("Google sign-in did not return an access token.");
+        }
+
+        try {
+          clearStaffRefreshToken();
+          const me = await getMe();
+          const role = getPrimaryRole(me.roles);
+
+          if (role !== "SuperAdmin" && !me.tenantId) {
+            throw new Error("Google account is not linked to a dineOS restaurant.");
+          }
+
+          let restaurantName = "Platform";
+          if (me.tenantId) {
+            try {
+              const profile = await getRestaurantProfile();
+              restaurantName = profile.name ?? "My Restaurant";
+            } catch {
+              restaurantName = "My Restaurant";
+            }
+            persistTenantCookie(me.tenantId);
+          }
+
+          persistRoleCookie(role);
+          set({
+            userId: me.id,
+            role,
+            tenantId: me.tenantId,
+            restaurantName,
+            accessToken,
+            isStaffSession: false,
+            activeStaffName: null,
+          });
+
+          return { destination: getDestination(role, from), role };
+        } catch (error) {
+          clearAuthCookies();
+          set({
+            userId: null,
+            role: null,
+            tenantId: null,
+            restaurantName: null,
+            accessToken: null,
+            isStaffSession: false,
+            activeStaffName: null,
+          });
+          throw error;
         }
       },
       startStaffSession: async (staffMemberId, pin) => {

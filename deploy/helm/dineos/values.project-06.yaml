@@ -36,17 +36,19 @@ api:
       memory: 512Mi
   env:
     ASPNETCORE_ENVIRONMENT: Development
-    # Keycloak — HTTP (no TLS), in-cluster. Login uses the password grant
-    # via the backend, so the browser never talks to Keycloak directly.
+    # Keycloak — browser-facing Google authorization uses the public /auth
+    # ingress; token exchange and metadata stay on the in-cluster service.
     # NOTE: Keycloak is served under /auth (KC_HTTP_RELATIVE_PATH below),
     # so every Keycloak URL here carries the /auth prefix.
     Keycloak__Realm: dineos
     Keycloak__GrantType: "password"
     Keycloak__RequireHttpsMetadata: "false"
-    Keycloak__PublicAuthServerUrl: "http://dineos-keycloak-http/auth"
+    Keycloak__PublicAuthServerUrl: "https://app.project-06.gjirafa.dev/auth"
     Keycloak__AuthServerUrl: "http://dineos-keycloak-http/auth"
-    Keycloak__Authority: "http://dineos-keycloak-http/auth/realms/dineos"
+    Keycloak__Authority: "https://app.project-06.gjirafa.dev/auth/realms/dineos"
     Keycloak__MetadataAddress: "http://dineos-keycloak-http/auth/realms/dineos/.well-known/openid-configuration"
+    Keycloak__GoogleCallbackUrl: "https://app.project-06.gjirafa.dev/api/v1/auth/google/callback"
+    Keycloak__FrontendUrl: "https://app.project-06.gjirafa.dev"
     Loki__Uri: "http://dineos-loki:3100"
     # Gmail SMTP — credentials injected via --set at deploy time (GitHub secrets).
     Smtp__Host: "smtp.gmail.com"
@@ -136,6 +138,9 @@ secrets:
   postgresPassword: "dineos_dev"
   keycloakClientSecret: "dev-client-secret-change-me"
   keycloakAdminClientSecret: "dev-admin-secret-change-me"
+  keycloakGoogleClientSecret: "dev-google-auth-client-secret-change-me"
+  googleClientId: ""
+  googleClientSecret: ""
   jwtSigningKey: "dev-jwt-signing-key-32-chars-min!"
   smtpPassword: ""
   rabbitMqPassword: "dineos_dev"
@@ -229,6 +234,8 @@ keycloak:
       value: /auth
     - name: KC_PROXY_HEADERS
       value: xforwarded
+    - name: KC_HOSTNAME_URL
+      value: https://app.project-06.gjirafa.dev/auth
     # ── Persistence — store Keycloak state in the in-cluster Bitnami
     #    Postgres instead of the ephemeral embedded H2. Without this, the
     #    command (kc.sh start-dev) uses an in-memory/file H2 DB that is wiped

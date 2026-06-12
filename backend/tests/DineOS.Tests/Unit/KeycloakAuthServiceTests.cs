@@ -19,6 +19,51 @@ public class KeycloakAuthServiceTests
     private readonly IEmailVerificationService _emailVerification = Substitute.For<IEmailVerificationService>();
 
     [Fact]
+    public void BuildGoogleAuthorizationUrl_UsesConfidentialClientCallbackAndProviderHint()
+    {
+        var sut = CreateService(new RecordingHandler());
+
+        var url = new Uri(sut.BuildGoogleAuthorizationUrl("state-value"));
+        var query = System.Web.HttpUtility.ParseQueryString(url.Query);
+
+        Assert.Equal(
+            "http://localhost:8080/realms/dineos/protocol/openid-connect/auth",
+            url.GetLeftPart(UriPartial.Path));
+        Assert.Equal("dineos-google", query["client_id"]);
+        Assert.Equal("http://localhost:5138/api/v1/auth/google/callback", query["redirect_uri"]);
+        Assert.Equal("code", query["response_type"]);
+        Assert.Equal("openid profile email", query["scope"]);
+        Assert.Equal("google", query["kc_idp_hint"]);
+        Assert.Equal("state-value", query["state"]);
+    }
+
+    [Fact]
+    public async Task ExchangeGoogleAuthorizationCodeAsync_UsesAuthorizationCodeGrant()
+    {
+        var handler = new RecordingHandler(JsonResponse(HttpStatusCode.OK, new
+        {
+            access_token = "google-access",
+            refresh_token = "google-refresh",
+            expires_in = 300,
+            refresh_expires_in = 1800
+        }));
+        var sut = CreateService(handler);
+
+        var result = await sut.ExchangeGoogleAuthorizationCodeAsync("authorization-code");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("google-access", result.Value!.AccessToken);
+
+        var request = Assert.Single(handler.Requests);
+        var form = ParseForm(request.Body);
+        Assert.Equal("authorization_code", form["grant_type"]);
+        Assert.Equal("authorization-code", form["code"]);
+        Assert.Equal("dineos-google", form["client_id"]);
+        Assert.Equal("dev-google-auth-client-secret-change-me", form["client_secret"]);
+        Assert.Equal("http://localhost:5138/api/v1/auth/google/callback", form["redirect_uri"]);
+    }
+
+    [Fact]
     public async Task LoginAsync_WithValidCredentials_ReturnsTokenPairAndUsesPasswordGrant()
     {
         var handler = new RecordingHandler(JsonResponse(HttpStatusCode.OK, new
@@ -111,6 +156,33 @@ public class KeycloakAuthServiceTests
     }
 
     [Fact]
+    public async Task RefreshAsync_WithGoogleClientToken_UsesGoogleClientCredentials()
+    {
+        var jti = Guid.NewGuid().ToString();
+        var refreshToken = MakeJwt(
+            jti,
+            DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds(),
+            "dineos-google");
+        var handler = new RecordingHandler(JsonResponse(HttpStatusCode.OK, new
+        {
+            access_token = "new-google-access",
+            refresh_token = "new-google-refresh",
+            expires_in = 300
+        }));
+        var sut = CreateService(handler);
+
+        _blacklist.IsBlacklistedAsync(jti).Returns(false);
+
+        var result = await sut.RefreshAsync(new RefreshTokenRequest(refreshToken));
+
+        Assert.True(result.IsSuccess);
+        var request = Assert.Single(handler.Requests);
+        var form = ParseForm(request.Body);
+        Assert.Equal("dineos-google", form["client_id"]);
+        Assert.Equal("dev-google-auth-client-secret-change-me", form["client_secret"]);
+    }
+
+    [Fact]
     public async Task RefreshAsync_WhenKeycloakRejectsToken_ReturnsFailure()
     {
         var jti = Guid.NewGuid().ToString();
@@ -151,6 +223,25 @@ public class KeycloakAuthServiceTests
         Assert.Equal("dineos-frontend", form["client_id"]);
         Assert.Equal(refreshToken, form["token"]);
         Assert.Equal("refresh_token", form["token_type_hint"]);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WithGoogleClientToken_UsesGoogleClientCredentials()
+    {
+        var refreshToken = MakeJwt(
+            Guid.NewGuid().ToString(),
+            DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds(),
+            "dineos-google");
+        var handler = new RecordingHandler(JsonResponse(HttpStatusCode.NoContent));
+        var sut = CreateService(handler);
+
+        var result = await sut.LogoutAsync(new LogoutRequest(refreshToken));
+
+        Assert.True(result.IsSuccess);
+        var request = Assert.Single(handler.Requests);
+        var form = ParseForm(request.Body);
+        Assert.Equal("dineos-google", form["client_id"]);
+        Assert.Equal("dev-google-auth-client-secret-change-me", form["client_secret"]);
     }
 
     [Fact]
@@ -282,7 +373,11 @@ public class KeycloakAuthServiceTests
         PublicAuthServerUrl = "http://localhost:8080",
         Audience = "dineos-api",
         ClientId = "dineos-frontend",
-        GrantType = "password"
+        GrantType = "password",
+        GoogleClientId = "dineos-google",
+        GoogleClientSecret = "dev-google-auth-client-secret-change-me",
+        GoogleCallbackUrl = "http://localhost:5138/api/v1/auth/google/callback",
+        FrontendUrl = "http://localhost:3000"
     };
 
     private static HttpResponseMessage JsonResponse(HttpStatusCode status, object? body = null)
@@ -294,10 +389,15 @@ public class KeycloakAuthServiceTests
         };
     }
 
-    private static string MakeJwt(string jti, long exp)
+    private static string MakeJwt(string jti, long exp, string? authorizedParty = null)
     {
         var header = B64Url("{\"alg\":\"none\",\"typ\":\"JWT\"}");
-        var payload = B64Url($"{{\"jti\":\"{jti}\",\"exp\":{exp}}}");
+        var payload = B64Url(JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["jti"] = jti,
+            ["exp"] = exp,
+            ["azp"] = authorizedParty
+        }));
         return $"{header}.{payload}.";
     }
 
