@@ -37,6 +37,16 @@ function setCookie(name: string, value: string, maxAgeSeconds?: number): void {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; samesite=lax${maxAge}`;
 }
 
+export function getAuthCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+
+  const cookie = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${name}=`));
+
+  return cookie ? decodeURIComponent(cookie.split("=")[1] ?? "") : null;
+}
+
 // Accept only same-origin internal paths: a single leading `/` followed by a
 // character that is NOT `/` or `\`. This rejects:
 //   - protocol-relative URLs (`//evil.com`)
@@ -124,6 +134,10 @@ export function persistStaffSessionCookies(
 
 export function persistRoleCookie(role: AppRole, expiresIn?: number): void {
   setCookie("role", role, expiresIn);
+}
+
+export function persistTenantCookie(tenantId: string, expiresIn?: number): void {
+  setCookie("tenant_id", tenantId, expiresIn);
 }
 
 // The staff refresh token (longer-lived than the access token) lets the

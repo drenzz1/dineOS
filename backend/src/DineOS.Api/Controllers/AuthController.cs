@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using DineOS.Application.Authorization;
+using DineOS.Application.Authentication;
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
@@ -10,7 +11,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
 using System.Security.Claims;
+using System.Text;
 
 namespace DineOS.Api.Controllers;
 
@@ -22,8 +26,14 @@ public class AuthController(
     IKeycloakAuthService authService,
     IStaffSessionService staffSessionService,
     IBackgroundJobClient backgroundJobs,
-    IValidator<ForgotPasswordRequest> forgotPasswordValidator) : ControllerBase
+    IValidator<ForgotPasswordRequest> forgotPasswordValidator,
+    IOptions<KeycloakOptions> keycloakOptions) : ControllerBase
 {
+    private const string GoogleStateCookie = "dineos_google_oauth_state";
+    private const string GoogleFromCookie = "dineos_google_oauth_from";
+    private static readonly TimeSpan GoogleStateLifetime = TimeSpan.FromMinutes(5);
+    private readonly KeycloakOptions _keycloakOptions = keycloakOptions.Value;
+
     /// <summary>Authenticates a user through Keycloak and returns an access/refresh token pair.</summary>
     [HttpPost("auth/login")]
     [AllowAnonymous]
@@ -42,6 +52,76 @@ public class AuthController(
         return Ok(ApiResponse<RefreshTokenResponse>.Ok(
             result.Value!,
             "Login successful."));
+    }
+
+    /// <summary>Starts Google sign-in through the configured Keycloak identity provider.</summary>
+    [HttpGet("auth/google")]
+    [AllowAnonymous]
+    [EnableRateLimiting("public")]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    public IActionResult GoogleLogin([FromQuery] string? from = null)
+    {
+        var state = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+
+        Response.Cookies.Append(
+            GoogleStateCookie,
+            state,
+            GoogleStateCookieOptions(GoogleStateLifetime));
+
+        if (IsSafeInternalPath(from))
+        {
+            Response.Cookies.Append(
+                GoogleFromCookie,
+                from!,
+                GoogleStateCookieOptions(GoogleStateLifetime));
+        }
+        else
+        {
+            Response.Cookies.Delete(
+                GoogleFromCookie,
+                GoogleStateCookieOptions(TimeSpan.Zero));
+        }
+
+        return Redirect(authService.BuildGoogleAuthorizationUrl(state));
+    }
+
+    /// <summary>Completes the Keycloak Google broker flow and establishes the browser session.</summary>
+    [HttpGet("auth/google/callback")]
+    [AllowAnonymous]
+    [EnableRateLimiting("public")]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    public async Task<IActionResult> GoogleCallback(
+        [FromQuery] string? code,
+        [FromQuery] string? state,
+        [FromQuery] string? error,
+        CancellationToken ct)
+    {
+        Request.Cookies.TryGetValue(GoogleStateCookie, out var expectedState);
+        Request.Cookies.TryGetValue(GoogleFromCookie, out var from);
+        DeleteGoogleFlowCookies();
+
+        if (!StateMatches(expectedState, state))
+            return RedirectToFrontendCallback("invalid_oauth_state", null);
+
+        if (!string.IsNullOrWhiteSpace(error) || string.IsNullOrWhiteSpace(code))
+            return RedirectToFrontendCallback("google_auth_failed", null);
+
+        var result = await authService.ExchangeGoogleAuthorizationCodeAsync(code, ct);
+        if (!result.IsSuccess || result.Value is null)
+            return RedirectToFrontendCallback("google_token_exchange_failed", null);
+
+        var tokens = result.Value;
+        var sessionLifetime = tokens.RefreshExpiresIn ?? tokens.ExpiresIn;
+
+        AppendBrowserCookie("access_token", tokens.AccessToken, sessionLifetime);
+        AppendBrowserCookie("refresh_token", tokens.RefreshToken, tokens.RefreshExpiresIn);
+        AppendBrowserCookie("business_token", tokens.AccessToken, sessionLifetime);
+        AppendBrowserCookie("session_mode", "owner", sessionLifetime);
+
+        return RedirectToFrontendCallback(null, IsSafeInternalPath(from) ? from : null);
     }
 
     /// <summary>
@@ -265,4 +345,64 @@ public class AuthController(
             _ => Unauthorized(ApiResponse.Fail(message))
         };
     }
+
+    private CookieOptions GoogleStateCookieOptions(TimeSpan maxAge) => new()
+    {
+        HttpOnly = true,
+        Secure = Request.IsHttps,
+        SameSite = SameSiteMode.Lax,
+        IsEssential = true,
+        Path = "/api/v1/auth/google/callback",
+        MaxAge = maxAge
+    };
+
+    private void DeleteGoogleFlowCookies()
+    {
+        var options = GoogleStateCookieOptions(TimeSpan.Zero);
+        Response.Cookies.Delete(GoogleStateCookie, options);
+        Response.Cookies.Delete(GoogleFromCookie, options);
+    }
+
+    private void AppendBrowserCookie(string name, string value, int? maxAgeSeconds)
+    {
+        Response.Cookies.Append(name, value, new CookieOptions
+        {
+            HttpOnly = false,
+            Secure = Request.IsHttps,
+            SameSite = SameSiteMode.Lax,
+            IsEssential = true,
+            Path = "/",
+            MaxAge = maxAgeSeconds is > 0
+                ? TimeSpan.FromSeconds(maxAgeSeconds.Value)
+                : null
+        });
+    }
+
+    private IActionResult RedirectToFrontendCallback(string? error, string? from)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrWhiteSpace(error))
+            query.Add($"error={Uri.EscapeDataString(error)}");
+        if (IsSafeInternalPath(from))
+            query.Add($"from={Uri.EscapeDataString(from!)}");
+
+        var suffix = query.Count == 0 ? string.Empty : $"?{string.Join("&", query)}";
+        return Redirect($"{_keycloakOptions.GetFrontendUrl()}/auth/callback{suffix}");
+    }
+
+    private static bool StateMatches(string? expected, string? actual)
+    {
+        if (string.IsNullOrWhiteSpace(expected) || string.IsNullOrWhiteSpace(actual))
+            return false;
+
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(expected),
+            Encoding.UTF8.GetBytes(actual));
+    }
+
+    private static bool IsSafeInternalPath(string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.StartsWith('/')
+        && !value.StartsWith("//", StringComparison.Ordinal)
+        && !value.StartsWith("/\\", StringComparison.Ordinal);
 }

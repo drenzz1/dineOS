@@ -1,9 +1,12 @@
 using DineOS.Api.Controllers;
+using DineOS.Application.Authentication;
 using DineOS.Application.Common;
 using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
 using Hangfire;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace DineOS.Tests.Unit;
@@ -21,7 +24,82 @@ public class AuthControllerTests
             _authService,
             _staffSessionService,
             _backgroundJobs,
-            new ForgotPasswordRequestValidator());
+            new ForgotPasswordRequestValidator(),
+            Options.Create(new KeycloakOptions
+            {
+                FrontendUrl = "http://localhost:3000",
+                GoogleCallbackUrl = "http://localhost:5138/api/v1/auth/google/callback"
+            }));
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext()
+        };
+    }
+
+    [Fact]
+    public void GoogleLogin_SetsStateCookieAndRedirectsToKeycloak()
+    {
+        _authService.BuildGoogleAuthorizationUrl(Arg.Any<string>())
+            .Returns(call => $"http://localhost:8080/google?state={call.Arg<string>()}");
+
+        var result = _controller.GoogleLogin("/reports");
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.StartsWith("http://localhost:8080/google?state=", redirect.Url);
+        Assert.Contains(
+            _controller.Response.Headers.SetCookie,
+            cookie => cookie!.StartsWith("dineos_google_oauth_state=", StringComparison.Ordinal)
+                      && cookie.Contains("httponly", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            _controller.Response.Headers.SetCookie,
+            cookie => cookie!.StartsWith("dineos_google_oauth_from=", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task GoogleCallback_WithMatchingState_SetsSessionCookiesAndRedirectsToFrontend()
+    {
+        _controller.Request.Headers.Cookie =
+            "dineos_google_oauth_state=matching-state; dineos_google_oauth_from=%2Freports";
+        _authService.ExchangeGoogleAuthorizationCodeAsync(
+                "authorization-code",
+                Arg.Any<CancellationToken>())
+            .Returns(Result<RefreshTokenResponse>.Success(
+                new RefreshTokenResponse("access", "refresh", 300, 1800)));
+
+        var result = await _controller.GoogleCallback(
+            "authorization-code",
+            "matching-state",
+            null,
+            CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("http://localhost:3000/auth/callback?from=%2Freports", redirect.Url);
+        Assert.Contains(
+            _controller.Response.Headers.SetCookie,
+            cookie => cookie!.StartsWith("access_token=access", StringComparison.Ordinal));
+        Assert.Contains(
+            _controller.Response.Headers.SetCookie,
+            cookie => cookie!.StartsWith("refresh_token=refresh", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task GoogleCallback_WithMismatchedState_DoesNotExchangeCode()
+    {
+        _controller.Request.Headers.Cookie = "dineos_google_oauth_state=expected";
+
+        var result = await _controller.GoogleCallback(
+            "authorization-code",
+            "unexpected",
+            null,
+            CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal(
+            "http://localhost:3000/auth/callback?error=invalid_oauth_state",
+            redirect.Url);
+        await _authService.DidNotReceive().ExchangeGoogleAuthorizationCodeAsync(
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

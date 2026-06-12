@@ -31,6 +31,13 @@ describe("LoginPage", () => {
     expect(loginSpy).not.toHaveBeenCalled();
   });
 
+  it("links Google sign-in through the backend auth endpoint", () => {
+    renderWithProviders(<LoginPage />);
+
+    expect(screen.getByRole("link", { name: /continue with google/i }))
+      .toHaveAttribute("href", "/api/v1/auth/google");
+  });
+
   it("calls authStore.login and redirects to the staff roster on success", async () => {
     // Post-login navigates with window.location.assign (a full document
     // request so middleware sees the fresh auth cookies), NOT router.push.

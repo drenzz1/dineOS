@@ -8,6 +8,10 @@ public interface IKeycloakAuthService
     Task<Result<RefreshTokenResponse>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
     Task<Result<RefreshTokenResponse>> RefreshAsync(RefreshTokenRequest request, CancellationToken cancellationToken = default);
     Task<Result> LogoutAsync(LogoutRequest request, CancellationToken cancellationToken = default);
+    string BuildGoogleAuthorizationUrl(string state);
+    Task<Result<RefreshTokenResponse>> ExchangeGoogleAuthorizationCodeAsync(
+        string code,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Rotates a tenant owner's temporary password on first login (#205).

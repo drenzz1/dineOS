@@ -25,6 +25,9 @@ data:
   Keycloak__GrantType: {{ .Values.api.env.Keycloak__GrantType | quote }}
   Keycloak__RequireHttpsMetadata: {{ .Values.api.env.Keycloak__RequireHttpsMetadata | quote }}
   Keycloak__AdminClientId: {{ .Values.api.env.Keycloak__AdminClientId | quote }}
+  Keycloak__GoogleClientId: {{ .Values.api.env.Keycloak__GoogleClientId | quote }}
+  Keycloak__GoogleCallbackUrl: {{ .Values.api.env.Keycloak__GoogleCallbackUrl | quote }}
+  Keycloak__FrontendUrl: {{ .Values.api.env.Keycloak__FrontendUrl | quote }}
   # PublicAuthServerUrl → browser-facing; AuthServerUrl → in-cluster pod↔Keycloak.
   Keycloak__PublicAuthServerUrl: {{ .Values.api.env.Keycloak__PublicAuthServerUrl | quote }}
   Keycloak__AuthServerUrl: {{ .Values.api.env.Keycloak__AuthServerUrl | quote }}

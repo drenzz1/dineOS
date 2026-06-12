@@ -40,6 +40,8 @@ api:
     Keycloak__AuthServerUrl: "http://dineos-keycloak:8080"
     Keycloak__Authority: "http://dineos.local:8080/realms/dineos"
     Keycloak__MetadataAddress: "http://dineos-keycloak:8080/realms/dineos/.well-known/openid-configuration"
+    Keycloak__GoogleCallbackUrl: "http://dineos.local/api/v1/auth/google/callback"
+    Keycloak__FrontendUrl: "http://dineos.local"
 
     # Loki — in-cluster
     Loki__Uri: "http://dineos-loki:3100"
@@ -110,6 +112,9 @@ secrets:
   postgresPassword: "dineos_dev"
   keycloakClientSecret: "dev-client-secret-change-me"
   keycloakAdminClientSecret: "dev-admin-secret-change-me"  # Keycloak__AdminClientSecret
+  keycloakGoogleClientSecret: "dev-google-auth-client-secret-change-me"
+  googleClientId: ""
+  googleClientSecret: ""
   jwtSigningKey: "dev-jwt-signing-key-32-chars-min!"
   smtpPassword: ""            # MailHog needs no password
   rabbitMqPassword: "dineos_dev"

@@ -65,6 +65,7 @@ try
 
         RequireNonPlaceholder("StaffSession:SigningKey", "dev-staff-session-signing-key-change-me-0123456789");
         RequireNonPlaceholder("Keycloak:AdminClientSecret", "dev-admin-secret-change-me");
+        RequireNonPlaceholder("Keycloak:GoogleClientSecret", "dev-google-auth-client-secret-change-me");
 
         var dbConnection = builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
         if (dbConnection.Contains("Password=dineos_dev", StringComparison.OrdinalIgnoreCase))

@@ -48,6 +48,9 @@ api:
     Keycloak__GrantType: authorization_code
     Keycloak__RequireHttpsMetadata: "true"
     Keycloak__AdminClientId: dineos-admin
+    Keycloak__GoogleClientId: dineos-google
+    Keycloak__GoogleCallbackUrl: "https://app.dineos.io/api/v1/auth/google/callback"
+    Keycloak__FrontendUrl: "https://app.dineos.io"
     # PublicAuthServerUrl  → browser-facing Keycloak URL
     # AuthServerUrl        → in-cluster Keycloak URL for server↔Keycloak calls
     # Override both in values.local.yaml to http://... for non-TLS dev clusters.
@@ -204,6 +207,9 @@ secrets:
   # Keycloak
   keycloakClientSecret: ""        # dineos-frontend client secret
   keycloakAdminClientSecret: ""   # dineos-admin service-account secret (Keycloak__AdminClientSecret)
+  keycloakGoogleClientSecret: ""  # dineos-google confidential client secret
+  googleClientId: ""              # Google OAuth web client ID
+  googleClientSecret: ""          # Google OAuth web client secret
 
   # JWT
   jwtSigningKey: ""

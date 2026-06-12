@@ -103,6 +103,119 @@
         "http://localhost:5138",
         "https://localhost:7202"
       ]
+    },
+    {
+      "clientId": "dineos-google",
+      "name": "DineOS Google Login",
+      "description": "Confidential backend client for Google sign-in through Keycloak.",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "secret": "{{ .Values.secrets.keycloakGoogleClientSecret }}",
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "{{ .Values.api.env.Keycloak__GoogleCallbackUrl }}"
+      ],
+      "webOrigins": [
+        "{{ .Values.api.env.Keycloak__FrontendUrl }}"
+      ],
+      "protocolMappers": [
+        {
+          "name": "dineos-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "dineos-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "tenant-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "enabled": true,
+      "updateProfileFirstLoginMode": "missing",
+      "trustEmail": true,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login auto link by email",
+      "config": {
+        "clientId": "{{ .Values.secrets.googleClientId }}",
+        "clientSecret": "{{ .Values.secrets.googleClientSecret }}",
+        "defaultScope": "openid profile email"
+      }
+    }
+  ],
+  "authenticationFlows": [
+    {
+      "alias": "first broker login auto link by email",
+      "description": "Create a brokered user when the email is unique, or auto-link Google to the existing trusted-email account.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-review-profile",
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false,
+          "authenticatorFlow": false
+        },
+        {
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "flowAlias": "first broker login auto link by email user creation or linking",
+          "userSetupAllowed": false,
+          "authenticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "first broker login auto link by email user creation or linking",
+      "description": "Create a unique brokered user or automatically link the matching existing user.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-create-user-if-unique",
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "userSetupAllowed": false,
+          "authenticatorFlow": false
+        },
+        {
+          "authenticator": "idp-auto-link",
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "userSetupAllowed": false,
+          "authenticatorFlow": false
+        }
+      ]
     }
   ],
   "users": [

@@ -32,6 +32,50 @@ public sealed class KeycloakAuthService(
 
     private readonly KeycloakOptions _options = options.Value;
 
+    public string BuildGoogleAuthorizationUrl(string state)
+    {
+        if (string.IsNullOrWhiteSpace(state))
+            throw new ArgumentException("OAuth state is required.", nameof(state));
+
+        var authorizationEndpoint = _options.GetAuthorizationEndpoint()
+            ?? throw new InvalidOperationException("Keycloak authorization endpoint is not configured.");
+        if (string.IsNullOrWhiteSpace(_options.GoogleClientId))
+            throw new InvalidOperationException("Keycloak:GoogleClientId is not configured.");
+
+        var query = new Dictionary<string, string>
+        {
+            ["client_id"] = _options.GoogleClientId,
+            ["redirect_uri"] = _options.GetGoogleCallbackUrl(),
+            ["response_type"] = "code",
+            ["scope"] = "openid profile email",
+            ["kc_idp_hint"] = string.IsNullOrWhiteSpace(_options.GoogleProviderAlias)
+                ? "google"
+                : _options.GoogleProviderAlias,
+            ["state"] = state
+        };
+
+        return $"{authorizationEndpoint}?{string.Join("&", query.Select(pair =>
+            $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"))}";
+    }
+
+    public async Task<Result<RefreshTokenResponse>> ExchangeGoogleAuthorizationCodeAsync(
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return Result<RefreshTokenResponse>.Failure("Google authorization code is missing.");
+
+        var form = CreateGoogleClientForm();
+        form["grant_type"] = "authorization_code";
+        form["code"] = code;
+        form["redirect_uri"] = _options.GetGoogleCallbackUrl();
+
+        return await ExchangeTokenAsync(
+            form,
+            "Google authorization code is invalid or expired.",
+            cancellationToken);
+    }
+
     public async Task<Result<RefreshTokenResponse>> LoginAsync(
         LoginRequest request,
         CancellationToken cancellationToken = default)
@@ -78,7 +122,7 @@ public sealed class KeycloakAuthService(
             return Result<RefreshTokenResponse>.Failure("Refresh token has been revoked.");
         }
 
-        var form = CreateClientForm();
+        var form = CreateRefreshClientForm(tokenInfo);
         form["grant_type"] = "refresh_token";
         form["refresh_token"] = request.RefreshToken;
 
@@ -386,7 +430,7 @@ public sealed class KeycloakAuthService(
 
     private async Task RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken)
     {
-        var form = CreateClientForm();
+        var form = CreateRefreshClientForm(DecodeRefreshToken(refreshToken));
         form["token"] = refreshToken;
         form["token_type_hint"] = "refresh_token";
 
@@ -432,6 +476,28 @@ public sealed class KeycloakAuthService(
         return form;
     }
 
+    private Dictionary<string, string> CreateGoogleClientForm()
+    {
+        if (string.IsNullOrWhiteSpace(_options.GoogleClientId))
+            throw new InvalidOperationException("Keycloak:GoogleClientId is not configured.");
+        if (string.IsNullOrWhiteSpace(_options.GoogleClientSecret))
+            throw new InvalidOperationException("Keycloak:GoogleClientSecret is not configured.");
+
+        return new Dictionary<string, string>
+        {
+            ["client_id"] = _options.GoogleClientId,
+            ["client_secret"] = _options.GoogleClientSecret
+        };
+    }
+
+    private Dictionary<string, string> CreateRefreshClientForm(RefreshTokenInfo tokenInfo) =>
+        string.Equals(
+            tokenInfo.AuthorizedParty,
+            _options.GoogleClientId,
+            StringComparison.Ordinal)
+            ? CreateGoogleClientForm()
+            : CreateClientForm();
+
     private HttpClient CreateClient() => httpClientFactory.CreateClient(HttpClientName);
 
     private string GetTokenEndpoint() =>
@@ -446,7 +512,7 @@ public sealed class KeycloakAuthService(
     {
         var parts = refreshToken.Split('.');
         if (parts.Length < 2)
-            return new RefreshTokenInfo(null, null);
+            return new RefreshTokenInfo(null, null, null);
 
         try
         {
@@ -456,6 +522,9 @@ public sealed class KeycloakAuthService(
 
             var jti = root.TryGetProperty("jti", out var jtiElement)
                 ? jtiElement.GetString()
+                : null;
+            var authorizedParty = root.TryGetProperty("azp", out var azpElement)
+                ? azpElement.GetString()
                 : null;
 
             long? exp = null;
@@ -469,15 +538,15 @@ public sealed class KeycloakAuthService(
                 };
             }
 
-            return new RefreshTokenInfo(jti, exp);
+            return new RefreshTokenInfo(jti, exp, authorizedParty);
         }
         catch (JsonException)
         {
-            return new RefreshTokenInfo(null, null);
+            return new RefreshTokenInfo(null, null, null);
         }
         catch (FormatException)
         {
-            return new RefreshTokenInfo(null, null);
+            return new RefreshTokenInfo(null, null, null);
         }
     }
 
@@ -517,7 +586,10 @@ public sealed class KeycloakAuthService(
         return ttl < TimeSpan.Zero ? TimeSpan.Zero : ttl;
     }
 
-    private sealed record RefreshTokenInfo(string? Jti, long? ExpiresAtUnix);
+    private sealed record RefreshTokenInfo(
+        string? Jti,
+        long? ExpiresAtUnix,
+        string? AuthorizedParty);
 
     private sealed record KeycloakTokenResponse(
         [property: JsonPropertyName("access_token")] string? AccessToken,
