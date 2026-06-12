@@ -109,14 +109,6 @@ jobs:
           output: trivy-frontend.sarif
           trivyignores: .trivyignore
 
-      - name: Upload Trivy SARIF report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
-        with:
-          name: trivy-frontend-sarif
-          path: trivy-frontend.sarif
-          retention-days: 30
-
       - name: Write job summary
         if: always()
         env:
@@ -206,14 +198,6 @@ jobs:
           format: sarif
           output: trivy-backend.sarif
           trivyignores: .trivyignore
-
-      - name: Upload Trivy SARIF report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
-        with:
-          name: trivy-backend-sarif
-          path: trivy-backend.sarif
-          retention-days: 30
 
       - name: Write job summary
         if: always()
