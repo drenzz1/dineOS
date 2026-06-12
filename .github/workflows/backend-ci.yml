@@ -48,13 +48,6 @@ jobs:
             --no-build \
             --output ./publish
 
-      - name: Upload publish artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
-        with:
-          name: backend-publish
-          path: backend/publish
-          retention-days: 7
-
       - name: Run tests with coverage
         working-directory: backend
         run: |
@@ -72,7 +65,7 @@ jobs:
         with:
           name: coverage-report
           path: backend/TestResults/**/coverage.cobertura.xml
-          retention-days: 14
+          retention-days: 7
 
       - name: Upload test results
         if: always()
@@ -80,7 +73,7 @@ jobs:
         with:
           name: test-results
           path: backend/TestResults/**/*.trx
-          retention-days: 14
+          retention-days: 7
 
       - name: Check coverage threshold (≥ 70%)
         run: |
@@ -208,7 +201,7 @@ jobs:
         with:
           name: live-auth-test-results
           path: backend/TestResults/**/*.trx
-          retention-days: 14
+          retention-days: 7
 
   notify:
     name: Notify
