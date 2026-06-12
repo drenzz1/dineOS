@@ -8,6 +8,10 @@
   <ItemGroup>
     <PackageReference Include="Asp.Versioning.Mvc" Version="10.0.0" />
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.0.0" />
+    <!-- Direct pin: SignalR.StackExchangeRedis pulls MessagePack 2.5.187, which is
+         vulnerable to CVE-2026-48109 (LZ4 decompression crash, HIGH). Remove once
+         the SignalR package references MessagePack >= 2.5.301 on its own. -->
+    <PackageReference Include="MessagePack" Version="2.5.302" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
