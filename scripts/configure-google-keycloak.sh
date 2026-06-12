@@ -109,6 +109,10 @@ set_execution_requirement() {
 
   execution=$(api GET "/authentication/flows/$(urlencode "$flow")/executions" \
     | jq -c "$selector")
+  if [[ -z "$execution" ]]; then
+    echo "No execution matching '$selector' found in flow '$flow'." >&2
+    exit 1
+  fi
   api PUT "/authentication/flows/$(urlencode "$flow")/executions" \
     "$(jq -c --arg requirement "$requirement" '.requirement = $requirement' <<<"$execution")" \
     >/dev/null
@@ -127,8 +131,10 @@ set_execution_requirement "$top_flow" \
   '.[] | select(.providerId == "idp-review-profile")' \
   "REQUIRED"
 
+# Sub-flow executions carry no flowAlias in the executions listing — they are
+# identified by authenticationFlow=true plus the alias echoed in displayName.
 if ! execution_exists "$top_flow" \
-  'any(.[]; .flowAlias == "first broker login auto link by email user creation or linking")'; then
+  'any(.[]; .authenticationFlow == true and .displayName == "first broker login auto link by email user creation or linking")'; then
   api POST "/authentication/flows/$(urlencode "$top_flow")/executions/flow" \
     "$(jq -cn \
       --arg alias "$link_flow" \
@@ -136,7 +142,7 @@ if ! execution_exists "$top_flow" \
     >/dev/null
 fi
 set_execution_requirement "$top_flow" \
-  '.[] | select(.flowAlias == "first broker login auto link by email user creation or linking")' \
+  '.[] | select(.authenticationFlow == true and .displayName == "first broker login auto link by email user creation or linking")' \
   "REQUIRED"
 
 if ! execution_exists "$link_flow" \
