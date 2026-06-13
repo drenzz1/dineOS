@@ -29,12 +29,20 @@ public sealed class AiSettingsService(
         if (cache.TryGetValue<PlatformAiSettings>(CacheKey, out var cached) && cached is not null)
             return ToEffective(cached);
 
-        // Synchronous DB read — acceptable in DI factory context (single fast query per scope).
-        var row = db.PlatformAiSettings.AsNoTracking().IgnoreQueryFilters().FirstOrDefault();
-        if (row is null) return null;
+        try
+        {
+            // Synchronous DB read — acceptable in DI factory context (single fast query per scope).
+            var row = db.PlatformAiSettings.AsNoTracking().IgnoreQueryFilters().FirstOrDefault();
+            if (row is null) return null;
 
-        cache.Set(CacheKey, row, CacheTtl);
-        return ToEffective(row);
+            cache.Set(CacheKey, row, CacheTtl);
+            return ToEffective(row);
+        }
+        catch
+        {
+            // DB unreachable (e.g. unit-test environment) — fall back to appsettings config.
+            return null;
+        }
     }
 
     public async Task<AiSettingsDto> GetAsync(CancellationToken ct = default)

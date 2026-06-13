@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useAiSettings, useSaveAiSettings, useTestAiConnection } from "@/hooks/useAiSettings";
@@ -34,13 +34,11 @@ export default function AiProviderSettingsCard() {
   const saveMutation  = useSaveAiSettings();
   const testMutation  = useTestAiConnection();
 
-  const [provider, setProvider] = useState<AiProvider>("Anthropic");
+  // null = user hasn't made an explicit choice yet; fall back to loaded settings
+  const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(null);
+  const provider: AiProvider = selectedProvider ?? settings?.activeProvider ?? "Anthropic";
   const [apiKey,   setApiKey]   = useState("");
   const [showKey,  setShowKey]  = useState(false);
-
-  useEffect(() => {
-    if (settings) setProvider(settings.activeProvider);
-  }, [settings]);
 
   const currentHint =
     provider === "Anthropic" ? settings?.anthropicApiKeyHint
@@ -101,7 +99,7 @@ export default function AiProviderSettingsCard() {
               <button
                 key={p.value}
                 type="button"
-                onClick={() => { setProvider(p.value); setApiKey(""); testMutation.reset(); }}
+                onClick={() => { setSelectedProvider(p.value); setApiKey(""); testMutation.reset(); }}
                 className={`flex flex-1 flex-col rounded-md border px-3 py-2.5 text-left transition-colors ${
                   isActive
                     ? "border-accent bg-accent-soft text-accent"
