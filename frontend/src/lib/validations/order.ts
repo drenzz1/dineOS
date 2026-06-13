@@ -10,20 +10,18 @@ const orderItemSchema = z.object({
 export const orderSchema = z
   .object({
     orderType: z.enum(["dine-in", "pickup"]),
-    tableNumber: z.number().int().min(1).max(50).optional(),
+    tableNumber: z.number().int().min(1).optional(),
     items: z.array(orderItemSchema).min(1, "At least 1 item required"),
     notes: z.string().max(300).optional(),
   })
   .superRefine((data, ctx) => {
     if (
       data.orderType === "dine-in" &&
-      (data.tableNumber === undefined ||
-        data.tableNumber < 1 ||
-        data.tableNumber > 50)
+      (data.tableNumber === undefined || data.tableNumber < 1)
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Table number (1–50) is required for dine-in orders",
+        message: "Table number is required for dine-in orders",
         path: ["tableNumber"],
       });
     }

@@ -11,17 +11,18 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace DineOS.Api.Controllers;
 
-/// <summary>Restaurant operations endpoints — Manager and above.</summary>
+/// <summary>Restaurant profile and table operations endpoints.</summary>
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/restaurant")]
 [Produces("application/json")]
-[Authorize(Policy = Policies.ManagerAndAbove)]
+[Authorize(Policy = Policies.CashierAndAbove)]
 [EnableRateLimiting("authenticated")]
 public class RestaurantController(IRestaurantService restaurantService) : ControllerBase
 {
     /// <summary>Gets the current tenant's restaurant profile.</summary>
     [HttpGet]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<RestaurantProfileDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -32,6 +33,7 @@ public class RestaurantController(IRestaurantService restaurantService) : Contro
 
     /// <summary>Updates the restaurant's profile fields (name, owner name, phone, city).</summary>
     [HttpPut]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<RestaurantProfileDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -54,6 +56,7 @@ public class RestaurantController(IRestaurantService restaurantService) : Contro
 
     /// <summary>Adds a new table.</summary>
     [HttpPost("tables")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<RestaurantTableDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
@@ -67,6 +70,7 @@ public class RestaurantController(IRestaurantService restaurantService) : Contro
 
     /// <summary>Updates a table's details.</summary>
     [HttpPut("tables/{id:long}")]
+    [Authorize(Policy = Policies.ManagerAndAbove)]
     [ProducesResponseType(typeof(ApiResponse<RestaurantTableDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]

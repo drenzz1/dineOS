@@ -3,6 +3,7 @@ using DineOS.Domain.Common;
 using DineOS.Domain.Entities;
 using DineOS.Infrastructure.Persistence.Messaging;
 using Microsoft.EntityFrameworkCore;
+using Pgvector.EntityFrameworkCore;
 using System.Linq.Expressions;
 
 namespace DineOS.Infrastructure.Persistence;
@@ -36,6 +37,7 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasPostgresExtension("vector");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -72,6 +74,13 @@ public class AppDbContext : DbContext
             .HasIndex(sn => new { sn.TenantId, sn.CreatedAt });
         modelBuilder.Entity<MenuItem>()
             .HasIndex(mi => new { mi.TenantId, mi.CategoryId });
+        if (Database.IsNpgsql())
+            modelBuilder.Entity<MenuItem>()
+                .Property(mi => mi.Embedding)
+                .HasColumnType("vector(768)");
+        else
+            modelBuilder.Entity<MenuItem>()
+                .Ignore(mi => mi.Embedding);
         // Real FK to MenuCategory. Restrict on delete: a category that still has
         // items cannot be removed (the app soft-deletes, so this is belt-and-braces).
         modelBuilder.Entity<MenuItem>()

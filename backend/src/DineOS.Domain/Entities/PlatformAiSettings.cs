@@ -8,5 +8,7 @@ public class PlatformAiSettings
     public string AnthropicApiKey { get; set; } = string.Empty;
     public string OpenAiApiKey { get; set; } = string.Empty;
     public string GoogleAiApiKey { get; set; } = string.Empty;
+    public string EmbeddingsProvider { get; set; } = string.Empty; // "OpenAI" | "Google" | ""
+    public string EmbeddingsApiKey { get; set; } = string.Empty;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Pgvector.EntityFrameworkCore;
 using Testcontainers.PostgreSql;
 
 namespace DineOS.Tests.Fixtures;
@@ -29,7 +30,7 @@ public sealed class LiveKeycloakWebApplicationFactory : WebApplicationFactory<Pr
 
     public string UploadsRoot => _uploadsRoot;
 
-    private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("postgres:16-alpine")
+    private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("pgvector/pgvector:pg16")
         .WithDatabase("dineos_test")
         .WithUsername("postgres")
         .WithPassword("postgres")
@@ -122,7 +123,8 @@ public sealed class LiveKeycloakWebApplicationFactory : WebApplicationFactory<Pr
                 services.Remove(descriptor);
 
             services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(_db.GetConnectionString()));
+                options.UseNpgsql(_db.GetConnectionString(),
+                    npgsql => npgsql.UseVector()));
 
             services.AddControllers()
                 .AddApplicationPart(typeof(CustomWebApplicationFactory).Assembly);

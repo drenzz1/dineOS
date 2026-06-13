@@ -31,6 +31,19 @@ describe("Modal", () => {
     expect(screen.getByText("Test modal")).toBeInTheDocument();
   });
 
+  it("keeps long content inside a scrollable dialog body", () => {
+    render(
+      <Modal {...DEFAULT_PROPS} isOpen>
+        content
+      </Modal>
+    );
+
+    expect(screen.getByRole("dialog")).toHaveClass(
+      "max-h-[calc(100dvh-2rem)]"
+    );
+    expect(screen.getByTestId("modal-body")).toHaveClass("overflow-y-auto");
+  });
+
   it("does not render dialog when closed", () => {
     render(
       <Modal {...DEFAULT_PROPS} isOpen={false}>

@@ -53,7 +53,7 @@ export function Modal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-8 md:py-16 animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
       <div
         data-testid="modal-overlay"
         className="fixed inset-0 bg-warm-1000/40 backdrop-blur-[4px]"
@@ -66,11 +66,11 @@ export function Modal({
         aria-modal="true"
         aria-labelledby="modal-title"
         className={mergeClasses(
-          "relative z-10 w-full bg-surface border border-border rounded-lg shadow-xl overflow-hidden animate-pop",
+          "relative z-10 flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xl animate-pop",
           widthClasses[width],
         )}
       >
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
           <h2
             id="modal-title"
             className="text-[15px] font-semibold tracking-[-0.01em] text-fg"
@@ -98,9 +98,14 @@ export function Modal({
             </svg>
           </button>
         </div>
-        <div className="px-5 py-4 text-fg">{children}</div>
+        <div
+          data-testid="modal-body"
+          className="min-h-0 overflow-y-auto px-5 py-4 text-fg"
+        >
+          {children}
+        </div>
         {footer && (
-          <div className="flex justify-end gap-2 px-5 py-3 border-t border-border bg-surface-2">
+          <div className="flex shrink-0 justify-end gap-2 border-t border-border bg-surface-2 px-5 py-3">
             {footer}
           </div>
         )}

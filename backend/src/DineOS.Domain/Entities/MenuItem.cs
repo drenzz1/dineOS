@@ -1,4 +1,5 @@
 using DineOS.Domain.Common;
+using Pgvector;
 
 namespace DineOS.Domain.Entities;
 
@@ -16,4 +17,5 @@ public class MenuItem : TenantAuditingEntity
 
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
+    public Vector? Embedding { get; set; }
 }

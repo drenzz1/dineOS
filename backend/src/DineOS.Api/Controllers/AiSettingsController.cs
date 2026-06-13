@@ -38,6 +38,15 @@ public class AiSettingsController(IAiSettingsService aiSettingsService) : Contro
     public async Task<IActionResult> Save([FromBody] SaveAiSettingsRequest request, CancellationToken ct) =>
         (await aiSettingsService.SaveAsync(request, ct)).ToActionResult();
 
+    /// <summary>Saves the embeddings provider and its API key for semantic search.</summary>
+    [HttpPut("embeddings")]
+    [ProducesResponseType(typeof(ApiResponse<AiSettingsDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> SaveEmbeddings([FromBody] SaveEmbeddingsSettingsRequest request, CancellationToken ct) =>
+        (await aiSettingsService.SaveEmbeddingsAsync(request, ct)).ToActionResult();
+
     /// <summary>Tests a provider + API key by making a minimal live API call.</summary>
     [HttpPost("test")]
     [EnableRateLimiting("ai-expensive")]

@@ -7,6 +7,7 @@ using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Services;
 using FluentValidation;
 using FluentValidation.Results;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -44,6 +45,8 @@ public class MenuServiceTests
             currentUser,
             cache,
             Substitute.For<IFileStorageService>(),
+            Substitute.For<IEmbeddingsClient>(),
+            Substitute.For<IBackgroundJobClient>(),
             createValidator,
             updateValidator,
             createCategoryValidator,

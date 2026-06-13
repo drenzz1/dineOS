@@ -19,17 +19,25 @@ export type AdminBillingInsight = {
 };
 
 export type AiProvider = "Anthropic" | "OpenAI" | "Google";
+export type EmbeddingsProvider = "OpenAI" | "Google";
 
 export type AiSettings = {
   activeProvider: AiProvider;
   anthropicApiKeyHint: string | null;
   openAiApiKeyHint: string | null;
   googleAiApiKeyHint: string | null;
+  embeddingsProvider: string;
+  embeddingsApiKeyHint: string | null;
   updatedAt: string | null;
 };
 
 export type SaveAiSettingsRequest = {
   provider: AiProvider;
+  apiKey: string;
+};
+
+export type SaveEmbeddingsSettingsRequest = {
+  provider: EmbeddingsProvider;
   apiKey: string;
 };
 

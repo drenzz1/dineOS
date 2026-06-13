@@ -29,4 +29,8 @@ public interface IMenuService
     Task<ServiceResult<MenuCategoryDto>> CreateCategoryAsync(
         CreateMenuCategoryRequest request,
         CancellationToken ct = default);
+
+    Task<ServiceResult<List<MenuItemDto>>> SemanticSearchMenuItemsAsync(
+        string query,
+        CancellationToken ct = default);
 }
