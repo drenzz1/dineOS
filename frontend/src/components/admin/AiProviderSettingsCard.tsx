@@ -40,7 +40,6 @@ export default function AiProviderSettingsCard() {
   const [apiKey,   setApiKey]   = useState("");
   const [showKey,  setShowKey]  = useState(false);
 
-
   const currentHint =
     provider === "Anthropic" ? settings?.anthropicApiKeyHint
     : provider === "OpenAI"  ? settings?.openAiApiKeyHint
