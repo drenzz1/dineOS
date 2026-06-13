@@ -11,7 +11,8 @@ namespace DineOS.Infrastructure.Services;
 public sealed class GoogleAiClient(
     HttpClient http,
     IOptions<GoogleAiOptions> options,
-    ILogger<GoogleAiClient> logger) : IAiClient
+    ILogger<GoogleAiClient> logger,
+    string? apiKeyOverride = null) : IAiClient
 {
     public const string HttpClientName = "google-ai";
 
@@ -23,12 +24,16 @@ public sealed class GoogleAiClient(
 
     private readonly GoogleAiOptions _opts = options.Value;
 
+    private string EffectiveApiKey =>
+        !string.IsNullOrWhiteSpace(apiKeyOverride) ? apiKeyOverride : _opts.ApiKey;
+
     public async Task<MenuDescriptionAiResult> GenerateMenuDescriptionAsync(
         MenuDescriptionAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("Google AI API key is not configured (GoogleAI:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Google AI API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new GenerateContentRequest(
             Contents:
@@ -41,7 +46,7 @@ public sealed class GoogleAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync(BuildGenerateContentPath(), body, JsonOpts, ct);
+            response = await SendAsync(key, BuildGenerateContentPath(), body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -80,8 +85,9 @@ public sealed class GoogleAiClient(
         IncidentTriageAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("Google AI API key is not configured (GoogleAI:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Google AI API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new GenerateContentRequest(
             Contents:
@@ -94,7 +100,7 @@ public sealed class GoogleAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync(BuildGenerateContentPath(), body, JsonOpts, ct);
+            response = await SendAsync(key, BuildGenerateContentPath(), body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -203,6 +209,97 @@ public sealed class GoogleAiClient(
                 """;
     }
 
+    public async Task<AdminBillingInsightAiResult> GenerateAdminBillingInsightAsync(
+        AdminBillingInsightAiRequest request,
+        CancellationToken ct = default)
+    {
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Google AI API key is not configured. Visit Admin → Settings to add one.");
+
+        var body = new GenerateContentRequest(
+            Contents:
+            [
+                new Content("user", [new Part(BuildAdminInsightUserMessage(request))]),
+            ],
+            SystemInstruction: new SystemInstruction([new Part(AdminInsightSystemPrompt)]),
+            GenerationConfig: new GenerationConfig(600, null));
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await SendAsync(key, BuildGenerateContentPath(), body, ct);
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Google AI admin insight call timed out after {Timeout}s.", _opts.TimeoutSeconds);
+            throw new AiUnavailableException("Google AI request timed out.", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogWarning(ex, "Google AI admin insight network error.");
+            throw new AiUnavailableException("Google AI network error.", ex);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var snippet = await response.Content.ReadAsStringAsync(ct);
+            logger.LogWarning("Google AI returned {StatusCode}. Snippet={Snippet}", (int)response.StatusCode, Truncate(snippet, 400));
+            throw new AiUnavailableException($"Google AI returned HTTP {(int)response.StatusCode}.");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<GenerateContentResponse>(JsonOpts, ct)
+                      ?? throw new AiUnavailableException("Google AI response was empty.");
+        var narrative = payload.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text?.Trim()
+                        ?? throw new AiUnavailableException("Google AI response did not include content.");
+
+        if (string.IsNullOrWhiteSpace(narrative))
+            throw new AiUnavailableException("Google AI returned an empty narrative.");
+
+        return new AdminBillingInsightAiResult(
+            narrative,
+            new AiUsage(
+                payload.UsageMetadata?.PromptTokenCount ?? 0,
+                payload.UsageMetadata?.CandidatesTokenCount ?? 0,
+                _opts.Model));
+    }
+
+    private const string AdminInsightSystemPrompt = """
+        You are a concise business analyst for a multi-tenant restaurant SaaS platform.
+        Analyse the provided billing and growth snapshot and return a plain-text narrative
+        of 3–5 short paragraphs (150–300 words total). Cover: overall health, MRR trend,
+        churn/risk signals, and one actionable recommendation. Use neutral business language.
+        Do not use markdown, bullet points, or headers — plain prose only.
+        """;
+
+    private static string BuildAdminInsightUserMessage(AdminBillingInsightAiRequest r) =>
+        $"""
+         Platform snapshot for {r.Month}:
+
+         Tenants: {r.TotalTenants} total ({r.ActiveTenants} active, {r.SuspendedTenants} suspended)
+         Plans: {r.ProTenants} Pro, {r.FreeTenants} Free
+         Billing: {r.PastDueTenants} past-due, {r.CanceledThisMonth} canceled this month, {r.NewProThisMonth} new Pro this month
+         Estimated MRR: €{r.EstimatedMrr:F0}
+
+         Top restaurants this month:
+         {r.TopRestaurantsSummary}
+
+         Weekly new-tenant growth (last 8 weeks):
+         {r.WeeklyGrowthSummary}
+
+         Write a concise platform health narrative.
+         """;
+
+    private async Task<HttpResponseMessage> SendAsync<T>(string apiKey, string path, T body, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(body, options: JsonOpts),
+        };
+        request.Headers.Add("x-goog-api-key", apiKey);
+        return await http.SendAsync(request, ct);
+    }
+
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 
     private sealed record GenerateContentRequest(
@@ -218,7 +315,7 @@ public sealed class GoogleAiClient(
 
     private sealed record GenerationConfig(
         [property: JsonPropertyName("max_output_tokens")] int MaxOutputTokens,
-        [property: JsonPropertyName("response_mime_type")] string ResponseMimeType);
+        [property: JsonPropertyName("response_mime_type")] string? ResponseMimeType);
 
     private sealed record GenerateContentResponse(
         Candidate[]? Candidates,

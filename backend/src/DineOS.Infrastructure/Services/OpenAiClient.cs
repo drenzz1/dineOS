@@ -12,7 +12,8 @@ namespace DineOS.Infrastructure.Services;
 public sealed class OpenAiClient(
     HttpClient http,
     IOptions<OpenAiOptions> options,
-    ILogger<OpenAiClient> logger) : IAiClient
+    ILogger<OpenAiClient> logger,
+    string? apiKeyOverride = null) : IAiClient
 {
     public const string HttpClientName = "openai";
 
@@ -24,12 +25,16 @@ public sealed class OpenAiClient(
 
     private readonly OpenAiOptions _opts = options.Value;
 
+    private string EffectiveApiKey =>
+        !string.IsNullOrWhiteSpace(apiKeyOverride) ? apiKeyOverride : _opts.ApiKey;
+
     public async Task<MenuDescriptionAiResult> GenerateMenuDescriptionAsync(
         MenuDescriptionAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("OpenAI API key is not configured (OpenAI:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("OpenAI API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new ChatCompletionRequest(
             Model: _opts.Model,
@@ -44,7 +49,7 @@ public sealed class OpenAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("/v1/chat/completions", body, JsonOpts, ct);
+            response = await SendAsync(key, "/v1/chat/completions", body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -83,8 +88,9 @@ public sealed class OpenAiClient(
         IncidentTriageAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("OpenAI API key is not configured (OpenAI:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("OpenAI API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new ChatCompletionRequest(
             Model: _opts.Model,
@@ -99,7 +105,7 @@ public sealed class OpenAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("/v1/chat/completions", body, JsonOpts, ct);
+            response = await SendAsync(key, "/v1/chat/completions", body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -274,7 +280,104 @@ public sealed class OpenAiClient(
                 """;
     }
 
+    public async Task<AdminBillingInsightAiResult> GenerateAdminBillingInsightAsync(
+        AdminBillingInsightAiRequest request,
+        CancellationToken ct = default)
+    {
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("OpenAI API key is not configured. Visit Admin → Settings to add one.");
+
+        var body = new PlainChatCompletionRequest(
+            Model: _opts.Model,
+            MaxTokens: 600,
+            Messages:
+            [
+                new Message("system", AdminInsightSystemPrompt),
+                new Message("user", BuildAdminInsightUserMessage(request)),
+            ]);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await SendAsync(key, "/v1/chat/completions", body, ct);
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "OpenAI admin insight call timed out after {Timeout}s.", _opts.TimeoutSeconds);
+            throw new AiUnavailableException("OpenAI request timed out.", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogWarning(ex, "OpenAI admin insight network error.");
+            throw new AiUnavailableException("OpenAI network error.", ex);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var snippet = await response.Content.ReadAsStringAsync(ct);
+            logger.LogWarning("OpenAI returned {StatusCode}. Snippet={Snippet}", (int)response.StatusCode, Truncate(snippet, 400));
+            throw new AiUnavailableException($"OpenAI returned HTTP {(int)response.StatusCode}.");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<ChatCompletionResponse>(JsonOpts, ct)
+                      ?? throw new AiUnavailableException("OpenAI response was empty.");
+        var narrative = payload.Choices?.FirstOrDefault()?.Message?.Content?.Trim()
+                        ?? throw new AiUnavailableException("OpenAI response did not include content.");
+
+        if (string.IsNullOrWhiteSpace(narrative))
+            throw new AiUnavailableException("OpenAI returned an empty narrative.");
+
+        return new AdminBillingInsightAiResult(
+            narrative,
+            new AiUsage(
+                payload.Usage?.PromptTokens ?? 0,
+                payload.Usage?.CompletionTokens ?? 0,
+                payload.Model ?? _opts.Model));
+    }
+
+    private const string AdminInsightSystemPrompt = """
+        You are a concise business analyst for a multi-tenant restaurant SaaS platform.
+        Analyse the provided billing and growth snapshot and return a plain-text narrative
+        of 3–5 short paragraphs (150–300 words total). Cover: overall health, MRR trend,
+        churn/risk signals, and one actionable recommendation. Use neutral business language.
+        Do not use markdown, bullet points, or headers — plain prose only.
+        """;
+
+    private static string BuildAdminInsightUserMessage(AdminBillingInsightAiRequest r) =>
+        $"""
+         Platform snapshot for {r.Month}:
+
+         Tenants: {r.TotalTenants} total ({r.ActiveTenants} active, {r.SuspendedTenants} suspended)
+         Plans: {r.ProTenants} Pro, {r.FreeTenants} Free
+         Billing: {r.PastDueTenants} past-due, {r.CanceledThisMonth} canceled this month, {r.NewProThisMonth} new Pro this month
+         Estimated MRR: €{r.EstimatedMrr:F0}
+
+         Top restaurants this month:
+         {r.TopRestaurantsSummary}
+
+         Weekly new-tenant growth (last 8 weeks):
+         {r.WeeklyGrowthSummary}
+
+         Write a concise platform health narrative.
+         """;
+
+    private async Task<HttpResponseMessage> SendAsync<T>(string apiKey, string path, T body, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(body, options: JsonOpts),
+        };
+        request.Headers.Add("Authorization", $"Bearer {apiKey}");
+        return await http.SendAsync(request, ct);
+    }
+
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
+
+    private sealed record PlainChatCompletionRequest(
+        string Model,
+        Message[] Messages,
+        [property: JsonPropertyName("max_tokens")] int MaxTokens);
 
     private sealed record ChatCompletionRequest(
         string Model,

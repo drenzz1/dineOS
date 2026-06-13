@@ -14,6 +14,10 @@ public interface IAiClient
     Task<IncidentTriageAiResult> TriageIncidentAsync(
         IncidentTriageAiRequest request,
         CancellationToken ct = default);
+
+    Task<AdminBillingInsightAiResult> GenerateAdminBillingInsightAsync(
+        AdminBillingInsightAiRequest request,
+        CancellationToken ct = default);
 }
 
 public sealed record MenuDescriptionAiRequest(
@@ -45,6 +49,22 @@ public sealed record IncidentTriageAiResult(
     IReadOnlyList<string> SuggestedNextActions,
     string ShortSummary,
     AiUsage Usage);
+
+public sealed record AdminBillingInsightAiRequest(
+    int TotalTenants,
+    int ActiveTenants,
+    int SuspendedTenants,
+    int ProTenants,
+    int FreeTenants,
+    int PastDueTenants,
+    int CanceledThisMonth,
+    int NewProThisMonth,
+    decimal EstimatedMrr,
+    string Month,
+    string TopRestaurantsSummary,
+    string WeeklyGrowthSummary);
+
+public sealed record AdminBillingInsightAiResult(string Narrative, AiUsage Usage);
 
 /// <summary>Raised when the AI provider is unavailable, times out, or returns an unusable response.</summary>
 public sealed class AiUnavailableException(string message, Exception? inner = null) : Exception(message, inner);

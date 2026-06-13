@@ -32,6 +32,7 @@ public class AppDbContext : DbContext
     public DbSet<EmailVerificationCode> EmailVerificationCodes => Set<EmailVerificationCode>();
     public DbSet<TenantInvoice> TenantInvoices => Set<TenantInvoice>();
     public DbSet<DemoUser> DemoUsers => Set<DemoUser>();
+    public DbSet<PlatformAiSettings> PlatformAiSettings => Set<PlatformAiSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

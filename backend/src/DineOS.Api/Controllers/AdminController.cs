@@ -21,7 +21,7 @@ namespace DineOS.Api.Controllers;
 [Produces("application/json")]
 [Authorize(Policy = Policies.SuperAdminOnly)]
 [EnableRateLimiting("authenticated")]
-public class AdminController(IAdminService adminService) : ControllerBase
+public class AdminController(IAdminService adminService, IAiAdminAnalyticsService aiAdminAnalyticsService) : ControllerBase
 {
     /// <summary>Returns platform-wide dashboard analytics for SuperAdmins.</summary>
     [HttpGet("analytics")]
@@ -31,6 +31,17 @@ public class AdminController(IAdminService adminService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> GetAnalytics(CancellationToken ct) =>
         (await adminService.GetAnalyticsAsync(ct)).ToActionResult();
+
+    /// <summary>Generates an AI narrative summary of platform billing and growth data.</summary>
+    [HttpPost("analytics/ai-summary")]
+    [EnableRateLimiting("ai-expensive")]
+    [ProducesResponseType(typeof(ApiResponse<AdminBillingInsightDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> GenerateAiBillingInsight(CancellationToken ct) =>
+        (await aiAdminAnalyticsService.GenerateInsightAsync(ct)).ToActionResult();
 
     /// <summary>Lists platform staff users across all tenants. Note: this is the
     /// internal staff/PIN account list. Keycloak login-account management is a

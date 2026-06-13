@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin/dashboard" },
   { label: "Restaurants", href: "/admin/restaurants" },
   { label: "Users", href: "/admin/users" },
+  { label: "Settings", href: "/admin/settings" },
 ];
 
 function mergeClasses(...classes: Array<string | undefined | false>): string {

@@ -16,7 +16,8 @@ namespace DineOS.Infrastructure.Services;
 public sealed class AnthropicAiClient(
     HttpClient http,
     IOptions<AnthropicOptions> options,
-    ILogger<AnthropicAiClient> logger) : IAiClient
+    ILogger<AnthropicAiClient> logger,
+    string? apiKeyOverride = null) : IAiClient
 {
     public const string HttpClientName = "anthropic";
 
@@ -28,12 +29,16 @@ public sealed class AnthropicAiClient(
 
     private readonly AnthropicOptions _opts = options.Value;
 
+    private string EffectiveApiKey =>
+        !string.IsNullOrWhiteSpace(apiKeyOverride) ? apiKeyOverride : _opts.ApiKey;
+
     public async Task<MenuDescriptionAiResult> GenerateMenuDescriptionAsync(
         MenuDescriptionAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("Anthropic API key is not configured (Anthropic:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Anthropic API key is not configured. Visit Admin → Settings to add one.");
 
         var userMessage = BuildUserMessage(request);
 
@@ -48,7 +53,7 @@ public sealed class AnthropicAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("/v1/messages", body, JsonOpts, ct);
+            response = await SendAsync(key, "/v1/messages", body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -112,8 +117,9 @@ public sealed class AnthropicAiClient(
         IncidentTriageAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("Anthropic API key is not configured (Anthropic:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Anthropic API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new MessagesRequest(
             Model:      _opts.Model,
@@ -126,7 +132,7 @@ public sealed class AnthropicAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("/v1/messages", body, JsonOpts, ct);
+            response = await SendAsync(key, "/v1/messages", body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -186,6 +192,61 @@ public sealed class AnthropicAiClient(
             usage);
     }
 
+    public async Task<AdminBillingInsightAiResult> GenerateAdminBillingInsightAsync(
+        AdminBillingInsightAiRequest request,
+        CancellationToken ct = default)
+    {
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Anthropic API key is not configured. Visit Admin → Settings to add one.");
+
+        var body = new TextMessagesRequest(
+            Model:     _opts.Model,
+            MaxTokens: 600,
+            System:    AdminInsightSystemPrompt,
+            Messages:  [new Message("user", BuildAdminInsightUserMessage(request))]);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await SendAsync(key, "/v1/messages", body, ct);
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Anthropic admin insight call timed out after {Timeout}s.", _opts.TimeoutSeconds);
+            throw new AiUnavailableException("Anthropic request timed out.", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogWarning(ex, "Anthropic admin insight network error.");
+            throw new AiUnavailableException("Anthropic network error.", ex);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var snippet = await response.Content.ReadAsStringAsync(ct);
+            logger.LogWarning("Anthropic returned {StatusCode}. Snippet={Snippet}", (int)response.StatusCode, Truncate(snippet, 400));
+            throw new AiUnavailableException($"Anthropic returned HTTP {(int)response.StatusCode}.");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<MessagesResponse>(JsonOpts, ct)
+                      ?? throw new AiUnavailableException("Anthropic response was empty.");
+
+        var textBlock = payload.Content?.FirstOrDefault(c => c.Type == "text");
+        var narrative = textBlock?.Text?.Trim()
+                        ?? throw new AiUnavailableException("Anthropic response did not include a text block.");
+
+        if (string.IsNullOrWhiteSpace(narrative))
+            throw new AiUnavailableException("Anthropic returned an empty narrative.");
+
+        var usage = new AiUsage(
+            payload.Usage?.InputTokens  ?? 0,
+            payload.Usage?.OutputTokens ?? 0,
+            _opts.Model);
+
+        return new AdminBillingInsightAiResult(narrative, usage);
+    }
+
     // ── Prompt + tool definition ──────────────────────────────────────────
     private const string SystemPrompt = """
         You are a helpful assistant for a restaurant POS. Generate concise,
@@ -243,6 +304,32 @@ public sealed class AnthropicAiClient(
             },
             Required: ["description", "allergens"]));
 
+    private const string AdminInsightSystemPrompt = """
+        You are a concise business analyst for a multi-tenant restaurant SaaS platform.
+        Analyse the provided billing and growth snapshot and return a plain-text narrative
+        of 3–5 short paragraphs (150–300 words total). Cover: overall health, MRR trend,
+        churn/risk signals, and one actionable recommendation. Use neutral business language.
+        Do not use markdown, bullet points, or headers — plain prose only.
+        """;
+
+    private static string BuildAdminInsightUserMessage(AdminBillingInsightAiRequest r) =>
+        $"""
+         Platform snapshot for {r.Month}:
+
+         Tenants: {r.TotalTenants} total ({r.ActiveTenants} active, {r.SuspendedTenants} suspended)
+         Plans: {r.ProTenants} Pro, {r.FreeTenants} Free
+         Billing: {r.PastDueTenants} past-due, {r.CanceledThisMonth} canceled this month, {r.NewProThisMonth} new Pro this month
+         Estimated MRR: €{r.EstimatedMrr:F0}
+
+         Top restaurants this month:
+         {r.TopRestaurantsSummary}
+
+         Weekly new-tenant growth (last 8 weeks):
+         {r.WeeklyGrowthSummary}
+
+         Write a concise platform health narrative.
+         """;
+
     private static string BuildUserMessage(MenuDescriptionAiRequest r)
     {
         var existing = string.IsNullOrWhiteSpace(r.ExistingDescription)
@@ -299,6 +386,16 @@ public sealed class AnthropicAiClient(
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..max];
 
+    private async Task<HttpResponseMessage> SendAsync<T>(string apiKey, string path, T body, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(body, options: JsonOpts),
+        };
+        request.Headers.Add("x-api-key", apiKey);
+        return await http.SendAsync(request, ct);
+    }
+
     // ── Wire types — kept private so callers don't depend on the schema ───
     private sealed record MessagesRequest(
         string  Model,
@@ -306,6 +403,12 @@ public sealed class AnthropicAiClient(
         string  System,
         Tool[]  Tools,
         [property: JsonPropertyName("tool_choice")] ToolChoice ToolChoice,
+        Message[] Messages);
+
+    private sealed record TextMessagesRequest(
+        string  Model,
+        [property: JsonPropertyName("max_tokens")] int MaxTokens,
+        string  System,
         Message[] Messages);
 
     private sealed record Message(string Role, string Content);
