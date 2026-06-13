@@ -195,45 +195,54 @@ public static class DependencyInjection
             var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AnthropicOptions>>().Value;
             client.BaseAddress = new Uri(opts.BaseUrl);
             client.Timeout     = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+            // anthropic-version is not a secret — set as default header.
+            // The API key is injected per-request by the client so DB-saved keys take effect.
             client.DefaultRequestHeaders.Add("anthropic-version", opts.ApiVersion);
-            if (!string.IsNullOrWhiteSpace(opts.ApiKey))
-                client.DefaultRequestHeaders.Add("x-api-key", opts.ApiKey);
         });
         services.AddHttpClient(OpenAiClient.HttpClientName, (sp, client) =>
         {
             var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpenAiOptions>>().Value;
             client.BaseAddress = new Uri(opts.BaseUrl);
             client.Timeout     = TimeSpan.FromSeconds(opts.TimeoutSeconds);
-            if (!string.IsNullOrWhiteSpace(opts.ApiKey))
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {opts.ApiKey}");
+            // Authorization header set per-request; see OpenAiClient.
         });
         services.AddHttpClient(GoogleAiClient.HttpClientName, (sp, client) =>
         {
             var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<GoogleAiOptions>>().Value;
             client.BaseAddress = new Uri(opts.BaseUrl);
             client.Timeout     = TimeSpan.FromSeconds(opts.TimeoutSeconds);
-            if (!string.IsNullOrWhiteSpace(opts.ApiKey))
-                client.DefaultRequestHeaders.Add("x-goog-api-key", opts.ApiKey);
+            // x-goog-api-key set per-request; see GoogleAiClient.
         });
+        services.AddMemoryCache();
+        services.AddScoped<IAiSettingsService, AiSettingsService>();
         services.AddScoped<IAiClient>(sp =>
         {
-            var provider = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AiProviderOptions>>().Value.Provider;
+            var aiSettings  = sp.GetRequiredService<IAiSettingsService>();
+            var dbSettings  = aiSettings.GetEffectiveSettings();
             var httpFactory = sp.GetRequiredService<IHttpClientFactory>();
 
-            return provider switch
+            // DB-saved provider + key takes precedence over appsettings/env config.
+            var activeProvider = dbSettings?.Provider
+                ?? sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AiProviderOptions>>().Value.Provider.ToString();
+            var apiKeyOverride = dbSettings?.ApiKey;
+
+            return activeProvider switch
             {
-                AiProviderOptions.Providers.OpenAI => new OpenAiClient(
+                "OpenAI" => new OpenAiClient(
                     httpFactory.CreateClient(OpenAiClient.HttpClientName),
                     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpenAiOptions>>(),
-                    sp.GetRequiredService<ILogger<OpenAiClient>>()),
-                AiProviderOptions.Providers.Google => new GoogleAiClient(
+                    sp.GetRequiredService<ILogger<OpenAiClient>>(),
+                    apiKeyOverride),
+                "Google" => new GoogleAiClient(
                     httpFactory.CreateClient(GoogleAiClient.HttpClientName),
                     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<GoogleAiOptions>>(),
-                    sp.GetRequiredService<ILogger<GoogleAiClient>>()),
+                    sp.GetRequiredService<ILogger<GoogleAiClient>>(),
+                    apiKeyOverride),
                 _ => new AnthropicAiClient(
                     httpFactory.CreateClient(AnthropicAiClient.HttpClientName),
                     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AnthropicOptions>>(),
-                    sp.GetRequiredService<ILogger<AnthropicAiClient>>()),
+                    sp.GetRequiredService<ILogger<AnthropicAiClient>>(),
+                    apiKeyOverride),
             };
         });
         services.AddScoped<IAiMenuService, AiMenuService>();

@@ -11,7 +11,8 @@ namespace DineOS.Infrastructure.Services;
 public sealed class GoogleAiClient(
     HttpClient http,
     IOptions<GoogleAiOptions> options,
-    ILogger<GoogleAiClient> logger) : IAiClient
+    ILogger<GoogleAiClient> logger,
+    string? apiKeyOverride = null) : IAiClient
 {
     public const string HttpClientName = "google-ai";
 
@@ -23,12 +24,16 @@ public sealed class GoogleAiClient(
 
     private readonly GoogleAiOptions _opts = options.Value;
 
+    private string EffectiveApiKey =>
+        !string.IsNullOrWhiteSpace(apiKeyOverride) ? apiKeyOverride : _opts.ApiKey;
+
     public async Task<MenuDescriptionAiResult> GenerateMenuDescriptionAsync(
         MenuDescriptionAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("Google AI API key is not configured (GoogleAI:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Google AI API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new GenerateContentRequest(
             Contents:
@@ -41,7 +46,7 @@ public sealed class GoogleAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync(BuildGenerateContentPath(), body, JsonOpts, ct);
+            response = await SendAsync(key, BuildGenerateContentPath(), body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -80,8 +85,9 @@ public sealed class GoogleAiClient(
         IncidentTriageAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("Google AI API key is not configured (GoogleAI:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Google AI API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new GenerateContentRequest(
             Contents:
@@ -94,7 +100,7 @@ public sealed class GoogleAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync(BuildGenerateContentPath(), body, JsonOpts, ct);
+            response = await SendAsync(key, BuildGenerateContentPath(), body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -207,8 +213,9 @@ public sealed class GoogleAiClient(
         AdminBillingInsightAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("Google AI API key is not configured (GoogleAI:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Google AI API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new GenerateContentRequest(
             Contents:
@@ -221,7 +228,7 @@ public sealed class GoogleAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync(BuildGenerateContentPath(), body, JsonOpts, ct);
+            response = await SendAsync(key, BuildGenerateContentPath(), body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -282,6 +289,16 @@ public sealed class GoogleAiClient(
 
          Write a concise platform health narrative.
          """;
+
+    private async Task<HttpResponseMessage> SendAsync<T>(string apiKey, string path, T body, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(body, options: JsonOpts),
+        };
+        request.Headers.Add("x-goog-api-key", apiKey);
+        return await http.SendAsync(request, ct);
+    }
 
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 

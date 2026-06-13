@@ -16,7 +16,8 @@ namespace DineOS.Infrastructure.Services;
 public sealed class AnthropicAiClient(
     HttpClient http,
     IOptions<AnthropicOptions> options,
-    ILogger<AnthropicAiClient> logger) : IAiClient
+    ILogger<AnthropicAiClient> logger,
+    string? apiKeyOverride = null) : IAiClient
 {
     public const string HttpClientName = "anthropic";
 
@@ -28,12 +29,16 @@ public sealed class AnthropicAiClient(
 
     private readonly AnthropicOptions _opts = options.Value;
 
+    private string EffectiveApiKey =>
+        !string.IsNullOrWhiteSpace(apiKeyOverride) ? apiKeyOverride : _opts.ApiKey;
+
     public async Task<MenuDescriptionAiResult> GenerateMenuDescriptionAsync(
         MenuDescriptionAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("Anthropic API key is not configured (Anthropic:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Anthropic API key is not configured. Visit Admin → Settings to add one.");
 
         var userMessage = BuildUserMessage(request);
 
@@ -48,7 +53,7 @@ public sealed class AnthropicAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("/v1/messages", body, JsonOpts, ct);
+            response = await SendAsync(key, "/v1/messages", body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -112,8 +117,9 @@ public sealed class AnthropicAiClient(
         IncidentTriageAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("Anthropic API key is not configured (Anthropic:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Anthropic API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new MessagesRequest(
             Model:      _opts.Model,
@@ -126,7 +132,7 @@ public sealed class AnthropicAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("/v1/messages", body, JsonOpts, ct);
+            response = await SendAsync(key, "/v1/messages", body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -190,8 +196,9 @@ public sealed class AnthropicAiClient(
         AdminBillingInsightAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("Anthropic API key is not configured (Anthropic:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("Anthropic API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new TextMessagesRequest(
             Model:     _opts.Model,
@@ -202,7 +209,7 @@ public sealed class AnthropicAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("/v1/messages", body, JsonOpts, ct);
+            response = await SendAsync(key, "/v1/messages", body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -378,6 +385,16 @@ public sealed class AnthropicAiClient(
 
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..max];
+
+    private async Task<HttpResponseMessage> SendAsync<T>(string apiKey, string path, T body, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(body, options: JsonOpts),
+        };
+        request.Headers.Add("x-api-key", apiKey);
+        return await http.SendAsync(request, ct);
+    }
 
     // ── Wire types — kept private so callers don't depend on the schema ───
     private sealed record MessagesRequest(

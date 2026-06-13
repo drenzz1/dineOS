@@ -12,7 +12,8 @@ namespace DineOS.Infrastructure.Services;
 public sealed class OpenAiClient(
     HttpClient http,
     IOptions<OpenAiOptions> options,
-    ILogger<OpenAiClient> logger) : IAiClient
+    ILogger<OpenAiClient> logger,
+    string? apiKeyOverride = null) : IAiClient
 {
     public const string HttpClientName = "openai";
 
@@ -24,12 +25,16 @@ public sealed class OpenAiClient(
 
     private readonly OpenAiOptions _opts = options.Value;
 
+    private string EffectiveApiKey =>
+        !string.IsNullOrWhiteSpace(apiKeyOverride) ? apiKeyOverride : _opts.ApiKey;
+
     public async Task<MenuDescriptionAiResult> GenerateMenuDescriptionAsync(
         MenuDescriptionAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("OpenAI API key is not configured (OpenAI:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("OpenAI API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new ChatCompletionRequest(
             Model: _opts.Model,
@@ -44,7 +49,7 @@ public sealed class OpenAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("/v1/chat/completions", body, JsonOpts, ct);
+            response = await SendAsync(key, "/v1/chat/completions", body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -83,8 +88,9 @@ public sealed class OpenAiClient(
         IncidentTriageAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("OpenAI API key is not configured (OpenAI:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("OpenAI API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new ChatCompletionRequest(
             Model: _opts.Model,
@@ -99,7 +105,7 @@ public sealed class OpenAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("/v1/chat/completions", body, JsonOpts, ct);
+            response = await SendAsync(key, "/v1/chat/completions", body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -278,8 +284,9 @@ public sealed class OpenAiClient(
         AdminBillingInsightAiRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_opts.ApiKey))
-            throw new AiUnavailableException("OpenAI API key is not configured (OpenAI:ApiKey).");
+        var key = EffectiveApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            throw new AiUnavailableException("OpenAI API key is not configured. Visit Admin → Settings to add one.");
 
         var body = new PlainChatCompletionRequest(
             Model: _opts.Model,
@@ -293,7 +300,7 @@ public sealed class OpenAiClient(
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("/v1/chat/completions", body, JsonOpts, ct);
+            response = await SendAsync(key, "/v1/chat/completions", body, ct);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
@@ -354,6 +361,16 @@ public sealed class OpenAiClient(
 
          Write a concise platform health narrative.
          """;
+
+    private async Task<HttpResponseMessage> SendAsync<T>(string apiKey, string path, T body, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(body, options: JsonOpts),
+        };
+        request.Headers.Add("Authorization", $"Bearer {apiKey}");
+        return await http.SendAsync(request, ct);
+    }
 
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 
