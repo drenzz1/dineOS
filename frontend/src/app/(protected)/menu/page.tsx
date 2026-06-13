@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import MenuItemForm from "@/components/menu/MenuItemForm";
 import CategoryTabs from "@/components/menu/CategoryTabs";
+import MenuSemanticSearch from "@/components/menu/MenuSemanticSearch";
 import type { MenuItem } from "@/types";
 
 const Modal = dynamic(
@@ -181,6 +182,9 @@ export default function MenuPage() {
           Add Item
         </Button>
       </div>
+
+      {/* Semantic search */}
+      <MenuSemanticSearch onSelect={(item) => setEditTarget(item)} />
 
       {/* Category tabs + new category input */}
       <div className="space-y-3">

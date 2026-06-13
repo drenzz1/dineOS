@@ -134,6 +134,19 @@ public class MenuController(IMenuService menuService) : ControllerBase
     public async Task<IActionResult> DeleteMenuItem(long id, CancellationToken ct) =>
         (await menuService.DeleteMenuItemAsync(id, ct)).ToActionResult();
 
+    /// <summary>Returns up to 10 menu items ranked by semantic similarity to the query.</summary>
+    [HttpPost("items/semantic-search")]
+    [EnableRateLimiting("ai-expensive")]
+    [ProducesResponseType(typeof(ApiResponse<List<MenuItemDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> SemanticSearch(
+        [FromBody] SemanticMenuSearchRequest request,
+        CancellationToken ct) =>
+        (await menuService.SemanticSearchMenuItemsAsync(request.Query, ct)).ToActionResult();
+
     /// <summary>Lists all menu categories for the current tenant.</summary>
     [HttpGet("categories")]
     [ProducesResponseType(typeof(ApiResponse<List<MenuCategoryDto>>), StatusCodes.Status200OK)]

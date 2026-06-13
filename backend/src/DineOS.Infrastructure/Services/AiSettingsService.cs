@@ -45,11 +45,30 @@ public sealed class AiSettingsService(
         }
     }
 
+    public (string Provider, string ApiKey)? GetEffectiveEmbeddingsSettings()
+    {
+        if (cache.TryGetValue<PlatformAiSettings>(CacheKey, out var cached) && cached is not null)
+            return ToEffectiveEmbeddings(cached);
+
+        try
+        {
+            var row = db.PlatformAiSettings.AsNoTracking().IgnoreQueryFilters().FirstOrDefault();
+            if (row is null) return null;
+
+            cache.Set(CacheKey, row, CacheTtl);
+            return ToEffectiveEmbeddings(row);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<AiSettingsDto> GetAsync(CancellationToken ct = default)
     {
         var row = await db.PlatformAiSettings.AsNoTracking().IgnoreQueryFilters().FirstOrDefaultAsync(ct);
         return row is null
-            ? new AiSettingsDto("Anthropic", null, null, null, null)
+            ? new AiSettingsDto("Anthropic", null, null, null, string.Empty, null, null)
             : ToDto(row);
     }
 
@@ -84,6 +103,33 @@ public sealed class AiSettingsService(
         cache.Remove(CacheKey);
 
         return ServiceResult<AiSettingsDto>.Ok(ToDto(row), "AI settings saved.");
+    }
+
+    public async Task<ServiceResult<AiSettingsDto>> SaveEmbeddingsAsync(
+        SaveEmbeddingsSettingsRequest request,
+        CancellationToken ct = default)
+    {
+        if (!IsValidEmbeddingsProvider(request.Provider))
+            return ServiceResult<AiSettingsDto>.BadRequest($"Unknown embeddings provider '{request.Provider}'. Supported: OpenAI, Google.");
+
+        if (string.IsNullOrWhiteSpace(request.ApiKey))
+            return ServiceResult<AiSettingsDto>.BadRequest("API key cannot be empty.");
+
+        var row = await db.PlatformAiSettings.IgnoreQueryFilters().FirstOrDefaultAsync(ct);
+        if (row is null)
+        {
+            row = new PlatformAiSettings();
+            db.PlatformAiSettings.Add(row);
+        }
+
+        row.EmbeddingsProvider = request.Provider;
+        row.EmbeddingsApiKey   = request.ApiKey;
+        row.UpdatedAt          = DateTime.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+        cache.Remove(CacheKey);
+
+        return ServiceResult<AiSettingsDto>.Ok(ToDto(row), "Embeddings settings saved.");
     }
 
     public async Task<ServiceResult<TestAiConnectionResult>> TestConnectionAsync(
@@ -217,11 +263,18 @@ public sealed class AiSettingsService(
         return string.IsNullOrWhiteSpace(key) ? null : (row.ActiveProvider, key);
     }
 
+    private static (string Provider, string ApiKey)? ToEffectiveEmbeddings(PlatformAiSettings row) =>
+        string.IsNullOrWhiteSpace(row.EmbeddingsProvider) || string.IsNullOrWhiteSpace(row.EmbeddingsApiKey)
+            ? null
+            : (row.EmbeddingsProvider, row.EmbeddingsApiKey);
+
     private static AiSettingsDto ToDto(PlatformAiSettings row) => new(
         row.ActiveProvider,
         MaskKey(row.AnthropicApiKey),
         MaskKey(row.OpenAiApiKey),
         MaskKey(row.GoogleAiApiKey),
+        row.EmbeddingsProvider,
+        MaskKey(row.EmbeddingsApiKey),
         row.UpdatedAt);
 
     private static string? MaskKey(string key) =>
@@ -231,6 +284,9 @@ public sealed class AiSettingsService(
 
     private static bool IsValidProvider(string p) =>
         p is "Anthropic" or "OpenAI" or "Google";
+
+    private static bool IsValidEmbeddingsProvider(string p) =>
+        p is "OpenAI" or "Google";
 
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..max];
