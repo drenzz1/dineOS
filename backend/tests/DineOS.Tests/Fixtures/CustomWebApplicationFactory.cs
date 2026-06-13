@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Pgvector.EntityFrameworkCore;
 using Testcontainers.PostgreSql;
 
 namespace DineOS.Tests.Fixtures;
@@ -26,7 +27,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
 
     public string UploadsRoot => _uploadsRoot;
 
-    private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("postgres:16-alpine")
+    private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("pgvector/pgvector:pg16")
         .WithDatabase("dineos_test")
         .WithUsername("postgres")
         .WithPassword("postgres")
@@ -76,7 +77,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
                 services.Remove(descriptor);
 
             services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(_db.GetConnectionString()));
+                options.UseNpgsql(_db.GetConnectionString(),
+                    npgsql => npgsql.UseVector()));
 
             // Override Keycloak OIDC with a local symmetric key so tests need no Keycloak instance
             services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
