@@ -24,4 +24,10 @@ public static class FeatureFlag
     /// spend or stop abuse) with no redeploy.
     /// </summary>
     public const string AiMenuGeneration = "ai-menu-generation";
+
+    /// <summary>
+    /// AI admin billing insights. Kill-switch: defaults ON; flip OFF in Unleash
+    /// to disable cross-tenant AI analysis at runtime.
+    /// </summary>
+    public const string AiAdminAnalytics = "ai-admin-analytics";
 }

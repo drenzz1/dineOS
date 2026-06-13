@@ -5,6 +5,7 @@ import { useAdminAnalytics } from "@/hooks/useAdminAnalytics";
 import PlatformSummaryCards from "@/components/admin/PlatformSummaryCards";
 import TopRestaurantsTable from "@/components/admin/TopRestaurantsTable";
 import ActivityFeed from "@/components/admin/ActivityFeed";
+import AiBillingInsightCard from "@/components/admin/AiBillingInsightCard";
 
 const RestaurantGrowthChart = dynamic(
   () => import("@/components/admin/RestaurantGrowthChart"),
@@ -62,6 +63,9 @@ export default function AdminDashboardPage() {
         restaurants={analytics?.topRestaurants ?? null}
         isLoading={isLoading}
       />
+
+      {/* AI billing insight */}
+      <AiBillingInsightCard />
     </div>
   );
 }

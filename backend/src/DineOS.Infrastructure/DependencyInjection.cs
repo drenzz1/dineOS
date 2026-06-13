@@ -237,6 +237,7 @@ public static class DependencyInjection
             };
         });
         services.AddScoped<IAiMenuService, AiMenuService>();
+        services.AddScoped<IAiAdminAnalyticsService, AiAdminAnalyticsService>();
 
         // ── Feature flags (Unleash) ────────────────────────────────────────
         // When Unleash is configured (Unleash:Enabled=true) flags resolve from the
