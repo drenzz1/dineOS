@@ -5,6 +5,7 @@ using DineOS.Infrastructure.Persistence;
 using DineOS.Infrastructure.Services;
 using FluentValidation;
 using FluentValidation.Results;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -59,6 +60,7 @@ public class MenuCacheBenchmark(ITestOutputHelper output)
             cache,
             Substitute.For<IFileStorageService>(),
             Substitute.For<IEmbeddingsClient>(),
+            Substitute.For<IBackgroundJobClient>(),
             AlwaysValid<CreateMenuItemRequest>(),
             AlwaysValid<UpdateMenuItemRequest>(),
             AlwaysValid<CreateMenuCategoryRequest>(),
