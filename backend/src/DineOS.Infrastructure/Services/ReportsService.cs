@@ -167,14 +167,17 @@ public class ReportsService(AppDbContext db) : IReportsService
             .ToListAsync(ct);
 
         var orderIds = rawOrders.Select(o => o.Id).ToList();
+        // Fetch the (orderId, method) pairs flat and group in memory — EF Core
+        // cannot translate `GroupBy(...).Select(g => g.First().Method)` to SQL.
         var payments = await db.Payments
             .AsNoTracking()
             .Where(p => orderIds.Contains(p.OrderId) && p.Status == PaymentStatus.Completed)
-            .GroupBy(p => p.OrderId)
-            .Select(g => new { OrderId = g.Key, Method = g.First().Method })
+            .Select(p => new { p.OrderId, p.Method })
             .ToListAsync(ct);
 
-        var paymentMap = payments.ToDictionary(p => p.OrderId, p => p.Method.ToString());
+        var paymentMap = payments
+            .GroupBy(p => p.OrderId)
+            .ToDictionary(g => g.Key, g => g.First().Method.ToString());
 
         var orders = rawOrders.Select(o => new OrderHistoryItemDto(
             o.Id,
