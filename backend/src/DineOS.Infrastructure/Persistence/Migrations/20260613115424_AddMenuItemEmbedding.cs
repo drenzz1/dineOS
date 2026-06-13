@@ -37,7 +37,8 @@ namespace DineOS.Infrastructure.Persistence.Migrations
             migrationBuilder.Sql(
                 "CREATE INDEX CONCURRENTLY IF NOT EXISTS \"IX_MenuItems_Embedding\" " +
                 "ON \"MenuItems\" USING hnsw (\"Embedding\" vector_cosine_ops) " +
-                "WHERE \"Embedding\" IS NOT NULL;");
+                "WHERE \"Embedding\" IS NOT NULL;",
+                suppressTransaction: true);
         }
 
         /// <inheritdoc />
