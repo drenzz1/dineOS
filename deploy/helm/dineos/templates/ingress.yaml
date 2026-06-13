@@ -72,6 +72,17 @@ spec:
                   number: 80
           {{- end }}
 
+          {{- /* ── OAuth landing page — Next.js route /auth/callback.
+            Must outrank the Keycloak /auth prefix below (longest prefix
+            wins), or the API's post-login redirect 404s inside Keycloak. */}}
+          - path: /auth/callback
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dineos.fullname" $ }}-frontend
+                port:
+                  number: 80
+
           {{- /* ── Keycloak admin/auth — before the / catch-all ──── */}}
           {{- if and $.Values.ingress.keycloak ($.Values.ingress.keycloak.enabled) }}
           - path: /auth
