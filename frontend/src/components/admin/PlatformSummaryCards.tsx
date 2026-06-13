@@ -10,11 +10,11 @@ interface MetricCardProps {
 function MetricCard({ label, value, sub }: MetricCardProps) {
   return (
     <Card>
-      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
         {label}
       </p>
-      <p className="mt-1.5 text-3xl font-bold text-zinc-900">{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-zinc-500">{sub}</p>}
+      <p className="mt-1.5 text-3xl font-bold text-fg">{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-fg-subtle">{sub}</p>}
     </Card>
   );
 }
@@ -22,9 +22,9 @@ function MetricCard({ label, value, sub }: MetricCardProps) {
 function MetricCardSkeleton() {
   return (
     <Card className="animate-pulse space-y-2">
-      <div className="h-3 w-28 rounded bg-zinc-200" />
-      <div className="h-8 w-20 rounded bg-zinc-200" />
-      <div className="h-3 w-16 rounded bg-zinc-100" />
+      <div className="h-3 w-28 rounded bg-surface-3" />
+      <div className="h-8 w-20 rounded bg-surface-3" />
+      <div className="h-3 w-16 rounded bg-surface-2" />
     </Card>
   );
 }

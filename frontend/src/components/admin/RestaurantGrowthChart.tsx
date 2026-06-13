@@ -7,7 +7,7 @@ const RestaurantGrowthChartInner = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[220px] animate-pulse rounded-md bg-zinc-100" />
+      <div className="h-[220px] animate-pulse rounded-md bg-surface-2" />
     ),
   }
 );
@@ -15,8 +15,8 @@ const RestaurantGrowthChartInner = dynamic(
 function ChartSkeleton() {
   return (
     <Card className="animate-pulse space-y-3">
-      <div className="h-5 w-48 rounded bg-zinc-200" />
-      <div className="h-[220px] rounded-md bg-zinc-100" />
+      <div className="h-5 w-48 rounded bg-surface-3" />
+      <div className="h-[220px] rounded-md bg-surface-2" />
     </Card>
   );
 }
@@ -34,7 +34,7 @@ export default function RestaurantGrowthChart({
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-sm font-semibold text-zinc-900">
+      <h2 className="text-sm font-semibold text-fg">
         New Restaurants — Last 8 Weeks
       </h2>
       <RestaurantGrowthChartInner data={data} />

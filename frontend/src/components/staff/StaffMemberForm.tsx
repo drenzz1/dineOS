@@ -64,7 +64,7 @@ export default function StaffMemberForm({
       <div className="space-y-1">
         <label
           htmlFor="sm-name"
-          className="block text-sm font-medium text-zinc-700"
+          className="block text-sm font-medium text-fg-muted"
         >
           Full name
         </label>
@@ -73,10 +73,10 @@ export default function StaffMemberForm({
           type="text"
           {...register("fullName")}
           placeholder="e.g. Jane Doe"
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         {errors.fullName && (
-          <p className="text-sm text-red-600">{errors.fullName.message}</p>
+          <p className="text-sm text-danger">{errors.fullName.message}</p>
         )}
       </div>
 
@@ -84,7 +84,7 @@ export default function StaffMemberForm({
       <div className="space-y-1">
         <label
           htmlFor="sm-email"
-          className="block text-sm font-medium text-zinc-700"
+          className="block text-sm font-medium text-fg-muted"
         >
           Email
         </label>
@@ -93,10 +93,10 @@ export default function StaffMemberForm({
           type="email"
           {...register("email")}
           placeholder="jane@example.com"
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         {errors.email && (
-          <p className="text-sm text-red-600">{errors.email.message}</p>
+          <p className="text-sm text-danger">{errors.email.message}</p>
         )}
       </div>
 
@@ -104,14 +104,14 @@ export default function StaffMemberForm({
       <div className="space-y-1">
         <label
           htmlFor="sm-role"
-          className="block text-sm font-medium text-zinc-700"
+          className="block text-sm font-medium text-fg-muted"
         >
           Role
         </label>
         <select
           id="sm-role"
           {...register("role")}
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         >
           <option value="">Select a role</option>
           {ROLES.map((r) => (
@@ -121,7 +121,7 @@ export default function StaffMemberForm({
           ))}
         </select>
         {errors.role && (
-          <p className="text-sm text-red-600">{errors.role.message}</p>
+          <p className="text-sm text-danger">{errors.role.message}</p>
         )}
       </div>
 
@@ -129,7 +129,7 @@ export default function StaffMemberForm({
       <div className="space-y-1">
         <label
           htmlFor="sm-pin"
-          className="block text-sm font-medium text-zinc-700"
+          className="block text-sm font-medium text-fg-muted"
         >
           {isEdit ? "New PIN (optional)" : "4-digit PIN"}
         </label>
@@ -141,20 +141,20 @@ export default function StaffMemberForm({
           autoComplete="off"
           {...register("pin")}
           placeholder="••••"
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-fg-subtle">
           {isEdit
             ? "Leave blank to keep the current PIN."
             : "The staff member types this PIN to start a shift on a shared terminal."}
         </p>
         {errors.pin && (
-          <p className="text-sm text-red-600">{errors.pin.message}</p>
+          <p className="text-sm text-danger">{errors.pin.message}</p>
         )}
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-3 border-t border-zinc-200 pt-4">
+      <div className="flex justify-end gap-3 border-t border-border pt-4">
         <Button type="button" variant="secondary" onClick={onClose}>
           Cancel
         </Button>

@@ -75,15 +75,15 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
         role="dialog"
         aria-modal="true"
         aria-label="Order details"
-        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-white shadow-2xl"
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-surface shadow-2xl"
       >
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-zinc-200 px-5 py-4">
+        <div className="flex items-start justify-between border-b border-border px-5 py-4">
           <div className="space-y-0.5">
-            <p className="font-mono text-xs font-semibold uppercase text-zinc-400">
+            <p className="font-mono text-xs font-semibold uppercase text-fg-subtle">
               #{order.id.slice(0, 8)}
             </p>
-            <h2 className="text-base font-semibold text-zinc-900">
+            <h2 className="text-base font-semibold text-fg">
               {order.orderType === "dine-in"
                 ? `Dine-in${order.tableNumber != null ? ` · Table ${order.tableNumber}` : ""}`
                 : "Pick-up"}
@@ -94,7 +94,7 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+            className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface-2 hover:text-fg-muted"
           >
             ✕
           </button>
@@ -104,7 +104,7 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
         <div className="flex-1 space-y-6 overflow-y-auto p-5">
           {/* Items */}
           <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
               Items
             </h3>
             <ul className="space-y-2">
@@ -113,17 +113,17 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
                   key={item.id}
                   className="flex items-center justify-between text-sm"
                 >
-                  <span className="text-zinc-700">
+                  <span className="text-fg-muted">
                     <span className="font-medium">{item.quantity}×</span>{" "}
                     {item.name}
                   </span>
-                  <span className="text-zinc-500">
+                  <span className="text-fg-subtle">
                     ${(item.unitPrice * item.quantity).toFixed(2)}
                   </span>
                 </li>
               ))}
             </ul>
-            <div className="mt-3 flex justify-between border-t border-zinc-100 pt-2 text-sm font-semibold text-zinc-900">
+            <div className="mt-3 flex justify-between border-t border-border pt-2 text-sm font-semibold text-fg">
               <span>Total</span>
               <span>${total.toFixed(2)}</span>
             </div>
@@ -132,16 +132,16 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
           {/* Notes */}
           {order.notes && (
             <section>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
                 Notes
               </h3>
-              <p className="text-sm text-zinc-600">{order.notes}</p>
+              <p className="text-sm text-fg-muted">{order.notes}</p>
             </section>
           )}
 
           {/* Status update */}
           <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
               Move to
             </h3>
             <div className="flex flex-wrap gap-2">

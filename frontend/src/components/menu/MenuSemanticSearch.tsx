@@ -89,7 +89,7 @@ export default function MenuSemanticSearch({ onSelect }: MenuSemanticSearchProps
                   )}
                 </div>
                 <span className="shrink-0 text-[13px] font-medium text-fg">
-                  ${item.price.toFixed(2)}
+                  ${(item.price ?? 0).toFixed(2)}
                 </span>
               </button>
             </li>

@@ -93,13 +93,13 @@ export default function ShiftForm({ editTarget, selectedDate, onClose }: ShiftFo
     >
       {/* Staff member */}
       <div className="space-y-1">
-        <label htmlFor="sf-staff" className="block text-sm font-medium text-zinc-700">
+        <label htmlFor="sf-staff" className="block text-sm font-medium text-fg-muted">
           Staff member
         </label>
         <select
           id="sf-staff"
           {...register("staffMemberId", { valueAsNumber: true })}
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         >
           <option value={0}>Select staff member…</option>
           {staff.map((s) => (
@@ -109,61 +109,61 @@ export default function ShiftForm({ editTarget, selectedDate, onClose }: ShiftFo
           ))}
         </select>
         {errors.staffMemberId && (
-          <p className="text-sm text-red-600">{errors.staffMemberId.message}</p>
+          <p className="text-sm text-danger">{errors.staffMemberId.message}</p>
         )}
       </div>
 
       {/* Start time */}
       <div className="space-y-1">
-        <label htmlFor="sf-start" className="block text-sm font-medium text-zinc-700">
+        <label htmlFor="sf-start" className="block text-sm font-medium text-fg-muted">
           Start time
         </label>
         <input
           id="sf-start"
           type="datetime-local"
           {...register("startTime")}
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         {errors.startTime && (
-          <p className="text-sm text-red-600">{errors.startTime.message}</p>
+          <p className="text-sm text-danger">{errors.startTime.message}</p>
         )}
       </div>
 
       {/* End time */}
       <div className="space-y-1">
-        <label htmlFor="sf-end" className="block text-sm font-medium text-zinc-700">
+        <label htmlFor="sf-end" className="block text-sm font-medium text-fg-muted">
           End time
         </label>
         <input
           id="sf-end"
           type="datetime-local"
           {...register("endTime")}
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         {errors.endTime && (
-          <p className="text-sm text-red-600">{errors.endTime.message}</p>
+          <p className="text-sm text-danger">{errors.endTime.message}</p>
         )}
       </div>
 
       {/* Notes */}
       <div className="space-y-1">
-        <label htmlFor="sf-notes" className="block text-sm font-medium text-zinc-700">
-          Notes <span className="font-normal text-zinc-400">(optional)</span>
+        <label htmlFor="sf-notes" className="block text-sm font-medium text-fg-muted">
+          Notes <span className="font-normal text-fg-subtle">(optional)</span>
         </label>
         <textarea
           id="sf-notes"
           rows={3}
           {...register("notes")}
           placeholder="Any notes for this shift…"
-          className="block w-full resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full resize-none rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         {errors.notes && (
-          <p className="text-sm text-red-600">{errors.notes.message}</p>
+          <p className="text-sm text-danger">{errors.notes.message}</p>
         )}
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-3 border-t border-zinc-200 pt-4">
+      <div className="flex justify-end gap-3 border-t border-border pt-4">
         <Button type="button" variant="secondary" onClick={onClose} disabled={isPending}>
           Cancel
         </Button>

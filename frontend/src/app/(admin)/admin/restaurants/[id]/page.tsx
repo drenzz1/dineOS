@@ -25,11 +25,11 @@ const PLAN_STAFF_LIMIT: Record<RestaurantPlan, number> = {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+    <div className="rounded-lg border border-border bg-surface p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
         {label}
       </p>
-      <p className="mt-1 text-xl font-bold text-zinc-900">{value}</p>
+      <p className="mt-1 text-xl font-bold text-fg">{value}</p>
     </div>
   );
 }
@@ -109,10 +109,10 @@ export default function RestaurantDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-56 animate-pulse rounded-md bg-zinc-200" />
+        <div className="h-8 w-56 animate-pulse rounded-md bg-surface-3" />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-lg bg-zinc-100" />
+            <div key={i} className="h-20 animate-pulse rounded-lg bg-surface-2" />
           ))}
         </div>
       </div>
@@ -120,23 +120,23 @@ export default function RestaurantDetailPage() {
   }
 
   if (!restaurant) {
-    return <p className="text-sm text-red-600">Restaurant not found.</p>;
+    return <p className="text-sm text-danger">Restaurant not found.</p>;
   }
 
   const staffLimit = PLAN_STAFF_LIMIT[restaurant.plan];
   const staffPct = Math.min(100, (restaurant.staffCount / staffLimit) * 100);
   const barColor =
     staffPct >= 90
-      ? "bg-red-500"
+      ? "bg-danger"
       : staffPct >= 70
-        ? "bg-amber-400"
-        : "bg-blue-500";
+        ? "bg-warning"
+        : "bg-accent";
 
   return (
     <div className="space-y-8">
       <Link
         href="/admin/restaurants"
-        className="inline-flex items-center gap-1 text-[13px] text-zinc-500 hover:text-zinc-900 transition-colors"
+        className="inline-flex items-center gap-1 text-[13px] text-fg-subtle hover:text-fg transition-colors"
       >
         ← Back to restaurants
       </Link>
@@ -144,10 +144,10 @@ export default function RestaurantDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">
+          <h1 className="text-2xl font-semibold text-fg">
             {restaurant.name}
           </h1>
-          <p className="text-sm text-zinc-500">{restaurant.city}</p>
+          <p className="text-sm text-fg-subtle">{restaurant.city}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -177,7 +177,7 @@ export default function RestaurantDetailPage() {
 
       {/* Overview */}
       <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
           Overview
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -202,17 +202,17 @@ export default function RestaurantDetailPage() {
 
       {/* Staff */}
       <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
           Staff
         </h2>
-        <div className="flex items-center gap-4 rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="flex items-center gap-4 rounded-lg border border-border bg-surface p-4">
           <div className="flex-1">
-            <p className="text-xs text-zinc-500">Used slots</p>
-            <p className="mt-0.5 text-lg font-bold text-zinc-900">
+            <p className="text-xs text-fg-subtle">Used slots</p>
+            <p className="mt-0.5 text-lg font-bold text-fg">
               {restaurant.staffCount} / {staffLimit} staff
             </p>
           </div>
-          <div className="h-2 w-36 overflow-hidden rounded-full bg-zinc-100">
+          <div className="h-2 w-36 overflow-hidden rounded-full bg-surface-2">
             <div
               className={`h-full rounded-full transition-all ${barColor}`}
               style={{ width: `${staffPct}%` }}
@@ -223,34 +223,34 @@ export default function RestaurantDetailPage() {
 
       {/* Email Verification */}
       <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
           Email Verification
         </h2>
-        <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4">
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
               restaurant.ownerEmailVerified
-                ? "bg-green-100 text-green-700"
-                : "bg-amber-100 text-amber-700"
+                ? "bg-status-ready-bg text-success"
+                : "bg-status-progress-bg text-warning"
             }`}
           >
             {restaurant.ownerEmailVerified ? "Verified" : "Not verified"}
           </span>
-          <span className="text-sm text-zinc-500">{restaurant.ownerEmail}</span>
+          <span className="text-sm text-fg-subtle">{restaurant.ownerEmail}</span>
         </div>
       </section>
 
       {/* Plan change */}
       <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
           Plan
         </h2>
-        <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4">
           <select
             value={pendingPlan || restaurant.plan}
             onChange={(e) => setPendingPlan(e.target.value as RestaurantPlan)}
             aria-label="Change plan"
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           >
             <option value="Free">Free</option>
             <option value="Pro">Pro</option>
@@ -278,7 +278,7 @@ export default function RestaurantDetailPage() {
             : "Reactivate Restaurant"
         }
       >
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-fg-muted">
           {restaurant.status === "Active"
             ? `Are you sure you want to suspend ${restaurant.name}? Staff will lose access immediately.`
             : `Reactivate ${restaurant.name}? Staff will regain access.`}
@@ -303,11 +303,11 @@ export default function RestaurantDetailPage() {
         onClose={() => setDeleteOpen(false)}
         title="Delete Restaurant"
       >
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-fg-muted">
           Are you sure you want to permanently delete{" "}
-          <span className="font-semibold text-zinc-900">{restaurant.name}</span>?
+          <span className="font-semibold text-fg">{restaurant.name}</span>?
         </p>
-        <p className="mt-2 text-sm text-red-600">
+        <p className="mt-2 text-sm text-danger">
           This action cannot be undone. All staff, orders, and menu data for this
           restaurant will be removed.
         </p>

@@ -8,7 +8,7 @@ import type { AdminBillingInsight } from "@/types/admin";
 
 function InsightMeta({ insight }: { insight: AdminBillingInsight }) {
   return (
-    <p className="mt-3 text-xs text-zinc-400">
+    <p className="mt-3 text-xs text-fg-subtle">
       {insight.metadata.model} &middot; {insight.metadata.inputTokens + insight.metadata.outputTokens} tokens &middot;{" "}
       {insight.metadata.latencyMs}ms
     </p>
@@ -30,8 +30,8 @@ export default function AiBillingInsightCard() {
     <Card>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-zinc-900">AI Platform Summary</p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-sm font-semibold text-fg">AI Platform Summary</p>
+          <p className="text-xs text-fg-subtle">
             Generate a natural-language analysis of billing and growth data.
           </p>
         </div>
@@ -48,7 +48,7 @@ export default function AiBillingInsightCard() {
       </div>
 
       {errorMessage && (
-        <p className="mt-3 text-sm text-red-600">{errorMessage}</p>
+        <p className="mt-3 text-sm text-danger">{errorMessage}</p>
       )}
 
       {data && (
@@ -57,16 +57,18 @@ export default function AiBillingInsightCard() {
             type="button"
             className="flex w-full items-center justify-between text-left"
             onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            aria-label={expanded ? "Hide AI summary" : "Show AI summary"}
           >
-            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+            <span className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
               {expanded ? "Hide" : "Show"} Summary
             </span>
-            <span className="text-xs text-zinc-400">{expanded ? "▲" : "▼"}</span>
+            <span className="text-xs text-fg-subtle">{expanded ? "▲" : "▼"}</span>
           </button>
 
           {expanded && (
             <div className="mt-3">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-700">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-fg-muted">
                 {data.narrative}
               </p>
               <InsightMeta insight={data} />

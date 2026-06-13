@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/hooks/useToast";
 
 const INPUT =
-  "block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
+  "block w-full rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
 export default function VerifyEmailPage() {
   const { id } = useParams<{ id: string }>();
@@ -54,14 +54,14 @@ export default function VerifyEmailPage() {
       className="mx-auto max-w-sm space-y-6"
     >
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Verify Email</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="text-2xl font-semibold text-fg">Verify Email</h1>
+        <p className="mt-1 text-sm text-fg-subtle">
           Enter the 6-digit code sent to the restaurant owner&apos;s email.
         </p>
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="code" className="block text-sm font-medium text-zinc-700">
+        <label htmlFor="code" className="block text-sm font-medium text-fg-muted">
           Verification code
         </label>
         <input
@@ -77,13 +77,13 @@ export default function VerifyEmailPage() {
           aria-describedby={errors.code ? "code-error" : undefined}
         />
         {errors.code && (
-          <p id="code-error" className="text-sm text-red-600" role="alert">
+          <p id="code-error" className="text-sm text-danger" role="alert">
             {errors.code.message}
           </p>
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-3 border-t border-zinc-200 pt-4">
+      <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
         <Button
           type="button"
           variant="secondary"

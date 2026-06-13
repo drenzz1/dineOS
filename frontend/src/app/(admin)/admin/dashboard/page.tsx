@@ -12,7 +12,7 @@ const RestaurantGrowthChart = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[268px] animate-pulse rounded-lg bg-zinc-100" />
+      <div className="h-[268px] animate-pulse rounded-lg bg-surface-2" />
     ),
   }
 );
@@ -24,16 +24,16 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Dashboard</h1>
-        <p className="mt-0.5 text-sm text-zinc-500">
+        <h1 className="text-2xl font-semibold text-fg">Dashboard</h1>
+        <p className="mt-0.5 text-sm text-fg-subtle">
           Platform-wide overview for all restaurants.
         </p>
       </div>
 
       {/* Error */}
       {isError && (
-        <div className="rounded-md bg-red-50 px-4 py-3">
-          <p className="text-sm text-red-600">
+        <div className="rounded-md bg-status-cancelled-bg px-4 py-3">
+          <p className="text-sm text-danger">
             Failed to load analytics. Please refresh.
           </p>
         </div>

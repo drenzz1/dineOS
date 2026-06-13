@@ -13,13 +13,13 @@ function formatRelative(iso: string): string {
 function FeedSkeleton() {
   return (
     <Card className="animate-pulse space-y-4">
-      <div className="h-5 w-28 rounded bg-zinc-200" />
+      <div className="h-5 w-28 rounded bg-surface-3" />
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="flex items-start gap-3">
-          <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-zinc-200" />
+          <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-surface-3" />
           <div className="flex-1 space-y-1">
-            <div className="h-3.5 w-3/4 rounded bg-zinc-200" />
-            <div className="h-3 w-16 rounded bg-zinc-100" />
+            <div className="h-3.5 w-3/4 rounded bg-surface-3" />
+            <div className="h-3 w-16 rounded bg-surface-2" />
           </div>
         </div>
       ))}
@@ -37,14 +37,14 @@ export default function ActivityFeed({ events, isLoading }: ActivityFeedProps) {
 
   return (
     <Card className="space-y-4">
-      <h2 className="text-sm font-semibold text-zinc-900">Recent Activity</h2>
+      <h2 className="text-sm font-semibold text-fg">Recent Activity</h2>
       <ul className="space-y-3">
         {events.map((evt) => (
           <li key={evt.id} className="flex items-start gap-3">
             <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-indigo-500" />
             <div>
-              <p className="text-sm text-zinc-800">{evt.description}</p>
-              <p className="mt-0.5 text-xs text-zinc-400">
+              <p className="text-sm text-fg">{evt.description}</p>
+              <p className="mt-0.5 text-xs text-fg-subtle">
                 {formatRelative(evt.timestamp)}
               </p>
             </div>

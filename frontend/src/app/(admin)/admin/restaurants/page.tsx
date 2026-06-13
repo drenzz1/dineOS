@@ -11,7 +11,7 @@ import type { RestaurantStatus } from "@/types";
 type StatusFilter = RestaurantStatus | "All";
 
 const INPUT =
-  "block rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
+  "block rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
 export default function AdminRestaurantsPage() {
   const [search, setSearch] = useState("");
@@ -44,10 +44,10 @@ export default function AdminRestaurantsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900">Restaurants</h1>
+        <h1 className="text-2xl font-semibold text-fg">Restaurants</h1>
         <Link
           href="/admin/restaurants/new"
-          className="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+          className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
         >
           Add Restaurant
         </Link>

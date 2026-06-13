@@ -2,13 +2,13 @@ import Link from "next/link";
 import type { Restaurant, RestaurantPlan, RestaurantStatus } from "@/types";
 
 const PLAN_BADGE: Record<RestaurantPlan, string> = {
-  Free: "bg-zinc-100 text-zinc-700",
-  Pro: "bg-blue-100 text-blue-700",
+  Free: "bg-surface-2 text-fg-muted",
+  Pro: "bg-status-new-bg text-info",
 };
 
 const STATUS_BADGE: Record<RestaurantStatus, string> = {
-  Active: "bg-green-100 text-green-700",
-  Suspended: "bg-amber-100 text-amber-700",
+  Active: "bg-status-ready-bg text-success",
+  Suspended: "bg-status-progress-bg text-warning",
 };
 
 function Badge({ label, className }: { label: string; className: string }) {
@@ -52,7 +52,7 @@ export default function RestaurantTable({
 }: RestaurantTableProps) {
   if (isLoading) {
     return (
-      <p role="status" className="text-sm text-zinc-500">
+      <p role="status" className="text-sm text-fg-subtle">
         Loading restaurants…
       </p>
     );
@@ -60,53 +60,53 @@ export default function RestaurantTable({
 
   if (restaurants.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center">
-        <p className="text-sm text-zinc-500">{emptyMessage}</p>
+      <div className="rounded-lg border border-dashed border-border-strong p-8 text-center">
+        <p className="text-sm text-fg-subtle">{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200">
-      <table className="w-full text-sm text-zinc-900">
+    <div className="overflow-x-auto rounded-lg border border-border">
+      <table className="w-full text-sm text-fg">
         <caption className="sr-only">Restaurants</caption>
-        <thead className="border-b border-zinc-200 bg-zinc-50">
+        <thead className="border-b border-border bg-surface-2">
           <tr>
             {COLUMNS.map((col, i) => (
               <th
                 key={i}
                 scope="col"
-                className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-subtle"
               >
                 {col}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-100">
+        <tbody className="divide-y divide-border">
           {restaurants.map((r) => (
-            <tr key={r.id} className="hover:bg-zinc-50">
+            <tr key={r.id} className="hover:bg-surface-2">
               <th
                 scope="row"
-                className="px-4 py-3 text-left font-medium text-zinc-900"
+                className="px-4 py-3 text-left font-medium text-fg"
               >
                 {r.name}
               </th>
-              <td className="px-4 py-3 text-zinc-600">{r.ownerEmail}</td>
+              <td className="px-4 py-3 text-fg-muted">{r.ownerEmail}</td>
               <td className="px-4 py-3">
                 <Badge label={r.plan} className={PLAN_BADGE[r.plan]} />
               </td>
               <td className="px-4 py-3">
                 <Badge label={r.status} className={STATUS_BADGE[r.status]} />
               </td>
-              <td className="px-4 py-3 text-zinc-600">
+              <td className="px-4 py-3 text-fg-muted">
                 {r.totalOrders.toLocaleString()}
               </td>
-              <td className="px-4 py-3 text-zinc-500">{formatDate(r.createdAt)}</td>
+              <td className="px-4 py-3 text-fg-subtle">{formatDate(r.createdAt)}</td>
               <td className="px-4 py-3">
                 <Link
                   href={`/admin/restaurants/${r.id}`}
-                  className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                  className="text-xs font-medium text-info hover:text-info hover:underline"
                 >
                   View
                 </Link>

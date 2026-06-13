@@ -9,9 +9,9 @@ const ROLE_BADGE: Record<Role | "SuperAdmin", string> = {
 };
 
 const STATUS_BADGE: Record<UserStatus, string> = {
-  Active: "bg-green-100 text-green-700",
-  Inactive: "bg-zinc-100 text-zinc-500",
-  Suspended: "bg-amber-100 text-amber-700",
+  Active: "bg-status-ready-bg text-success",
+  Inactive: "bg-surface-2 text-fg-subtle",
+  Suspended: "bg-status-progress-bg text-warning",
 };
 
 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -63,7 +63,7 @@ export default function UsersTable({
 }: UsersTableProps) {
   if (isLoading) {
     return (
-      <p role="status" className="text-sm text-zinc-500">
+      <p role="status" className="text-sm text-fg-subtle">
         Loading users…
       </p>
     );
@@ -71,53 +71,53 @@ export default function UsersTable({
 
   if (isError) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center">
-        <p className="text-sm text-red-700">{errorMessage}</p>
+      <div className="rounded-lg border border-status-cancelled-border bg-status-cancelled-bg p-8 text-center">
+        <p className="text-sm text-danger">{errorMessage}</p>
       </div>
     );
   }
 
   if (users.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center">
-        <p className="text-sm text-zinc-500">{emptyMessage}</p>
+      <div className="rounded-lg border border-dashed border-border-strong p-8 text-center">
+        <p className="text-sm text-fg-subtle">{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200">
-      <table className="w-full text-sm text-zinc-900">
+    <div className="overflow-x-auto rounded-lg border border-border">
+      <table className="w-full text-sm text-fg">
         {/* caption is visually hidden but read by screen readers as the table label */}
         <caption className="sr-only">Users</caption>
-        <thead className="border-b border-zinc-200 bg-zinc-50">
+        <thead className="border-b border-border bg-surface-2">
           <tr>
             {COLUMNS.map((col) => (
               <th
                 key={col}
                 scope="col"
-                className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-fg-subtle"
               >
                 {col}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-100">
+        <tbody className="divide-y divide-border">
           {users.map((user) => (
-            <tr key={user.id} className="hover:bg-zinc-50">
+            <tr key={user.id} className="hover:bg-surface-2">
               {/* th scope="row" lets screen readers associate all cells in this row with the user's name */}
               <th
                 scope="row"
-                className="px-4 py-3 text-left font-medium text-zinc-900"
+                className="px-4 py-3 text-left font-medium text-fg"
               >
                 {user.name}
               </th>
-              <td className="px-4 py-3 text-zinc-600">{user.email}</td>
+              <td className="px-4 py-3 text-fg-muted">{user.email}</td>
               <td className="px-4 py-3">
                 <RoleBadge role={user.role} />
               </td>
-              <td className="px-4 py-3 text-zinc-600">
+              <td className="px-4 py-3 text-fg-muted">
                 {user.restaurantName ?? "—"}
               </td>
               <td className="px-4 py-3">
@@ -127,7 +127,7 @@ export default function UsersTable({
                   {user.status}
                 </span>
               </td>
-              <td className="px-4 py-3 text-zinc-500">
+              <td className="px-4 py-3 text-fg-subtle">
                 {user.lastLogin ? relativeTime(user.lastLogin) : "Never"}
               </td>
             </tr>

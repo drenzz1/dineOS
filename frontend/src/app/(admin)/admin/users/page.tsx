@@ -18,7 +18,7 @@ const ROLE_OPTIONS: RoleFilter[] = [
 ];
 
 const INPUT_CLASSES =
-  "block rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
+  "block rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
 export default function UsersPage() {
   const [search, setSearch] = useState("");
@@ -75,7 +75,7 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">Users</h1>
+      <h1 className="text-2xl font-semibold text-fg">Users</h1>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
@@ -101,13 +101,13 @@ export default function UsersPage() {
       </div>
 
       {isError ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center">
-          <p className="text-sm text-red-700">
+        <div className="rounded-lg border border-status-cancelled-border bg-status-cancelled-bg p-8 text-center">
+          <p className="text-sm text-danger">
             Failed to load users. The server may be unreachable.
           </p>
           <button
             onClick={() => refetch()}
-            className="mt-3 inline-flex items-center rounded-md bg-red-100 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-200"
+            className="mt-3 inline-flex items-center rounded-md bg-status-cancelled-bg px-3 py-1.5 text-xs font-medium text-danger hover:bg-status-cancelled-border"
           >
             Try again
           </button>
@@ -124,7 +124,7 @@ export default function UsersPage() {
 
       {showPagination && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-fg-subtle">
             Showing {users.length > 0 ? (page - 1) * pageSize + 1 : 0}
             &ndash;{Math.min(page * pageSize, totalCount)} of {totalCount} users
           </p>
@@ -132,31 +132,31 @@ export default function UsersPage() {
             <button
               onClick={() => goToPage(1)}
               disabled={page <= 1 || isPlaceholderData}
-              className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
+              className="rounded-md border border-border-strong px-2.5 py-1.5 text-xs font-medium text-fg-muted hover:bg-surface-2 disabled:opacity-40"
             >
               &laquo;
             </button>
             <button
               onClick={() => goToPage(page - 1)}
               disabled={page <= 1 || isPlaceholderData}
-              className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
+              className="rounded-md border border-border-strong px-2.5 py-1.5 text-xs font-medium text-fg-muted hover:bg-surface-2 disabled:opacity-40"
             >
               &lsaquo;
             </button>
-            <span className="px-2 text-xs text-zinc-500">
+            <span className="px-2 text-xs text-fg-subtle">
               {page} / {totalPages}
             </span>
             <button
               onClick={() => goToPage(page + 1)}
               disabled={page >= totalPages || isPlaceholderData}
-              className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
+              className="rounded-md border border-border-strong px-2.5 py-1.5 text-xs font-medium text-fg-muted hover:bg-surface-2 disabled:opacity-40"
             >
               &rsaquo;
             </button>
             <button
               onClick={() => goToPage(totalPages)}
               disabled={page >= totalPages || isPlaceholderData}
-              className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
+              className="rounded-md border border-border-strong px-2.5 py-1.5 text-xs font-medium text-fg-muted hover:bg-surface-2 disabled:opacity-40"
             >
               &raquo;
             </button>

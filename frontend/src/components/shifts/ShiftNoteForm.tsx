@@ -60,7 +60,7 @@ export default function ShiftNoteForm({ onClose }: ShiftNoteFormProps) {
       <div className="space-y-1">
         <label
           htmlFor="sn-title"
-          className="block text-sm font-medium text-zinc-700"
+          className="block text-sm font-medium text-fg-muted"
         >
           Title
         </label>
@@ -69,10 +69,10 @@ export default function ShiftNoteForm({ onClose }: ShiftNoteFormProps) {
           type="text"
           {...register("title")}
           placeholder="e.g. End of shift handover"
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         {errors.title && (
-          <p className="text-sm text-red-600">{errors.title.message}</p>
+          <p className="text-sm text-danger">{errors.title.message}</p>
         )}
       </div>
 
@@ -80,7 +80,7 @@ export default function ShiftNoteForm({ onClose }: ShiftNoteFormProps) {
       <div className="space-y-1">
         <label
           htmlFor="sn-body"
-          className="block text-sm font-medium text-zinc-700"
+          className="block text-sm font-medium text-fg-muted"
         >
           Note
         </label>
@@ -89,15 +89,15 @@ export default function ShiftNoteForm({ onClose }: ShiftNoteFormProps) {
           rows={5}
           {...register("body")}
           placeholder="Describe what happened during the shift..."
-          className="block w-full resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full resize-none rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         <div className="flex items-center justify-between">
           {errors.body ? (
-            <p className="text-sm text-red-600">{errors.body.message}</p>
+            <p className="text-sm text-danger">{errors.body.message}</p>
           ) : (
             <span />
           )}
-          <p className="text-xs text-zinc-400">{bodyLength}/1000</p>
+          <p className="text-xs text-fg-subtle">{bodyLength}/1000</p>
         </div>
       </div>
 
@@ -105,17 +105,17 @@ export default function ShiftNoteForm({ onClose }: ShiftNoteFormProps) {
       <div className="space-y-1">
         <label
           htmlFor="sn-priority"
-          className="block text-sm font-medium text-zinc-700"
+          className="block text-sm font-medium text-fg-muted"
         >
           Priority{" "}
-          <span className="font-normal text-zinc-400">(optional)</span>
+          <span className="font-normal text-fg-subtle">(optional)</span>
         </label>
         <select
           id="sn-priority"
           {...register("priority", {
             setValueAs: (v: string) => (v === "" ? undefined : v),
           })}
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full rounded-md border border-border-strong px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         >
           <option value="">No priority</option>
           {PRIORITIES.map(({ value, label }) => (
@@ -125,12 +125,12 @@ export default function ShiftNoteForm({ onClose }: ShiftNoteFormProps) {
           ))}
         </select>
         {errors.priority && (
-          <p className="text-sm text-red-600">{errors.priority.message}</p>
+          <p className="text-sm text-danger">{errors.priority.message}</p>
         )}
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-3 border-t border-zinc-200 pt-4">
+      <div className="flex justify-end gap-3 border-t border-border pt-4">
         <Button type="button" variant="secondary" onClick={onClose}>
           Cancel
         </Button>

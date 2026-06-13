@@ -35,12 +35,12 @@ interface Step1Props {
 function Step1({ register, errors, watchOrderType }: Step1Props) {
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-zinc-900">
+      <h2 className="text-lg font-semibold text-fg">
         Step 1 — Order type
       </h2>
 
       <fieldset className="space-y-3">
-        <legend className="text-sm font-medium text-zinc-700">
+        <legend className="text-sm font-medium text-fg-muted">
           Order type
         </legend>
         <div className="flex gap-6">
@@ -52,7 +52,7 @@ function Step1({ register, errors, watchOrderType }: Step1Props) {
               {...register("orderType")}
               className="accent-blue-600"
             />
-            <span className="text-sm text-zinc-800">Dine-in</span>
+            <span className="text-sm text-fg">Dine-in</span>
           </label>
           <label className="flex cursor-pointer items-center gap-2">
             <input
@@ -62,11 +62,11 @@ function Step1({ register, errors, watchOrderType }: Step1Props) {
               {...register("orderType")}
               className="accent-blue-600"
             />
-            <span className="text-sm text-zinc-800">Pickup</span>
+            <span className="text-sm text-fg">Pickup</span>
           </label>
         </div>
         {errors.orderType && (
-          <p className="text-sm text-red-600">{errors.orderType.message}</p>
+          <p className="text-sm text-danger">{errors.orderType.message}</p>
         )}
       </fieldset>
 
@@ -143,21 +143,21 @@ function Step2({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-zinc-900">
+      <h2 className="text-lg font-semibold text-fg">
         Step 2 — Select items
       </h2>
 
       {itemsError && (
-        <p className="text-sm text-red-600">{itemsError}</p>
+        <p className="text-sm text-danger">{itemsError}</p>
       )}
 
       {isLoading ? (
-        <p className="text-sm text-zinc-500">Loading menu items...</p>
+        <p className="text-sm text-fg-subtle">Loading menu items...</p>
       ) : (
         <div className="space-y-5">
           {categories.map((category) => (
             <div key={category}>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
                 {category}
               </p>
               <div className="space-y-2">
@@ -173,8 +173,8 @@ function Step2({
                         data-item-id={item.id}
                         className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${
                           selected
-                            ? "border-blue-300 bg-blue-50"
-                            : "border-zinc-200 bg-white"
+                            ? "border-accent bg-accent-soft"
+                            : "border-border bg-surface"
                         }`}
                       >
                         <label className="flex flex-1 cursor-pointer items-center gap-3">
@@ -185,10 +185,10 @@ function Step2({
                             className="h-4 w-4 accent-blue-600"
                           />
                           <div>
-                            <p className="text-sm font-medium text-zinc-900">
+                            <p className="text-sm font-medium text-fg">
                               {item.name}
                             </p>
-                            <p className="text-xs text-zinc-500">
+                            <p className="text-xs text-fg-subtle">
                               ${item.price.toFixed(2)}
                             </p>
                           </div>
@@ -201,11 +201,11 @@ function Step2({
                               data-testid="menu-item-qty-decrease"
                               aria-label={`Decrease quantity of ${item.name}`}
                               onClick={() => changeQuantity(item.id, -1)}
-                              className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                              className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-sm font-medium text-fg-muted hover:bg-surface-2"
                             >
                               −
                             </button>
-                            <span className="w-6 text-center text-sm font-medium text-zinc-900">
+                            <span className="w-6 text-center text-sm font-medium text-fg">
                               {fields[idx].quantity}
                             </span>
                             <button
@@ -213,7 +213,7 @@ function Step2({
                               data-testid="menu-item-qty-increase"
                               aria-label={`Increase quantity of ${item.name}`}
                               onClick={() => changeQuantity(item.id, 1)}
-                              className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                              className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-sm font-medium text-fg-muted hover:bg-surface-2"
                             >
                               +
                             </button>
@@ -247,37 +247,37 @@ function Step3({ values, notesRef, errors }: Step3Props) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-zinc-900">
+      <h2 className="text-lg font-semibold text-fg">
         Step 3 — Review &amp; confirm
       </h2>
 
-      <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+      <div className="space-y-3 rounded-lg border border-border bg-surface-2 p-4">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-zinc-500">Order type</span>
+          <span className="text-fg-subtle">Order type</span>
           <span className="font-medium capitalize">{values.orderType}</span>
         </div>
         {values.orderType === "dine-in" && values.tableNumber != null && (
           <div className="flex items-center justify-between text-sm">
-            <span className="text-zinc-500">Table</span>
+            <span className="text-fg-subtle">Table</span>
             <span className="font-medium">{values.tableNumber}</span>
           </div>
         )}
-        <div className="border-t border-zinc-200 pt-3 space-y-2">
-          <p className="text-sm font-medium text-zinc-700">Items</p>
+        <div className="border-t border-border pt-3 space-y-2">
+          <p className="text-sm font-medium text-fg-muted">Items</p>
           {values.items.map((item, i) => (
             <div
               key={i}
               className="flex items-center justify-between text-sm"
             >
-              <span className="text-zinc-700">
+              <span className="text-fg-muted">
                 {item.name} × {item.quantity}
               </span>
-              <span className="text-zinc-500">
+              <span className="text-fg-subtle">
                 ${(item.unitPrice * item.quantity).toFixed(2)}
               </span>
             </div>
           ))}
-          <div className="flex items-center justify-between border-t border-zinc-200 pt-2 text-sm font-semibold">
+          <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
             <span>Total</span>
             <span>${total.toFixed(2)}</span>
           </div>
@@ -287,10 +287,10 @@ function Step3({ values, notesRef, errors }: Step3Props) {
       <div className="space-y-1">
         <label
           htmlFor="notes"
-          className="block text-sm font-medium text-zinc-700"
+          className="block text-sm font-medium text-fg-muted"
         >
           Order notes{" "}
-          <span className="text-zinc-600 font-normal">(optional)</span>
+          <span className="text-fg-muted font-normal">(optional)</span>
         </label>
         {/* Uncontrolled textarea — value is read via ref at submit time.
             The __e2e:set-order-note event sets notesRef.current.value directly,
@@ -303,12 +303,12 @@ function Step3({ values, notesRef, errors }: Step3Props) {
           ref={notesRef}
           defaultValue=""
           placeholder="Any special requests..."
-          className="block w-full resize-none rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="block w-full resize-none rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         {errors.notes && (
-          <p className="text-sm text-red-600">{errors.notes.message}</p>
+          <p className="text-sm text-danger">{errors.notes.message}</p>
         )}
-        <p className="text-xs text-zinc-600">Max 300 characters</p>
+        <p className="text-xs text-fg-muted">Max 300 characters</p>
       </div>
     </div>
   );
@@ -413,8 +413,8 @@ export default function OrderWizard() {
           data-testid={toast.ok ? "toast-success" : undefined}
           className={`mb-6 rounded-md border px-4 py-3 text-sm font-medium ${
             toast.ok
-              ? "border-green-200 bg-green-50 text-green-800"
-              : "border-red-200 bg-red-50 text-red-800"
+              ? "border-status-ready-border bg-status-ready-bg text-success"
+              : "border-status-cancelled-border bg-status-cancelled-bg text-danger"
           }`}
         >
           {toast.message}
@@ -428,24 +428,24 @@ export default function OrderWizard() {
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
                 s === step
-                  ? "bg-blue-600 text-white"
+                  ? "bg-accent text-white"
                   : s < step
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-zinc-100 text-zinc-600"
+                    ? "bg-status-new-bg text-info"
+                    : "bg-surface-2 text-fg-muted"
               }`}
             >
               {s}
             </div>
             <span
               className={`hidden text-xs md:inline ${
-                s === step ? "font-medium text-zinc-800" : "text-zinc-600"
+                s === step ? "font-medium text-fg" : "text-fg-muted"
               }`}
             >
               {STEP_LABELS[i]}
             </span>
             {s < 3 && (
               <div
-                className={`mx-2 h-px w-8 ${s < step ? "bg-blue-300" : "bg-zinc-200"}`}
+                className={`mx-2 h-px w-8 ${s < step ? "bg-status-new-bg" : "bg-surface-3"}`}
               />
             )}
           </div>
@@ -479,7 +479,7 @@ export default function OrderWizard() {
           />
         )}
 
-        <div className="mt-8 flex items-center justify-between border-t border-zinc-200 pt-6">
+        <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
           {step > 1 ? (
             <Button type="button" variant="secondary" onClick={prevStep}>
               Back
