@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { queryClient } from "@/lib/queryClient";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ToastBridge } from "@/components/ui/ToastBridge";
+import { ThemeProvider } from "@/components/ui/ThemeProvider";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -13,10 +14,12 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <ToastBridge />
-        {children}
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <ToastBridge />
+          {children}
+        </ToastProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

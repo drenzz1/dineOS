@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin/dashboard" },
@@ -56,6 +57,10 @@ export default function AdminSidebar() {
           );
         })}
       </nav>
+
+      <div className="mt-auto border-t border-border p-2.5">
+        <ThemeToggle />
+      </div>
     </aside>
   );
 }
