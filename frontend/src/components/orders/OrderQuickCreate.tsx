@@ -14,6 +14,7 @@ import { orderSchema } from "@/lib/validations/order";
 import type { OrderFormValues } from "@/lib/validations/order";
 import { useTenant } from "@/hooks/useTenant";
 import type { MenuItem } from "@/types";
+import RestaurantTableSelect from "./RestaurantTableSelect";
 
 function formatCategory(category: string): string {
   return category.replace(/([a-z])([A-Z])/g, "$1 $2");
@@ -197,25 +198,14 @@ export default function OrderQuickCreate() {
           )}
 
           <div className="mt-4 grid gap-3 md:grid-cols-[180px_1fr]">
-            <div>
-              <label htmlFor="tableNumber" className="text-xs font-semibold text-fg-muted">
-                Table
-              </label>
-              <input
-                id="tableNumber"
-                type="number"
-                min={1}
-                max={50}
-                disabled={orderType !== "dine-in"}
-                placeholder={orderType === "dine-in" ? "Table number" : "Not needed"}
-                {...form.register("tableNumber", {
-                  setValueAs: (value: string) =>
-                    value === "" ? undefined : Number.parseInt(value, 10),
-                })}
-                className="mt-1 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none transition focus:border-accent disabled:bg-surface-2 disabled:text-fg-subtle"
-              />
-              {tableError && <p className="mt-1 text-xs text-danger">{tableError}</p>}
-            </div>
+            <RestaurantTableSelect
+              registration={form.register("tableNumber", {
+                setValueAs: (value: string) =>
+                  value === "" ? undefined : Number.parseInt(value, 10),
+              })}
+              disabled={orderType !== "dine-in"}
+              error={tableError}
+            />
 
             <div>
               <label htmlFor="menu-search" className="text-xs font-semibold text-fg-muted">

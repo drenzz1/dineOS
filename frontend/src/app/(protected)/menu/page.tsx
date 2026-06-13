@@ -220,6 +220,7 @@ export default function MenuPage() {
         isOpen={addOpen || editTarget !== null}
         onClose={handleFormClose}
         title={editTarget ? "Edit Menu Item" : "Add Menu Item"}
+        width="xl"
       >
         <MenuItemForm
           onClose={handleFormClose}

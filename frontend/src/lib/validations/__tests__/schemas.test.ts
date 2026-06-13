@@ -24,6 +24,15 @@ describe('orderSchema', () => {
     const result = orderSchema.safeParse({ orderType: 'pickup', items: [validItem] });
     expect(result.success).toBe(true);
   });
+
+  it('accepts any configured positive table number', () => {
+    const result = orderSchema.safeParse({
+      orderType: 'dine-in',
+      tableNumber: 75,
+      items: [validItem],
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('menuItemSchema', () => {

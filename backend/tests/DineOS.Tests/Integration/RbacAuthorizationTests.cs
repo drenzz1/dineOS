@@ -74,6 +74,26 @@ public class RbacAuthorizationTests(CustomWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Cashier_TableList_Returns200()
+    {
+        var client = ClientWith(GenerateTestJwt(Roles.Cashier, "1"));
+
+        var response = await client.GetAsync("/api/v1/restaurant/tables");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Cashier_RestaurantProfile_Returns403()
+    {
+        var client = ClientWith(GenerateTestJwt(Roles.Cashier, "1"));
+
+        var response = await client.GetAsync("/api/v1/restaurant");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     // ── 3b. Cashier rejected from staff management ────────────────────────
     [Fact]
     public async Task Cashier_StaffManagementEndpoint_Returns403()

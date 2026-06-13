@@ -22,6 +22,7 @@ import { useTenant } from "@/hooks/useTenant";
 import { useOrderWizardStore } from "@/stores/orderWizardStore";
 import { Button } from "@/components/ui/Button";
 import type { MenuItem } from "@/types";
+import RestaurantTableSelect from "./RestaurantTableSelect";
 
 // ─── Step 1 ─────────────────────────────────────────────────────────────────
 
@@ -70,29 +71,15 @@ function Step1({ register, errors, watchOrderType }: Step1Props) {
       </fieldset>
 
       {watchOrderType === "dine-in" && (
-        <div className="space-y-1">
-          <label
-            htmlFor="tableNumber"
-            className="block text-sm font-medium text-zinc-700"
-          >
-            Table number{" "}
-            <span className="text-zinc-600 font-normal">(1–50)</span>
-          </label>
-          <input
-            id="tableNumber"
-            type="number"
-            min={1}
-            max={50}
-            {...register("tableNumber", {
+        <div className="max-w-sm">
+          <RestaurantTableSelect
+            label="Table number"
+            registration={register("tableNumber", {
               setValueAs: (v: string) =>
                 v === "" ? undefined : parseInt(v, 10),
             })}
-            placeholder="e.g. 5"
-            className="block w-32 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            error={errors.tableNumber?.message}
           />
-          {errors.tableNumber && (
-            <p className="text-sm text-red-600">{errors.tableNumber.message}</p>
-          )}
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { menuItemSchema } from "@/lib/validations/menuItem";
@@ -13,6 +13,10 @@ import { queryKeys } from "@/lib/api/queryKeys";
 import { useTenant } from "@/hooks/useTenant";
 import { MenuCategory } from "@/types";
 import { Button } from "@/components/ui/Button";
+
+const FIELD_CLASS =
+  "block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none transition placeholder:text-fg-subtle focus:border-accent";
+const LABEL_CLASS = "block text-xs font-semibold text-fg-muted";
 
 interface MenuItemFormProps {
   onClose: () => void;
@@ -29,7 +33,7 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors },
   } = useForm<MenuItemFormValues>({
@@ -81,106 +85,107 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
     setPreview(null);
   }
 
-  const imageFile = watch("imageFile");
+  const imageFile = useWatch({ control, name: "imageFile" });
 
   const existingImageUrl = defaultValues?.imageUrl;
   const showExistingImage = existingImageUrl && !imageFile && !preview;
 
   return (
-    <form onSubmit={handleSubmit((d) => mutate(d))} noValidate className="space-y-4">
-      {/* Name */}
-      <div className="space-y-1">
-        <label htmlFor="mi-name" className="block text-sm font-medium text-zinc-700">
-          Item name
-        </label>
-        <input
-          id="mi-name"
-          type="text"
-          {...register("name")}
-          placeholder="e.g. Margherita Pizza"
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-        {errors.name && (
-          <p className="text-sm text-red-600">{errors.name.message}</p>
-        )}
-      </div>
-
-      {/* Price */}
-      <div className="space-y-1">
-        <label htmlFor="mi-price" className="block text-sm font-medium text-zinc-700">
-          Price
-        </label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400">
-            $
-          </span>
+    <form onSubmit={handleSubmit((d) => mutate(d))} noValidate className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
+        <div className="space-y-1">
+          <label htmlFor="mi-name" className={LABEL_CLASS}>
+            Item name
+          </label>
           <input
-            id="mi-price"
-            type="number"
-            min={0}
-            step={0.01}
-            {...register("price", {
-              setValueAs: (v: string) =>
-                v === "" ? undefined : parseFloat(v),
-            })}
-            placeholder="0.00"
-            className="block w-full rounded-md border border-zinc-300 py-2 pl-7 pr-3 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            id="mi-name"
+            type="text"
+            {...register("name")}
+            placeholder="e.g. Margherita Pizza"
+            className={FIELD_CLASS}
           />
+          {errors.name && (
+            <p className="text-xs text-danger">{errors.name.message}</p>
+          )}
         </div>
-        {errors.price && (
-          <p className="text-sm text-red-600">{errors.price.message}</p>
-        )}
+
+        <div className="space-y-1">
+          <label htmlFor="mi-price" className={LABEL_CLASS}>
+            Price
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-fg-subtle">
+              $
+            </span>
+            <input
+              id="mi-price"
+              type="number"
+              min={0}
+              step={0.01}
+              {...register("price", {
+                setValueAs: (v: string) =>
+                  v === "" ? undefined : parseFloat(v),
+              })}
+              placeholder="0.00"
+              className={`${FIELD_CLASS} pl-7`}
+            />
+          </div>
+          {errors.price && (
+            <p className="text-xs text-danger">{errors.price.message}</p>
+          )}
+        </div>
       </div>
 
-      {/* Category */}
-      <div className="space-y-1">
-        <label htmlFor="mi-category" className="block text-sm font-medium text-zinc-700">
-          Category
-        </label>
-        <select
-          id="mi-category"
-          {...register("category")}
-          className="block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          <option value="">Select a category</option>
-          {(categories ?? Object.values(MenuCategory)).map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-        {errors.category && (
-          <p className="text-sm text-red-600">{errors.category.message}</p>
-        )}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-1">
+          <label htmlFor="mi-category" className={LABEL_CLASS}>
+            Category
+          </label>
+          <select
+            id="mi-category"
+            {...register("category")}
+            className={FIELD_CLASS}
+          >
+            <option value="">Select a category</option>
+            {(categories ?? Object.values(MenuCategory)).map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+          {errors.category && (
+            <p className="text-xs text-danger">{errors.category.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="mi-desc" className={LABEL_CLASS}>
+            Description{" "}
+            <span className="font-normal text-fg-subtle">(optional)</span>
+          </label>
+          <textarea
+            id="mi-desc"
+            rows={3}
+            {...register("description")}
+            placeholder="Brief description..."
+            className="block min-h-20 w-full resize-none rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg outline-none transition placeholder:text-fg-subtle focus:border-accent"
+          />
+          {errors.description && (
+            <p className="text-xs text-danger">{errors.description.message}</p>
+          )}
+        </div>
       </div>
 
-      {/* Description */}
-      <div className="space-y-1">
-        <label htmlFor="mi-desc" className="block text-sm font-medium text-zinc-700">
-          Description{" "}
-          <span className="font-normal text-zinc-400">(optional)</span>
-        </label>
-        <textarea
-          id="mi-desc"
-          rows={2}
-          {...register("description")}
-          placeholder="Brief description..."
-          className="block w-full resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-        {errors.description && (
-          <p className="text-sm text-red-600">{errors.description.message}</p>
-        )}
-      </div>
-
-      {/* Image upload */}
       <div className="space-y-2">
-        <p className="text-sm font-medium text-zinc-700">
+        <p className={LABEL_CLASS}>
           Image{" "}
-          <span className="font-normal text-zinc-400">(optional, max 5 MB — JPEG / PNG / WebP)</span>
+          <span className="font-normal text-fg-subtle">
+            (optional, max 2 MB · JPEG / PNG / WebP)
+          </span>
         </p>
 
         {showExistingImage && (
-          <div className="flex items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+          <div className="flex items-center gap-3 rounded-md border border-border bg-surface-2 p-3">
             <Image
               src={existingImageUrl}
               alt="Current image"
@@ -189,12 +194,12 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
               unoptimized
               className="h-12 w-12 rounded object-cover"
             />
-            <p className="min-w-0 flex-1 truncate text-sm text-zinc-600">Current image</p>
+            <p className="min-w-0 flex-1 truncate text-sm text-fg-muted">Current image</p>
           </div>
         )}
 
         {imageFile ? (
-          <div className="flex items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+          <div className="flex items-center gap-3 rounded-md border border-border bg-surface-2 p-3">
             {preview && (
               <Image
                 src={preview}
@@ -206,17 +211,17 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
               />
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-zinc-900">
+              <p className="truncate text-sm font-medium text-fg">
                 {imageFile.name}
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-fg-muted">
                 {(imageFile.size / 1024).toFixed(1)} KB
               </p>
             </div>
             <button
               type="button"
               onClick={clearFile}
-              className="text-xs text-red-500 hover:text-red-700"
+              className="text-xs font-semibold text-danger"
             >
               Remove
             </button>
@@ -229,15 +234,15 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
             }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
-            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors ${
+            className={`flex min-h-24 flex-col items-center justify-center rounded-lg border border-dashed px-4 py-4 text-center transition-colors ${
               dragOver
-                ? "border-blue-400 bg-blue-50"
-                : "border-zinc-300 bg-zinc-50"
+                ? "border-accent bg-accent-soft"
+                : "border-border-strong bg-surface-2"
             }`}
           >
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-fg-muted">
               Drag &amp; drop an image, or{" "}
-              <label className="cursor-pointer text-blue-600 underline hover:text-blue-700">
+              <label className="cursor-pointer font-semibold text-accent underline">
                 browse
                 <input
                   type="file"
@@ -247,16 +252,15 @@ export default function MenuItemForm({ onClose, categories, defaultValues }: Men
                 />
               </label>
             </p>
-            <p className="mt-1 text-xs text-zinc-400">PNG, JPG, WebP up to 5 MB</p>
+            <p className="mt-1 text-xs text-fg-subtle">PNG, JPG, WebP up to 2 MB</p>
           </div>
         )}
         {errors.imageFile?.message && (
-          <p className="text-sm text-red-600">{String(errors.imageFile.message)}</p>
+          <p className="text-xs text-danger">{String(errors.imageFile.message)}</p>
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-end gap-3 border-t border-zinc-200 pt-4">
+      <div className="flex justify-end gap-2 border-t border-border pt-4">
         <Button type="button" variant="secondary" onClick={onClose}>
           Cancel
         </Button>

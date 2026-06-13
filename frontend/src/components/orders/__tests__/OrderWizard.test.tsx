@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test-utils/wrapper';
 import OrderWizard from '../OrderWizard';
 import { getMenuItems, createOrder } from '@/lib/api/ordersApi';
+import { listRestaurantTables } from '@/lib/api/restaurantTablesApi';
 import { useOrderWizardStore } from '@/stores/orderWizardStore';
 import type { MenuItem, Order } from '@/types';
 
@@ -13,6 +14,10 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/lib/api/ordersApi', () => ({
   getMenuItems: jest.fn(),
   createOrder: jest.fn(),
+}));
+
+jest.mock('@/lib/api/restaurantTablesApi', () => ({
+  listRestaurantTables: jest.fn(),
 }));
 
 const mockMenuItems: MenuItem[] = [
@@ -34,6 +39,24 @@ beforeEach(() => {
   useOrderWizardStore.setState({ step: 1 });
   jest.mocked(getMenuItems).mockResolvedValue(mockMenuItems);
   jest.mocked(createOrder).mockResolvedValue(mockOrder);
+  jest.mocked(listRestaurantTables).mockResolvedValue([
+    {
+      id: 1,
+      number: 4,
+      capacity: 4,
+      location: 'Patio',
+      isActive: true,
+      tenantId: 1,
+    },
+    {
+      id: 2,
+      number: 9,
+      capacity: 2,
+      location: null,
+      isActive: false,
+      tenantId: 1,
+    },
+  ]);
 });
 
 async function goToStep2(user: ReturnType<typeof userEvent.setup>) {
@@ -63,13 +86,20 @@ describe('OrderWizard', () => {
     expect(screen.getByRole('radio', { name: /pickup/i })).toBeInTheDocument();
   });
 
-  it('selecting dine-in reveals table number input', async () => {
+  it('selecting dine-in reveals configured tables', async () => {
     const user = userEvent.setup();
     renderWithProviders(<OrderWizard />);
     await user.click(screen.getByRole('radio', { name: /pickup/i }));
     expect(screen.queryByLabelText(/table number/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: /dine-in/i }));
-    expect(screen.getByLabelText(/table number/i)).toBeInTheDocument();
+    const tableSelect = screen.getByRole('combobox', { name: /table number/i });
+    expect(tableSelect).toBeInTheDocument();
+    expect(
+      await screen.findByRole('option', { name: /table 4.*patio.*4 seats/i })
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('option', { name: /table 9.*inactive/i })
+    ).toBeDisabled();
   });
 
   it('clicking Next on Step 1 with no table number shows validation error', async () => {
