@@ -372,7 +372,10 @@ public sealed class OpenAiClient(
         return await http.SendAsync(request, ct);
     }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5948630 (feat(admin): AI provider settings page — choose, key, test, save)
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 
     private sealed record PlainChatCompletionRequest(
