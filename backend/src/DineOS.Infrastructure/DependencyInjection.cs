@@ -44,7 +44,8 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>((sp, options) =>
         {
-            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"));
+            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"),
+                npgsql => npgsql.UseVector());
             options.AddInterceptors(
                 sp.GetRequiredService<AuditInterceptor>(),
                 sp.GetRequiredService<SoftDeleteInterceptor>()
@@ -247,6 +248,40 @@ public static class DependencyInjection
         });
         services.AddScoped<IAiMenuService, AiMenuService>();
         services.AddScoped<IAiAdminAnalyticsService, AiAdminAnalyticsService>();
+
+        // ── Embeddings (pgvector semantic search) ─────────────────────────
+        services.AddHttpClient(OpenAiEmbeddingsClient.HttpClientName, (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpenAiOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout     = TimeSpan.FromSeconds(30);
+        });
+        services.AddHttpClient(GoogleEmbeddingsClient.HttpClientName, (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<GoogleAiOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout     = TimeSpan.FromSeconds(30);
+        });
+        services.AddScoped<IEmbeddingsClient>(sp =>
+        {
+            var aiSettings = sp.GetRequiredService<IAiSettingsService>();
+            var embSettings = aiSettings.GetEffectiveEmbeddingsSettings();
+            if (embSettings is null)
+                return new NoOpEmbeddingsClient();
+            var httpFactory = sp.GetRequiredService<IHttpClientFactory>();
+            return embSettings.Value.Provider switch
+            {
+                "Google" => new GoogleEmbeddingsClient(
+                    httpFactory.CreateClient(GoogleEmbeddingsClient.HttpClientName),
+                    sp.GetRequiredService<ILogger<GoogleEmbeddingsClient>>(),
+                    embSettings.Value.ApiKey),
+                _ => new OpenAiEmbeddingsClient(
+                    httpFactory.CreateClient(OpenAiEmbeddingsClient.HttpClientName),
+                    sp.GetRequiredService<ILogger<OpenAiEmbeddingsClient>>(),
+                    embSettings.Value.ApiKey),
+            };
+        });
+        services.AddScoped<GenerateMenuItemEmbeddingJob>();
 
         // ── Feature flags (Unleash) ────────────────────────────────────────
         // When Unleash is configured (Unleash:Enabled=true) flags resolve from the

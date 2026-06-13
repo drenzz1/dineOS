@@ -3,10 +3,14 @@ using DineOS.Application.DTOs;
 using DineOS.Application.Interfaces.Services;
 using DineOS.Application.Menu;
 using DineOS.Domain.Entities;
+using DineOS.Infrastructure.Jobs;
 using DineOS.Infrastructure.Persistence;
 using FluentValidation;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 
 namespace DineOS.Infrastructure.Services;
 
@@ -16,6 +20,7 @@ public class MenuService(
     ICurrentUserService currentUserService,
     ICacheService cache,
     IFileStorageService fileStorage,
+    IEmbeddingsClient embeddingsClient,
     IValidator<CreateMenuItemRequest> createItemValidator,
     IValidator<UpdateMenuItemRequest> updateItemValidator,
     IValidator<CreateMenuCategoryRequest> createCategoryValidator,
@@ -39,6 +44,45 @@ public class MenuService(
             ct);
 
         return ServiceResult<List<MenuItemDto>>.Ok(items, "Menu items");
+    }
+
+    public async Task<ServiceResult<List<MenuItemDto>>> SemanticSearchMenuItemsAsync(
+        string query,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return ServiceResult<List<MenuItemDto>>.BadRequest("Search query cannot be empty.");
+
+        float[] queryVector;
+        try
+        {
+            queryVector = await embeddingsClient.GenerateEmbeddingAsync(query.Trim(), ct);
+        }
+        catch (AiUnavailableException ex)
+        {
+            return ServiceResult<List<MenuItemDto>>.UnprocessableEntity(ex.Message);
+        }
+
+        var vector = new Vector(queryVector);
+
+        var results = await db.MenuItems
+            .AsNoTracking()
+            .Where(mi => mi.Embedding != null)
+            .OrderBy(mi => mi.Embedding!.CosineDistance(vector))
+            .Take(10)
+            .Select(mi => new MenuItemDto
+            {
+                Id          = mi.Id,
+                Name        = mi.Name,
+                Price       = mi.Price,
+                Category    = mi.Category.Name,
+                Description = mi.Description,
+                ImageUrl    = mi.ImageUrl,
+                TenantId    = mi.TenantId,
+            })
+            .ToListAsync(ct);
+
+        return ServiceResult<List<MenuItemDto>>.Ok(results, "Semantic search results");
     }
 
     private Task<List<MenuItemDto>> LoadMenuItemsAsync(CancellationToken ct) =>
@@ -106,6 +150,8 @@ public class MenuService(
         await db.SaveChangesAsync(ct);
         await cache.RemoveAsync(MenuItemsCacheKey(tenantId), ct);
 
+        BackgroundJob.Enqueue<GenerateMenuItemEmbeddingJob>(j => j.RunAsync(item.Id, CancellationToken.None));
+
         logger.LogInformation(
             "Menu item created: MenuItemId={MenuItemId} TenantId={TenantId} ActorUserId={ActorUserId} Category={Category}",
             item.Id, tenantId, currentUserService.UserId, item.Category.Name);
@@ -140,6 +186,8 @@ public class MenuService(
 
         await db.SaveChangesAsync(ct);
         await cache.RemoveAsync(MenuItemsCacheKey(item.TenantId), ct);
+
+        BackgroundJob.Enqueue<GenerateMenuItemEmbeddingJob>(j => j.RunAsync(item.Id, CancellationToken.None));
 
         logger.LogInformation(
             "Menu item updated: MenuItemId={MenuItemId} TenantId={TenantId} ActorUserId={ActorUserId}",

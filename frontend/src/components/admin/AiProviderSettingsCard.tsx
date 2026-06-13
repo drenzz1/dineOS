@@ -3,13 +3,23 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { useAiSettings, useSaveAiSettings, useTestAiConnection } from "@/hooks/useAiSettings";
-import type { AiProvider } from "@/types/admin";
+import {
+  useAiSettings,
+  useSaveAiSettings,
+  useSaveEmbeddingsSettings,
+  useTestAiConnection,
+} from "@/hooks/useAiSettings";
+import type { AiProvider, EmbeddingsProvider } from "@/types/admin";
 
 const PROVIDERS: { value: AiProvider; label: string; hint: string }[] = [
   { value: "Anthropic", label: "Anthropic (Claude)", hint: "Starts with sk-ant-" },
   { value: "OpenAI",    label: "OpenAI (GPT)",       hint: "Starts with sk-" },
   { value: "Google",    label: "Google (Gemini)",    hint: "Starts with AI" },
+];
+
+const EMBEDDINGS_PROVIDERS: { value: EmbeddingsProvider; label: string; hint: string }[] = [
+  { value: "OpenAI",  label: "OpenAI",  hint: "Starts with sk-" },
+  { value: "Google",  label: "Google",  hint: "Starts with AI" },
 ];
 
 function StatusPill({ success, model }: { success: boolean; model?: string | null }) {
@@ -21,9 +31,7 @@ function StatusPill({ success, model }: { success: boolean; model?: string | nul
           : "bg-red-50 text-red-700 border border-red-200"
       }`}
     >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${success ? "bg-green-500" : "bg-red-500"}`}
-      />
+      <span className={`h-1.5 w-1.5 rounded-full ${success ? "bg-green-500" : "bg-red-500"}`} />
       {success ? `Connected${model ? ` · ${model}` : ""}` : "Connection failed"}
     </span>
   );
@@ -31,14 +39,22 @@ function StatusPill({ success, model }: { success: boolean; model?: string | nul
 
 export default function AiProviderSettingsCard() {
   const { data: settings, isLoading } = useAiSettings();
-  const saveMutation  = useSaveAiSettings();
-  const testMutation  = useTestAiConnection();
+  const saveMutation      = useSaveAiSettings();
+  const saveEmbMutation   = useSaveEmbeddingsSettings();
+  const testMutation      = useTestAiConnection();
 
-  // null = user hasn't made an explicit choice yet; fall back to loaded settings
+  // Chat provider
   const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(null);
   const provider: AiProvider = selectedProvider ?? settings?.activeProvider ?? "Anthropic";
-  const [apiKey,   setApiKey]   = useState("");
-  const [showKey,  setShowKey]  = useState(false);
+  const [apiKey,  setApiKey]  = useState("");
+  const [showKey, setShowKey] = useState(false);
+
+  // Embeddings provider
+  const [selectedEmbProvider, setSelectedEmbProvider] = useState<EmbeddingsProvider | null>(null);
+  const embProvider: EmbeddingsProvider =
+    selectedEmbProvider ?? (settings?.embeddingsProvider as EmbeddingsProvider | undefined) ?? "OpenAI";
+  const [embApiKey,  setEmbApiKey]  = useState("");
+  const [showEmbKey, setShowEmbKey] = useState(false);
 
   const currentHint =
     provider === "Anthropic" ? settings?.anthropicApiKeyHint
@@ -61,6 +77,15 @@ export default function AiProviderSettingsCard() {
     );
   }
 
+  function handleSaveEmbeddings() {
+    if (!embApiKey.trim()) return;
+    saveEmbMutation.reset();
+    saveEmbMutation.mutate(
+      { provider: embProvider, apiKey: embApiKey.trim() },
+      { onSuccess: () => setEmbApiKey("") }
+    );
+  }
+
   if (isLoading) {
     return (
       <Card className="animate-pulse space-y-3">
@@ -73,6 +98,7 @@ export default function AiProviderSettingsCard() {
 
   return (
     <Card>
+      {/* ── Chat provider ──────────────────────────────────────────── */}
       <div className="mb-4">
         <h2 className="text-sm font-semibold text-zinc-900">AI Provider Settings</h2>
         <p className="mt-0.5 text-xs text-zinc-500">
@@ -85,9 +111,8 @@ export default function AiProviderSettingsCard() {
         )}
       </div>
 
-      {/* Provider selector */}
       <div className="mb-4 space-y-2">
-        <p className="text-xs font-medium text-zinc-700">Provider</p>
+        <p className="text-xs font-medium text-zinc-700">Chat Provider</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           {PROVIDERS.map((p) => {
             const isActive = provider === p.value;
@@ -116,7 +141,6 @@ export default function AiProviderSettingsCard() {
         </div>
       </div>
 
-      {/* API key input */}
       <div className="mb-4">
         <p className="mb-1.5 text-xs font-medium text-zinc-700">
           API Key {currentHint && <span className="text-zinc-400">({currentHint} — enter new to replace)</span>}
@@ -141,7 +165,6 @@ export default function AiProviderSettingsCard() {
         </div>
       </div>
 
-      {/* Test result */}
       {testMutation.data && (
         <div className="mb-4 flex items-center gap-2">
           <StatusPill success={testMutation.data.success} model={testMutation.data.model} />
@@ -151,7 +174,6 @@ export default function AiProviderSettingsCard() {
         </div>
       )}
 
-      {/* Save error */}
       {saveMutation.isError && (
         <p className="mb-3 text-xs text-red-600">Failed to save settings. Please try again.</p>
       )}
@@ -159,27 +181,97 @@ export default function AiProviderSettingsCard() {
         <p className="mb-3 text-xs text-green-600">Settings saved successfully.</p>
       )}
 
-      {/* Actions */}
       <div className="flex gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          isLoading={testMutation.isPending}
-          disabled={!apiKey.trim()}
-          onClick={handleTest}
-        >
+        <Button variant="secondary" size="sm" isLoading={testMutation.isPending} disabled={!apiKey.trim()} onClick={handleTest}>
           Test Connection
         </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          isLoading={saveMutation.isPending}
-          disabled={!apiKey.trim()}
-          onClick={handleSave}
-        >
+        <Button variant="primary" size="sm" isLoading={saveMutation.isPending} disabled={!apiKey.trim()} onClick={handleSave}>
           Save
         </Button>
       </div>
+
+      {/* ── Embeddings provider (semantic search) ──────────────────── */}
+      <div className="mt-6 border-t border-border pt-6">
+        <h3 className="text-sm font-semibold text-zinc-900">Semantic Search (Embeddings)</h3>
+        <p className="mt-0.5 text-xs text-zinc-500">
+          Used for menu item semantic search. Anthropic is not supported for embeddings.
+          {settings?.embeddingsProvider
+            ? <span className="ml-1 text-zinc-400">Current: <span className="font-medium">{settings.embeddingsProvider}</span></span>
+            : <span className="ml-1 text-zinc-400">Not configured — semantic search is disabled.</span>
+          }
+        </p>
+      </div>
+
+      <div className="mt-3 mb-4 space-y-2">
+        <p className="text-xs font-medium text-zinc-700">Embeddings Provider</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {EMBEDDINGS_PROVIDERS.map((p) => {
+            const isActive = embProvider === p.value;
+            const isSaved  = settings?.embeddingsProvider === p.value;
+            return (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => { setSelectedEmbProvider(p.value); setEmbApiKey(""); saveEmbMutation.reset(); }}
+                className={`flex flex-1 flex-col rounded-md border px-3 py-2.5 text-left transition-colors ${
+                  isActive
+                    ? "border-accent bg-accent-soft text-accent"
+                    : "border-border bg-surface text-fg-muted hover:border-border-strong hover:text-fg"
+                }`}
+              >
+                <span className="text-[13px] font-medium">{p.label}</span>
+                <span className="mt-0.5 text-[11px] opacity-70">
+                  {isSaved && settings?.embeddingsApiKeyHint
+                    ? `Saved: ${settings.embeddingsApiKeyHint}`
+                    : "Not configured"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <p className="mb-1.5 text-xs font-medium text-zinc-700">
+          Embeddings API Key
+          {settings?.embeddingsApiKeyHint && settings.embeddingsProvider === embProvider && (
+            <span className="text-zinc-400"> ({settings.embeddingsApiKeyHint} — enter new to replace)</span>
+          )}
+        </p>
+        <div className="relative">
+          <input
+            type={showEmbKey ? "text" : "password"}
+            value={embApiKey}
+            onChange={(e) => { setEmbApiKey(e.target.value); saveEmbMutation.reset(); }}
+            placeholder={EMBEDDINGS_PROVIDERS.find(p => p.value === embProvider)?.hint ?? "Paste API key here"}
+            className="w-full rounded-md border border-border bg-surface px-3 py-2 pr-10 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+          <button
+            type="button"
+            onClick={() => setShowEmbKey((v) => !v)}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-600"
+          >
+            {showEmbKey ? "Hide" : "Show"}
+          </button>
+        </div>
+      </div>
+
+      {saveEmbMutation.isError && (
+        <p className="mb-3 text-xs text-red-600">Failed to save embeddings settings. Please try again.</p>
+      )}
+      {saveEmbMutation.isSuccess && (
+        <p className="mb-3 text-xs text-green-600">Embeddings settings saved.</p>
+      )}
+
+      <Button
+        variant="primary"
+        size="sm"
+        isLoading={saveEmbMutation.isPending}
+        disabled={!embApiKey.trim()}
+        onClick={handleSaveEmbeddings}
+      >
+        Save Embeddings Key
+      </Button>
     </Card>
   );
 }

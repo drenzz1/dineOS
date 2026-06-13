@@ -44,6 +44,7 @@ public class MenuServiceTests
             currentUser,
             cache,
             Substitute.For<IFileStorageService>(),
+            Substitute.For<IEmbeddingsClient>(),
             createValidator,
             updateValidator,
             createCategoryValidator,

@@ -58,6 +58,7 @@ public class MenuCacheBenchmark(ITestOutputHelper output)
             currentUser,
             cache,
             Substitute.For<IFileStorageService>(),
+            Substitute.For<IEmbeddingsClient>(),
             AlwaysValid<CreateMenuItemRequest>(),
             AlwaysValid<UpdateMenuItemRequest>(),
             AlwaysValid<CreateMenuCategoryRequest>(),

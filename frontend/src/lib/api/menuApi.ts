@@ -102,6 +102,20 @@ export async function uploadMenuItemImage(id: string, file: File): Promise<strin
   }
 }
 
+// ─── Semantic search ──────────────────────────────────────────────────────────
+
+export async function semanticSearchMenuItems(query: string): Promise<MenuItem[]> {
+  try {
+    const res = await apiClient.post<ApiResponse<MenuItemDto[]>>(
+      "/v1/menu/items/semantic-search",
+      { query }
+    );
+    return unwrap(res).map(mapMenuItem);
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
+
 // ─── Categories ───────────────────────────────────────────────────────────────
 
 export async function getCategories(): Promise<string[]> {
