@@ -372,6 +372,7 @@ public sealed class OpenAiClient(
         return await http.SendAsync(request, ct);
     }
 
+
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 
     private sealed record PlainChatCompletionRequest(
