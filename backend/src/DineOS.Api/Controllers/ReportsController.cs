@@ -50,4 +50,30 @@ public class ReportsController(IReportsService reportsService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> GetStaffReport(CancellationToken ct) =>
         (await reportsService.GetStaffReportAsync(ct)).ToActionResult();
+
+    /// <summary>Returns the top 20 ordered menu items by quantity. Defaults to the last 30 days.</summary>
+    [HttpGet("items")]
+    [ProducesResponseType(typeof(ApiResponse<ItemsReportDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> GetItemsReport(
+        [FromQuery] DateOnly? from,
+        [FromQuery] DateOnly? to,
+        CancellationToken ct) =>
+        (await reportsService.GetItemsReportAsync(from, to, ct)).ToActionResult();
+
+    /// <summary>Returns paginated order history with line items and payment info. Defaults to the last 30 days.</summary>
+    [HttpGet("orders/history")]
+    [ProducesResponseType(typeof(ApiResponse<OrderHistoryReportDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> GetOrderHistory(
+        [FromQuery] DateOnly? from,
+        [FromQuery] DateOnly? to,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        CancellationToken ct = default) =>
+        (await reportsService.GetOrderHistoryAsync(from, to, page, pageSize, ct)).ToActionResult();
 }

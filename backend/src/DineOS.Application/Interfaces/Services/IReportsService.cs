@@ -16,4 +16,16 @@ public interface IReportsService
         CancellationToken ct = default);
 
     Task<ServiceResult<StaffReportDto>> GetStaffReportAsync(CancellationToken ct = default);
+
+    Task<ServiceResult<ItemsReportDto>> GetItemsReportAsync(
+        DateOnly? from,
+        DateOnly? to,
+        CancellationToken ct = default);
+
+    Task<ServiceResult<OrderHistoryReportDto>> GetOrderHistoryAsync(
+        DateOnly? from,
+        DateOnly? to,
+        int page,
+        int pageSize,
+        CancellationToken ct = default);
 }

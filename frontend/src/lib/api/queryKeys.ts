@@ -99,6 +99,10 @@ export const queryKeys = {
       [...queryKeys.reports.all, tenantId, "orders", from, to] as const,
     staff: (tenantId: string | null) =>
       [...queryKeys.reports.all, tenantId, "staff"] as const,
+    items: (tenantId: string | null, from: string, to: string) =>
+      [...queryKeys.reports.all, tenantId, "items", from, to] as const,
+    history: (tenantId: string | null, from: string, to: string, page: number) =>
+      [...queryKeys.reports.all, tenantId, "history", from, to, page] as const,
   },
   me: {
     all: ["me"] as const,

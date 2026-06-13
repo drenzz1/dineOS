@@ -4,6 +4,12 @@ export type SalesByMethod = {
   count: number;
 };
 
+export type RevenueByDay = {
+  date: string;
+  revenue: number;
+  orderCount: number;
+};
+
 export type SalesReport = {
   from: string;
   to: string;
@@ -11,6 +17,7 @@ export type SalesReport = {
   totalRevenue: number;
   averageTicket: number;
   byPaymentMethod: SalesByMethod[];
+  revenueByDay: RevenueByDay[];
 };
 
 export type OrdersByStatus = {
@@ -23,12 +30,18 @@ export type OrdersByType = {
   count: number;
 };
 
+export type OrdersByHour = {
+  hour: number;
+  count: number;
+};
+
 export type OrdersReport = {
   from: string;
   to: string;
   totalOrders: number;
   byStatus: OrdersByStatus[];
   byType: OrdersByType[];
+  byHour: OrdersByHour[];
 };
 
 export type StaffByRole = {
@@ -42,4 +55,36 @@ export type StaffReport = {
   active: number;
   inactive: number;
   byRole: StaffByRole[];
+};
+
+export type TopItem = {
+  name: string;
+  quantity: number;
+  revenue: number;
+};
+
+export type ItemsReport = {
+  from: string;
+  to: string;
+  topItems: TopItem[];
+};
+
+export type OrderHistoryItem = {
+  id: number;
+  createdAt: string;
+  tableNumber: number | null;
+  orderType: string;
+  status: string;
+  itemCount: number;
+  total: number;
+  paymentMethod: string | null;
+};
+
+export type OrderHistoryReport = {
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  orders: OrderHistoryItem[];
 };

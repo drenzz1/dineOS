@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 import { useOrdersReport } from "@/hooks/useReports";
 import { Stat } from "@/components/ui/Stat";
 import { DataTable } from "@/components/ui/DataTable";
@@ -8,6 +17,12 @@ import { Skeleton } from "@/components/ui/Skeleton";
 interface OrdersTabProps {
   from: string;
   to: string;
+}
+
+function formatHour(hour: number) {
+  const suffix = hour < 12 ? "AM" : "PM";
+  const h = hour % 12 || 12;
+  return `${h}${suffix}`;
 }
 
 export default function OrdersTab({ from, to }: OrdersTabProps) {
@@ -32,6 +47,9 @@ export default function OrdersTab({ from, to }: OrdersTabProps) {
             <Skeleton className="h-7 w-32" />
           </div>
         </div>
+        <div className="bg-surface border border-border rounded-md shadow-sm p-4">
+          <Skeleton className="h-48 w-full" />
+        </div>
         <div className="bg-surface border border-border rounded-md shadow-sm p-4 space-y-2">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-4 w-full" />
@@ -45,6 +63,11 @@ export default function OrdersTab({ from, to }: OrdersTabProps) {
       </div>
     );
   }
+
+  const hourChartData = report.byHour.map((h) => ({
+    hour: formatHour(h.hour),
+    orders: h.count,
+  }));
 
   const statusRows = report.byStatus.map((item) => ({
     status: item.status,
@@ -61,6 +84,41 @@ export default function OrdersTab({ from, to }: OrdersTabProps) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Stat label="Total Orders" value={report.totalOrders} />
       </div>
+
+      {hourChartData.length > 0 && (
+        <div className="bg-surface border border-border rounded-md shadow-sm p-4">
+          <h2 className="text-[13px] font-semibold text-fg mb-4">Peak Hours</h2>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={hourChartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis
+                dataKey="hour"
+                tick={{ fontSize: 11, fill: "var(--fg-muted)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 11, fill: "var(--fg-muted)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  color: "var(--fg)",
+                }}
+                formatter={(value) => [Number(value), "Orders"]}
+              />
+              <Bar dataKey="orders" fill="var(--accent)" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       <div>
         <h2 className="text-[13px] font-semibold text-fg mb-3">By Status</h2>
         <DataTable

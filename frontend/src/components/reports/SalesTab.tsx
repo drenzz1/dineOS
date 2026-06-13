@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 import { useSalesReport } from "@/hooks/useReports";
 import { Stat } from "@/components/ui/Stat";
 import { DataTable } from "@/components/ui/DataTable";
@@ -8,6 +17,11 @@ import { Skeleton } from "@/components/ui/Skeleton";
 interface SalesTabProps {
   from: string;
   to: string;
+}
+
+function formatShortDate(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
 }
 
 export default function SalesTab({ from, to }: SalesTabProps) {
@@ -34,6 +48,9 @@ export default function SalesTab({ from, to }: SalesTabProps) {
             </div>
           ))}
         </div>
+        <div className="bg-surface border border-border rounded-md shadow-sm p-4">
+          <Skeleton className="h-48 w-full" />
+        </div>
         <div className="bg-surface border border-border rounded-md shadow-sm p-4 space-y-2">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-4 w-full" />
@@ -42,6 +59,12 @@ export default function SalesTab({ from, to }: SalesTabProps) {
       </div>
     );
   }
+
+  const chartData = report.revenueByDay.map((d) => ({
+    date: formatShortDate(d.date),
+    revenue: d.revenue,
+    orders: d.orderCount,
+  }));
 
   const methodRows = report.byPaymentMethod.map((item) => ({
     method: item.method,
@@ -56,6 +79,48 @@ export default function SalesTab({ from, to }: SalesTabProps) {
         <Stat label="Total Revenue" value={`€${report.totalRevenue.toFixed(2)}`} />
         <Stat label="Average Ticket" value={`€${report.averageTicket.toFixed(2)}`} />
       </div>
+
+      {chartData.length > 0 && (
+        <div className="bg-surface border border-border rounded-md shadow-sm p-4">
+          <h2 className="text-[13px] font-semibold text-fg mb-4">Revenue Over Time</h2>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11, fill: "var(--fg-muted)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "var(--fg-muted)" }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v: number) => `€${v}`}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  color: "var(--fg)",
+                }}
+                formatter={(value) => [`€${Number(value).toFixed(2)}`, "Revenue"]}
+              />
+              <Line
+                type="monotone"
+                dataKey="revenue"
+                stroke="var(--accent)"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       <div>
         <h2 className="text-[13px] font-semibold text-fg mb-3">By Payment Method</h2>
         <DataTable

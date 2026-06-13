@@ -6,12 +6,16 @@ import dynamic from "next/dynamic";
 const SalesTab = dynamic(() => import("@/components/reports/SalesTab"), { ssr: false });
 const OrdersTab = dynamic(() => import("@/components/reports/OrdersTab"), { ssr: false });
 const StaffTab = dynamic(() => import("@/components/reports/StaffTab"), { ssr: false });
+const ItemsTab = dynamic(() => import("@/components/reports/ItemsTab"), { ssr: false });
+const HistoryTab = dynamic(() => import("@/components/reports/HistoryTab"), { ssr: false });
 
-type Tab = "sales" | "orders" | "staff";
+type Tab = "sales" | "orders" | "items" | "history" | "staff";
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: "sales", label: "Sales" },
   { id: "orders", label: "Orders" },
+  { id: "items", label: "Top Items" },
+  { id: "history", label: "History" },
   { id: "staff", label: "Staff" },
 ];
 
@@ -63,7 +67,7 @@ export default function ReportsPage() {
         )}
       </div>
 
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         {TABS.map(({ id, label }) => (
           <button
             key={id}
@@ -83,6 +87,8 @@ export default function ReportsPage() {
 
       {activeTab === "sales" && <SalesTab from={dateRange.from} to={dateRange.to} />}
       {activeTab === "orders" && <OrdersTab from={dateRange.from} to={dateRange.to} />}
+      {activeTab === "items" && <ItemsTab from={dateRange.from} to={dateRange.to} />}
+      {activeTab === "history" && <HistoryTab from={dateRange.from} to={dateRange.to} />}
       {activeTab === "staff" && <StaffTab />}
     </div>
   );

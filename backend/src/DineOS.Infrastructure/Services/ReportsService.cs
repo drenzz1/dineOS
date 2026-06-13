@@ -32,6 +32,17 @@ public class ReportsService(AppDbContext db) : IReportsService
             .Select(g => new SalesByMethodDto(g.Key.ToString(), g.Sum(p => p.Amount), g.Count()))
             .ToListAsync(ct);
 
+        var revenueByDayRaw = await ordersInRange
+            .Where(o => o.Status == OrderStatus.Delivered)
+            .GroupBy(o => o.CreatedAt.Date)
+            .Select(g => new { Date = g.Key, Revenue = g.Sum(o => o.Total), OrderCount = g.Count() })
+            .OrderBy(x => x.Date)
+            .ToListAsync(ct);
+
+        var revenueByDay = revenueByDayRaw
+            .Select(x => new RevenueByDayDto(DateOnly.FromDateTime(x.Date), x.Revenue, x.OrderCount))
+            .ToList();
+
         var avgTicket = orderCount > 0 ? Math.Round(totalRevenue / orderCount, 2) : 0m;
 
         var report = new SalesReportDto(
@@ -40,7 +51,8 @@ public class ReportsService(AppDbContext db) : IReportsService
             orderCount,
             totalRevenue,
             avgTicket,
-            byMethod);
+            byMethod,
+            revenueByDay);
 
         return ServiceResult<SalesReportDto>.Ok(report, "Sales report");
     }
@@ -68,7 +80,13 @@ public class ReportsService(AppDbContext db) : IReportsService
             .Select(g => new OrdersByTypeDto(g.Key, g.Count()))
             .ToListAsync(ct);
 
-        var report = new OrdersReportDto(fromDate, toDate, total, byStatus, byType);
+        var byHour = await ordersInRange
+            .GroupBy(o => o.CreatedAt.Hour)
+            .Select(g => new OrdersByHourDto(g.Key, g.Count()))
+            .OrderBy(x => x.Hour)
+            .ToListAsync(ct);
+
+        var report = new OrdersReportDto(fromDate, toDate, total, byStatus, byType, byHour);
         return ServiceResult<OrdersReportDto>.Ok(report, "Orders report");
     }
 
@@ -89,6 +107,88 @@ public class ReportsService(AppDbContext db) : IReportsService
 
         var report = new StaffReportDto(total, active, total - active, byRole);
         return ServiceResult<StaffReportDto>.Ok(report, "Staff report");
+    }
+
+    public async Task<ServiceResult<ItemsReportDto>> GetItemsReportAsync(
+        DateOnly? from,
+        DateOnly? to,
+        CancellationToken ct = default)
+    {
+        var (fromDate, toDate, start, end) = ResolveRange(from, to);
+
+        var topItems = await db.OrderItems
+            .AsNoTracking()
+            .Where(oi => oi.CreatedAt >= start && oi.CreatedAt <= end)
+            .GroupBy(oi => oi.Name)
+            .Select(g => new TopItemDto(
+                g.Key,
+                g.Sum(oi => oi.Quantity),
+                g.Sum(oi => oi.Quantity * oi.UnitPrice)))
+            .OrderByDescending(x => x.Quantity)
+            .Take(20)
+            .ToListAsync(ct);
+
+        var report = new ItemsReportDto(fromDate, toDate, topItems);
+        return ServiceResult<ItemsReportDto>.Ok(report, "Items report");
+    }
+
+    public async Task<ServiceResult<OrderHistoryReportDto>> GetOrderHistoryAsync(
+        DateOnly? from,
+        DateOnly? to,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var (fromDate, toDate, start, end) = ResolveRange(from, to);
+
+        var query = db.Orders
+            .AsNoTracking()
+            .Where(o => o.CreatedAt >= start && o.CreatedAt <= end)
+            .OrderByDescending(o => o.CreatedAt);
+
+        var totalCount = await query.CountAsync(ct);
+
+        var rawOrders = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(o => new
+            {
+                o.Id,
+                o.CreatedAt,
+                o.TableNumber,
+                o.OrderType,
+                o.Status,
+                o.Total,
+                ItemCount = o.Items.Count(),
+            })
+            .ToListAsync(ct);
+
+        var orderIds = rawOrders.Select(o => o.Id).ToList();
+        var payments = await db.Payments
+            .AsNoTracking()
+            .Where(p => orderIds.Contains(p.OrderId) && p.Status == PaymentStatus.Completed)
+            .GroupBy(p => p.OrderId)
+            .Select(g => new { OrderId = g.Key, Method = g.First().Method })
+            .ToListAsync(ct);
+
+        var paymentMap = payments.ToDictionary(p => p.OrderId, p => p.Method.ToString());
+
+        var orders = rawOrders.Select(o => new OrderHistoryItemDto(
+            o.Id,
+            o.CreatedAt,
+            o.TableNumber,
+            o.OrderType,
+            o.Status.ToString(),
+            o.ItemCount,
+            o.Total,
+            paymentMap.GetValueOrDefault(o.Id)
+        )).ToList();
+
+        var report = new OrderHistoryReportDto(fromDate, toDate, page, pageSize, totalCount, orders);
+        return ServiceResult<OrderHistoryReportDto>.Ok(report, "Order history");
     }
 
     private static (DateOnly fromDate, DateOnly toDate, DateTime start, DateTime end) ResolveRange(
