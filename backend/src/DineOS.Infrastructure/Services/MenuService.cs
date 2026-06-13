@@ -21,6 +21,7 @@ public class MenuService(
     ICacheService cache,
     IFileStorageService fileStorage,
     IEmbeddingsClient embeddingsClient,
+    IBackgroundJobClient backgroundJobs,
     IValidator<CreateMenuItemRequest> createItemValidator,
     IValidator<UpdateMenuItemRequest> updateItemValidator,
     IValidator<CreateMenuCategoryRequest> createCategoryValidator,
@@ -150,7 +151,7 @@ public class MenuService(
         await db.SaveChangesAsync(ct);
         await cache.RemoveAsync(MenuItemsCacheKey(tenantId), ct);
 
-        BackgroundJob.Enqueue<GenerateMenuItemEmbeddingJob>(j => j.RunAsync(item.Id, CancellationToken.None));
+        backgroundJobs.Enqueue<GenerateMenuItemEmbeddingJob>(j => j.RunAsync(item.Id, CancellationToken.None));
 
         logger.LogInformation(
             "Menu item created: MenuItemId={MenuItemId} TenantId={TenantId} ActorUserId={ActorUserId} Category={Category}",
@@ -187,7 +188,7 @@ public class MenuService(
         await db.SaveChangesAsync(ct);
         await cache.RemoveAsync(MenuItemsCacheKey(item.TenantId), ct);
 
-        BackgroundJob.Enqueue<GenerateMenuItemEmbeddingJob>(j => j.RunAsync(item.Id, CancellationToken.None));
+        backgroundJobs.Enqueue<GenerateMenuItemEmbeddingJob>(j => j.RunAsync(item.Id, CancellationToken.None));
 
         logger.LogInformation(
             "Menu item updated: MenuItemId={MenuItemId} TenantId={TenantId} ActorUserId={ActorUserId}",
