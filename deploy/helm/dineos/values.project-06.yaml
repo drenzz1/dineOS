@@ -321,6 +321,11 @@ observability:
           cpu: 1000m
           memory: 2Gi
     kibana:
+      # Serve Kibana at /kibana so it's accessible via the path-based ingress
+      # at app.project-06.gjirafa.dev/kibana (dineos-tools ingress, no rewrite).
+      # SERVER_REWRITEBASEPATH=true lets Kibana strip the prefix internally,
+      # and probe paths must include the prefix or they get 404.
+      basePath: /kibana
       ingress:
         enabled: false
       # Kibana 8.x (Node.js) OOMs at the 512Mi chart default — "Reached heap

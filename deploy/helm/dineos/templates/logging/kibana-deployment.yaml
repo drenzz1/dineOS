@@ -27,13 +27,19 @@ spec:
           env:
             - name: ELASTICSEARCH_HOSTS
               value: http://{{ include "dineos.fullname" . }}-elasticsearch:9200
+            {{- with .Values.observability.elk.kibana.basePath }}
+            - name: SERVER_BASEPATH
+              value: {{ . }}
+            - name: SERVER_REWRITEBASEPATH
+              value: "true"
+            {{- end }}
           ports:
             - name: http
               containerPort: 5601
               protocol: TCP
           readinessProbe:
             httpGet:
-              path: /api/status
+              path: {{ .Values.observability.elk.kibana.basePath | default "" }}/api/status
               port: http
             initialDelaySeconds: 60
             periodSeconds: 10
@@ -41,7 +47,7 @@ spec:
             failureThreshold: 10
           livenessProbe:
             httpGet:
-              path: /api/status
+              path: {{ .Values.observability.elk.kibana.basePath | default "" }}/api/status
               port: http
             initialDelaySeconds: 90
             periodSeconds: 15
