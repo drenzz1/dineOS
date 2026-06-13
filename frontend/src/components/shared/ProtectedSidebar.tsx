@@ -8,6 +8,7 @@ import { useMe } from "@/hooks/useMe";
 import { useIsClient } from "@/hooks/useIsClient";
 import { getPrimaryRole } from "@/lib/auth/keycloak";
 import type { Role } from "@/types";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 interface NavItem {
   label: string;
@@ -148,6 +149,7 @@ export default function ProtectedSidebar() {
       </nav>
 
       <div className="mt-auto border-t border-border p-2.5">
+        <ThemeToggle />
         {role && role !== "SuperAdmin" && (
           <button
             onClick={handleSwitchUser}
