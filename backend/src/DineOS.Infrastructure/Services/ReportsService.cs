@@ -116,17 +116,28 @@ public class ReportsService(AppDbContext db) : IReportsService
     {
         var (fromDate, toDate, start, end) = ResolveRange(from, to);
 
-        var topItems = await db.OrderItems
+        // Project the grouped aggregates into an anonymous type and order on it in
+        // SQL, then map to the DTO in memory. EF Core cannot translate an OrderBy
+        // over a member of a positional-record projection (`new TopItemDto(...)`)
+        // that follows a GroupBy — it throws at runtime. Same in-memory-mapping
+        // pattern as revenueByDayRaw in GetSalesReportAsync above.
+        var topItemsRaw = await db.OrderItems
             .AsNoTracking()
             .Where(oi => oi.CreatedAt >= start && oi.CreatedAt <= end)
             .GroupBy(oi => oi.Name)
-            .Select(g => new TopItemDto(
-                g.Key,
-                g.Sum(oi => oi.Quantity),
-                g.Sum(oi => oi.Quantity * oi.UnitPrice)))
+            .Select(g => new
+            {
+                Name = g.Key,
+                Quantity = g.Sum(oi => oi.Quantity),
+                Revenue = g.Sum(oi => oi.Quantity * oi.UnitPrice),
+            })
             .OrderByDescending(x => x.Quantity)
             .Take(20)
             .ToListAsync(ct);
+
+        var topItems = topItemsRaw
+            .Select(x => new TopItemDto(x.Name, x.Quantity, x.Revenue))
+            .ToList();
 
         var report = new ItemsReportDto(fromDate, toDate, topItems);
         return ServiceResult<ItemsReportDto>.Ok(report, "Items report");
